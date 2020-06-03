@@ -1,0 +1,80 @@
+#                   (C) COPYRIGHT 2014 VERISILICON
+#                            ALL RIGHTS RESERVED
+#
+#File: globaldefs
+#
+
+#########################################################
+#  Section: OS environment
+#########################################################
+# 1. Build SW in 32bit instruction on 64bit OS
+#    Default:  64bit OS built 64bit instructions,
+#               32bit OS built 32bit instructions
+#    USE_32BIT=y to build 32bit instruction on 64bit OS
+USE_32BIT=n
+
+# 2. EWL to use POLLING or IRQ to communicate with driver
+#    POLLING = y: don't use IRQs
+ifeq (pci,$(findstring pci, $(MAKECMDGOALS)))
+POLLING = n
+else
+POLLING = n
+endif
+
+#########################################################
+#  Section: Debug/Verification purpose environment section
+#               This section should be disabled in production
+#########################################################
+# 1. Comment/uncomment the following line to disable/enable debugging
+DEBUG = n
+
+# 2. Enable C-Model to have tracefile generated
+#     Used for HW verification purpose
+TRACE = n
+
+# 3. Include API extension and test ID for internal testing
+#     SW has capbility for specific test case ID
+INTERNAL_TEST = n
+
+# 4. To create version.h
+CREATE_VERSION_H = n
+
+# 5. To add coverage check of code usage and data range
+DAT_COVERAGE = n
+USE_COVERAGE = n
+
+#########################################################
+#  Section: SW/HW functions section
+#           Features control correspond with HW IP
+#########################################################
+# 1. Comment/uncomment the following lines to define which control codes to
+#    To include in the library build
+INCLUDE_HEVC = y
+INCLUDE_VP9 = n
+INCLUDE_JPEG = n
+LIBVA_API_SUPPORT = n
+
+# 2. Input line buffer low latency
+#    Set PCIE FPGA Verification env
+#    Test hardware handshake mode of input line buffer
+PCIE_FPGA_VERI_LINEBUF=n
+
+# 3. Configure encoder SW/testbeach support cache&shaper or not
+#    System should have L2-Cache IP integrated
+SUPPORT_CACHE = n
+
+# 4. Referene frame read/write 1KB burst size
+RECON_REF_1KB_BURST_RW = n
+
+#########################################################
+#   Section: customized features section
+#            one customer correspond feature to control
+#            group of features
+#########################################################
+# 1. FB customized section
+FB_FEATURE_ENABLE = y
+ifeq ($(FB_FEATURE_ENABLE),y)
+  RECON_REF_1KB_BURST_RW = y
+#  SUPPORT_CACHE = y
+#  ENABLE_DUMP_RECON = y
+endif

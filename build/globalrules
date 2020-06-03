@@ -1,0 +1,270 @@
+#                   (C) COPYRIGHT 2014 VERISILICON
+#                            ALL RIGHTS RESERVED
+#
+#File: globalrules
+#
+
+# Architecture flags for gcc
+#ARCH=
+#CROSS_COMPILE=
+
+# C -compiler name, can be replaced by another compiler(replace gcc)
+CC = $(CROSS_COMPILE)gcc
+
+# MACRO for cleaning object -files
+RM  = rm -f
+
+# MACRO for creating library that includes all the object files
+AR  = $(CROSS_COMPILE)ar rcs
+
+# Add your debugging flags (or not)
+ifeq ($(DEBUG),y)
+  DEBFLAGS = -O0 -g -DDEBUG -D_DEBUG_PRINT -D_ASSERT_USED
+else
+  DEBFLAGS = -O2 -DNDEBUG
+endif
+
+#DEBFLAGS += -DHEVCENC_TRACE   # api.trc
+#DEBFLAGS += -DH1_HAVE_ENCDEBUG_H
+
+#DEBFLAGS += -DTRACE_EWL       # for wrapper layer trace
+#DEBFLAGS += -DTRACE_RC        # Rate Control trace
+#DEBFLAGS += -DNO_2GB_LIMIT
+#DEBFLAGS += -DTRACE_MEM_USAGE # for printing allocated EWL mem chunks
+
+#DEBFLAGS += -DTRACE_STREAM
+
+DEBFLAGS += -Werror -Wno-unused -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-strict-overflow -Wno-shift-negative-value # for test data generation
+#DEBFLAGS+=-DNO_OUTPUT_WRITE
+
+# This is used for testing with system model
+# encoder uses comment header spefified in test bench
+# if you want to use own comment header data, comment this out!
+DEBFLAGS +=-DTB_DEFINED_COMMENT
+
+ifeq ($(TRACE),y)
+  TRACEFLAGS = -DTEST_DATA
+else
+  TRACEFLAGS =
+endif
+
+
+ifeq ($(shell uname -m),x86_64)
+      ifneq (,$(filter $(MAKECMDGOALS),pclinux system testdata eval))
+        ifeq ($(USE_32BIT), y)
+          export ARCH = -m32
+        endif
+      endif
+endif
+
+# compiler switches
+CFLAGS  = $(ARCH) -Wall -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE \
+          $(DEBFLAGS) $(INCLUDE) $(INCFLAGS) -fPIC
+CFLAGS += -Wmissing-field-initializers -std=gnu99
+#CFLAGS += -Wsign-compare
+
+GCC_GTEQ_435 := $(shell expr `gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/'` \>= 40305)
+ifeq "$(GCC_GTEQ_435)" "1"
+    CFLAGS += -Wempty-body -Wtype-limits
+endif
+
+GCC_GTEQ_440 := $(shell expr `gcc -dumpversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/'` \>= 40400)
+ifeq "$(GCC_GTEQ_440)" "1"
+    CFLAGS += -Wno-unused-result
+endif
+
+# Encoder compiler flags
+
+CFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -DCTBRC_STRENGTH -fgnu89-inline
+
+ifeq ($(PCIE_FPGA_VERI_LINEBUF),y)
+CFLAGS += -DPCIE_FPGA_VERI_LINEBUF
+endif
+
+ifeq ($(DAT_COVERAGE), y)
+ CFLAGS += -DDAT_COVERAGE
+endif
+
+ifeq ($(INTERNAL_TEST),y)
+  CFLAGS += -DINTERNAL_TEST
+  CONFFLAGS += -DINTERNAL_TEST
+endif
+
+ifeq ($(USE_COVERAGE), y)
+  CFLAGS += -coverage -fprofile-arcs -ftest-coverage
+endif
+
+ifeq ($(VSBTEST), y)
+  CFLAGS += -DVSB_TEMP_TEST
+endif
+
+ifeq ($(SUPPORT_CACHE),y)
+  CFLAGS += -DSUPPORT_CACHE -I$(CMBASE)/cache_software/inc
+  CACHELIB = $(CMBASE)/cache_software/linux_reference/libcache.a
+endif
+
+ifeq ($(RECON_REF_1KB_BURST_RW),y)
+  CFLAGS += -DRECON_REF_1KB_BURST_RW
+endif
+
+# fb_ips library
+
+ifneq ($(USE_OLD_DRV),y)
+ifeq ($(DRV_NEW_ARCH),y)
+CFLAGS += -I$(DRV_BASE)/transcoder-pcie
+CFLAGS += -DDRV_NEW_ARCH -DNEW_IOCTL_ENABLE
+else
+CFLAGS += -I$(DRV_BASE)/transcoder-codec -I$(DRV_BASE)/transcoder-mem -I$(DRV_BASE)/transcoder-edma
+endif
+EXTLIB += $(COMMON_BASE)/lib/libhal.a
+else
+CFLAGS += -DUSE_OLD_DRV
+endif
+CFLAGS += -I$(COMMON_BASE)/inc -DFB_SYSLOG_ENABLE
+EXTLIB += $(COMMON_BASE)/lib/libsyslog.a
+
+ifeq ($(PERFORMANCE),y)
+CFLAGS += -DFB_PERFORMANCE_STATIC
+endif
+
+ifeq ($(SUPPORT_TCACHE),y)
+  CFLAGS += -DSUPPORT_TCACHE -DSUPPORT_FBIPS
+ifeq ($(USE_OLD_DRV),y)
+  EXTLIB += $(CMBASE)/ips_software/linux_reference/libfb_ips.a
+  CFLAGS += -I$(CMBASE)/ips_software/inc \
+            -I$(CMBASE)/ips_software/linux_reference/fb_ips
+endif
+endif
+ifeq ($(SUPPORT_L2CACHE),y)
+  CFLAGS += -DSUPPORT_L2CACHE -DSUPPORT_FBIPS
+ifeq ($(USE_OLD_DRV),y)
+  EXTLIB += $(CMBASE)/ips_software/linux_reference/libfb_ips.a
+  CFLAGS += -I$(CMBASE)/ips_software/inc \
+            -I$(CMBASE)/ips_software/linux_reference/fb_ips
+endif
+endif
+ifeq ($(SUPPORT_DEC400),y)
+  CFLAGS += -DSUPPORT_DEC400 -DSUPPORT_FBIPS
+ifeq ($(USE_OLD_DRV),y)
+  EXTLIB += $(CMBASE)/ips_software/linux_reference/libfb_ips.a
+  CFLAGS += -I$(CMBASE)/ips_software/inc \
+            -I$(CMBASE)/ips_software/linux_reference/fb_ips
+endif
+endif
+
+ifeq ($(DRV_SEL),INDEPENDENT_2S)
+  CFLAGS += -DINDEPENDENT_2S
+  ifeq ($(USE_S0),y)
+    CFLAGS += -DUSE_S0
+  endif
+endif
+
+ifeq ($(ENABLE_DUMP_RECON),y)
+CFLAGS += -DDUMP_RECON -DDUMP_FRM_NUM=1
+endif
+
+ifeq ($(LIBVA_API_SUPPORT),y)
+  CFLAGS += -DLIBVA_SUPPORT
+endif
+
+ifeq ($(SEARCH_AREA_SMALL),1)
+  CONFIG=-DSEARCH_AREA_SMALL
+endif
+
+ifeq ($(ERROR_TEST),y)
+CFLAGS += -DERROR_TEST
+endif
+
+eval: CFLAGS += -DEVALUATION_LIMIT=1000 -DPSNR
+# trace recon file by c-modle to handle compression and bit-depth
+system: TRACEFLAGS += -DTRACE_RECON_BYSYSTEM
+system: CFLAGS += -DPSNR $(TRACEFLAGS)
+# for libva
+system_lib: CFLAGS += -DLIBVA_SUPPORT
+system_multifile: CFLAGS += -DPSNR
+system_multifile: CFLAGS += -DMULTIFILEINPUT
+system_static: CFLAGS += -DPSNR
+
+testdata: CFLAGS += $(TRACEFLAGS)
+
+integrator: ENVSET  = -DSDRAM_LM_BASE=0x80000000 \
+                      -DENC_MODULE_PATH=\"/dev/hx280\" \
+                      -DMEMALLOC_MODULE_PATH=\"/dev/memalloc\"
+integrator: ENVSET  += -DEWL_NO_HW_TIMEOUT -DARM_ARCH_SWAP
+integrator: CROSS_COMPILE = arm-linux-
+integrator: ARCH = -mcpu=arm9tdmi -mtune=arm9tdmi
+integrator: LIB += -lpthread
+
+versatile: ENVSET  = -DSDRAM_LM_BASE=0x00000000 \
+                     -DENC_MODULE_PATH=\"/tmp/dev/transcoder_codec\" \
+                     -DMEMALLOC_MODULE_PATH=\"/tmp/dev/memalloc\"
+versatile: ENVSET  += -DEWL_NO_HW_TIMEOUT  -DARM_ARCH_SWAP
+versatile: CROSS_COMPILE = arm-none-linux-gnueabi-
+versatile: ARCH = -mcpu=arm926ej-s -mtune=arm926ej-s
+versatile: CFLAGS  += $(TRACEFLAGS)
+versatile: LIB += -lpthread
+
+versatile_multifile: CROSS_COMPILE = arm-none-linux-gnueabi-
+versatile_multifile: ARCH = -mcpu=arm926ej-s -mtune=arm926ej-s
+versatile_multifile: LIB += -lpthread
+versatile_multifile: CFLAGS += -DMULTIFILEINPUT
+
+android: ENVSET  = -DSDRAM_LM_BASE=0x00000000 \
+                     -DENC_MODULE_PATH=\"/tmp/dev/transcoder_codec\" \
+                     -DMEMALLOC_MODULE_PATH=\"/tmp/dev/memalloc\"
+android: ENVSET  += -DEWL_NO_HW_TIMEOUT  -DARM_ARCH_SWAP -DANDROID_EWL
+android: CROSS_COMPILE = arm-linux-androideabi-
+android: ARCH = -fno-exceptions -Wno-multichar -msoft-float -fpic -ffunction-sections -fdata-sections -funwind-tables -fstack-protector -Wa,--noexecstack -Werror=format-security -fno-short-enums -march=armv7-a -mfloat-abi=softfp -mfpu=neon
+#Please correct android path
+android: ANDROID_PATH=/home/your_android_home/android
+android: CFLAGS  += $(TRACEFLAGS)
+android: INCLUDE += \
+           -I$(ANDROID_PATH)/bionic/libc/arch-arm/include \
+           -I$(ANDROID_PATH)/bionic/libc/include \
+           -I$(ANDROID_PATH)/bionic/libstdc++/include \
+           -I$(ANDROID_PATH)/bionic/libc/kernel/common \
+           -I$(ANDROID_PATH)/bionic/libc/kernel/arch-arm \
+           -I$(ANDROID_PATH)/bionic/libm/include \
+           -I$(ANDROID_PATH)/bionic/libm/include/arm \
+           -I$(ANDROID_PATH)/bionic/libthread_db/include
+android: ANDROID_LIB_PATH=$(ANDROID_PATH)/out/target/product/your_product_name/obj/lib/
+android: CFLAGS+=  \
+           -nostdlib -L$(ANDROID_LIB_PATH)
+android: LIB += -lc -lm
+android: OBJS += $(ANDROID_LIB_PATH)/crtbegin_dynamic.o $(ANDROID_LIB_PATH)/crtend_android.o
+
+pcdemo: CFLAGS  = -O2 -g -Wall -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE \
+                  -DDEBUG -D_ASSERT_USED $(INCLUDE)
+
+pci: CROSS_COMPILE=
+pci: ARCH=
+pci: ENVSET  = -DPC_PCI_FPGA_DEMO \
+               -DSDRAM_LM_BASE=$(CHW_BASE_ADDRESS) \
+               -DENC_MODULE_PATH=\"/tmp/dev/transcoder_codec\" \
+               -DMEMALLOC_MODULE_PATH=\"/tmp/dev/memalloc\"
+pci: ENVSET  += -DEWL_NO_HW_TIMEOUT -DARM_ARCH_SWAP
+pci: ENVSET  += -DENC_DEMO
+pci: CFLAGS  += $(TRACEFLAGS)
+ifeq ($(HUGEPAGE),y)
+pci: CFLAGS  += -DENABLE_HUGEPAGE
+pci: LIB += -lhugetlbfs
+endif
+
+pci_shared: CROSS_COMPILE=
+pci_shared: ARCH=
+pci_shared: ENVSET  = -DPC_PCI_FPGA_DEMO \
+               -DSDRAM_LM_BASE=$(CHW_BASE_ADDRESS) \
+               -DENC_MODULE_PATH=\"/tmp/dev/transcoder_codec\" \
+               -DMEMALLOC_MODULE_PATH=\"/tmp/dev/memalloc\"
+pci_shared: ENVSET  += -DEWL_NO_HW_TIMEOUT -DARM_ARCH_SWAP
+pci_shared: ENVSET  += -DENC_DEMO
+pci_shared: CFLAGS  += $(TRACEFLAGS)
+ifeq ($(HUGEPAGE),y)
+pci_shared: CFLAGS  += -DENABLE_HUGEPAGE
+pci_shared: LIB += -lhugetlbfs
+endif
+
+lint: LINT_DEF=-dVIDEOSTAB_ENABLED
+
+# object files will be generated from .c sourcefiles
+OBJS = $(SRCS:.c=.o)

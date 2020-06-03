@@ -1,0 +1,14 @@
+*.o
+modules.order
+Module.symvers
+.version
+*.tmp_versions*
+*.o.cmd
+.depend
+*.a
+*.so
+*.ko*
+*.mod.*
+.cache.mk
+transcoder.h
+!transcoder-pcie/transcoder.h

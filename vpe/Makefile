@@ -46,7 +46,8 @@ install:
 	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
 	/sbin/ldconfig
 	cp $(PWD)/vpi/inc/*.h $(INC_PATH)
-	$(shell if ["`lsmod | grep transcoder_pcie`" == ""]; then insmod $(PWD)/drivers/transcoder-pcie/transcoder_pcie.ko; fi;)
+	$(shell rmmod transcoder_pcie;)
+	$(shell insmod $(PWD)/drivers/transcoder-pcie/transcoder_pcie.ko;)
 
 clean:
 	make -C vpi clean

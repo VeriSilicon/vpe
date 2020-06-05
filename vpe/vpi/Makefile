@@ -30,9 +30,9 @@ FBIP_ENABLE = y
 PERFORMANCE = y
 
 ifeq ($(DEBUG),y)
-  DEBFLAGS = -O0 -g -DDEBUG
+  DEBFLAGS += -O0 -g -DDEBUG
 else
-  DEBFLAGS = -O2 -g -DNDEBUG
+  DEBFLAGS += -O2 -g -DNDEBUG
 endif
 
 # show the path to compiler, where to find header files

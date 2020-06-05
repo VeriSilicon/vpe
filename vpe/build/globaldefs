@@ -26,7 +26,7 @@ endif
 #               This section should be disabled in production
 #########################################################
 # 1. Comment/uncomment the following line to disable/enable debugging
-DEBUG = n
+#DEBUG = n
 
 # 2. Enable C-Model to have tracefile generated
 #     Used for HW verification purpose

@@ -23,6 +23,12 @@ PWD  := $(shell pwd)
 
 all: prepare vpi drivers
 
+ifeq ($(DEBUG),y)
+	@echo "Build debug VPE"
+else
+	@echo "Build release VPE"
+endif
+
 prepare:
 	$(shell if [ ! -d $(DLL_PATH) ]; then sudo mkdir $(DLL_PATH); fi;)
 	$(shell if [ ! -d $(INC_PATH) ]; then sudo mkdir $(INC_PATH); fi;)
@@ -31,7 +37,7 @@ prepare:
 	sudo cp $(PWD)/build/libvpi.pc $(PKG_PATH)
 
 vpi: prepare
-	make -C vpi
+	make -C vpi DEBUG=$(DEBUG)
 
 drivers:
 	make -C drivers/transcoder-pcie clean

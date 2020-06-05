@@ -8,7 +8,7 @@ cd vpe
 	then
 		make clean
 	fi
-	make
+	make DEBUG=${dbg}
 	sudo make install
 cd -
 
@@ -24,7 +24,7 @@ cd ffmpeg
 	fi
 	if [ "${clean_option}" == "y" ]
         then
-                make clean
+			make clean
         fi
 	make -j 32
 

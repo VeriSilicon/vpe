@@ -17,13 +17,6 @@ RM  = rm -f
 # MACRO for creating library that includes all the object files
 AR  = $(CROSS_COMPILE)ar rcs
 
-# Add your debugging flags (or not)
-ifeq ($(DEBUG),y)
-  DEBFLAGS = -O0 -g -DDEBUG -D_DEBUG_PRINT -D_ASSERT_USED
-else
-  DEBFLAGS = -O2 -DNDEBUG
-endif
-
 #DEBFLAGS += -DHEVCENC_TRACE   # api.trc
 #DEBFLAGS += -DH1_HAVE_ENCDEBUG_H
 

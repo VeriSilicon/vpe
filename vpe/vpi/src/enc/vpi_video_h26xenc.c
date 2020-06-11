@@ -1925,6 +1925,7 @@ error_exit:
     if (*hantro_encoder) {
         h26x_enc_free_res(*hantro_encoder, vpi_h26xe_cfg);
         h26x_enc_close_encoder(*hantro_encoder, vpi_h26xe_cfg);
+        *hantro_encoder =  NULL;
     }
 
     return ret;

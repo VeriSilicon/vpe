@@ -85,6 +85,12 @@ typedef enum VpiPixsFmt {
     VPI_FMT_BGRA,
 } VpiPixsFmt;
 
+typedef struct VpiEncParamSet {
+    char *key;
+    char *value;
+    struct VpiEncParamSet *next;
+}VpiEncParamSet;
+
 /**
  * VP9 encoder opition data which got from application like ffmpeg
  */
@@ -111,11 +117,11 @@ typedef struct VpiEncVp9Opition {
     int lag_in_frames;
     int passes;
 
-    /*VPE VP9 encoder public parameters with ---vpevp9-params*/
-    char *enc_params;
+    /*VPE VP9 encoder public parameters with -enc_params*/
+    VpiEncParamSet *param_list;
 } VpiEncVp9Opition;
 
-/*
+/**
  * PP configuration
  */
 typedef struct VpiPPOpition {
@@ -300,7 +306,6 @@ typedef enum VpiEncRet {
     VPI_ENC_FLUSH_FINISH_END /*END returned at encoder's FLUSH_FINISH stage*/
 } VpiEncRet;
 
-
 typedef struct DecOption {
     char *pp_setting;
     char *dev_name;
@@ -332,8 +337,10 @@ typedef struct H26xEncCfg {
     /*VCENC_YUV420_PLANAR,VCENC_YUV420_SEMIPLANAR,VCENC_YUV420_SEMIPLANAR_VU,
        VCENC_YUV420_PLANAR_10BIT_P010,VCENC_YUV420_PLANAR*/
     int input_format;
-    char *enc_params;
     VpiFrame *frame_ctx;
+
+    /*VPE H26x encoder public parameters with -enc_params*/
+    VpiEncParamSet *param_list;
 } H26xEncCfg;
 
 typedef struct VpiApi {

@@ -246,3 +246,32 @@ int vpi_enc_parse_param(char *src, VpiEncSetting setting[], int length,
     }
     return ret;
 }
+
+int vpi_enc_set_param(char *key, char *val, VpiEncSetting setting[], int length,
+                      void *output)
+{
+    VpiEncSetting *op = NULL;
+    int ret           = 0;
+    int i             = 0;
+
+    if (setting == NULL || output == NULL) {
+        return -1;
+    }
+
+    if (strlen(key) == 0 || strlen(val) == 0)
+        return 0;
+
+    for (i = 0; i < length; i++) {
+        if (!strcmp(setting[i].name, key)) {
+            op = &setting[i];
+            break;
+        }
+    }
+
+    if (i == length) {
+        VPILOGE("Can't find opition %s\n", key);
+        return VPI_ERR_INVALID_PARAM;
+    }
+
+    return set_value(op, output + op->offset, val);
+}

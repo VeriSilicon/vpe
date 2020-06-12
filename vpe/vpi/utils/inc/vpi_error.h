@@ -43,6 +43,7 @@ typedef enum {
     VPI_ERR_NO_SW_RSC    = -10,
     VPI_ERR_NO_HW_RSC    = -11,
     VPI_ERR_IOCTL        = -12,
+    VPI_ERR_INVALID_PARAM= -13,
 
     VPI_ERR_BASE = -1000,
 

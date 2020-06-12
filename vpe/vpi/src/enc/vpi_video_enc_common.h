@@ -43,5 +43,7 @@ char *vpi_enc_get_paraname_paravalue(char *string, char *param_name,
 int vpi_enc_split_string(char ** tgt, int max, char * src, char * split);
 int vpi_enc_parse_param(char *src, VpiEncSetting setting[], int length,
                         void *output);
+int vpi_enc_set_param(char *key, char *val, VpiEncSetting setting[], int length,
+                      void *output);
 
 #endif

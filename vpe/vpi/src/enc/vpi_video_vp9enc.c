@@ -89,7 +89,9 @@ int vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
     VpiEncVp9Opition *vpi_setting = (VpiEncVp9Opition *)cfg;
     VpiEncVp9Setting *cml         = &ctx->vp9_enc_cfg;
     VpiFrame *frame               = (VpiFrame *)vpi_setting->framectx;
-    int ret                       = 0;
+    VpiEncParamSet *para_set = vpi_setting->param_list;
+    int num = sizeof(vp9enc_options) / sizeof(VpiEncSetting);
+    int ret = 0, i = 0;
 
     if (ctx == NULL || cfg == NULL) {
         VPILOGE("vpi_venc_vp9_init parameters error\n");
@@ -121,16 +123,13 @@ int vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
         goto error;
     }
 
-    /* Update internal setting with "--vpevp9enc-params" */
-    if (vpi_setting->enc_params) {
-        ret = vpi_enc_parse_param(vpi_setting->enc_params, vp9enc_options,
-                                  sizeof(vp9enc_options) /
-                                      sizeof(vp9enc_options[0]),
-                                  cml);
-        if (ret != 0) {
-            VPILOGE("vpi_enc_parse_param error\n");
-            goto error;
-        }
+    /* Update internal setting with "--enc_params" */
+    while (para_set != NULL) {
+        ret = vpi_enc_set_param(para_set->key, para_set->value, vp9enc_options,
+                                num, cml);
+        if (ret != 0)
+            return ret;
+        para_set = para_set->next;
     }
 
     ret = vp9enc_setpreset(cml);
@@ -419,10 +418,10 @@ error:
 
 int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
 {
-    VpiCtrlCmdParam *cmd  = (VpiCtrlCmdParam *)indata;
-    VpiEncVp9Setting *cml = &ctx->vp9_enc_cfg;
-    int ret               = 0;
-    int next_pic          = 0;
+    VpiCtrlCmdParam *cmd            = (VpiCtrlCmdParam *)indata;
+    VpiEncVp9Setting *cml           = &ctx->vp9_enc_cfg;
+    int ret                         = 0;
+    int next_pic                    = 0;
 
     if (ctx == NULL || indata == NULL) {
         VPILOGE("vpi_venc_vp9_control parameters error\n");
@@ -430,11 +429,14 @@ int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
     }
 
     VPILOGE("vpi_venc_vp9_control typer=%d.\n", cmd->cmd);
-    if (cmd->cmd == VPI_CMD_VP9ENC_SET_PENDDING_FRAMES_COUNT) {
+    switch (cmd->cmd) {
+    case VPI_CMD_VP9ENC_SET_PENDDING_FRAMES_COUNT:
         ctx->input_frame_wait_cnt = *(int *)cmd->data;
         VPILOGD("vpi_venc_vp9_control: pendding inputs=%d.\n",
                 ctx->input_frame_wait_cnt);
-    } else if (cmd->cmd == VPI_CMD_VP9ENC_GET_NEXT_PIC) {
+        break;
+
+    case VPI_CMD_VP9ENC_GET_NEXT_PIC:
         next_pic =
             vp9enc_next_pic(cml->input_rate_number, cml->input_rate_denom,
                             cml->output_rate_number, cml->output_rate_denom,
@@ -443,12 +445,16 @@ int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
         *(int *)outdata = next_pic;
         ctx->next       = next_pic;
         VPILOGD("vpi_venc_vp9_control: next_pic=%d.\n", next_pic);
-    } else if (cmd->cmd == VPI_CMD_VP9ENC_GET_PIC_TOBE_FREE) {
+        break;
+
+    case VPI_CMD_VP9ENC_GET_PIC_TOBE_FREE:
         VPILOGD("vpi_venc_vp9_control: pic to be free=%d.\n",
                 ctx->pic_tobe_free);
         assert(outdata);
         *(int *)outdata = ctx->pic_tobe_free;
-    } else {
+        break;
+
+    default:
         VPILOGE("vpi_venc_vp9_control: "
                 "vpi_venc_vp9_control Invalid typer=%d.\n",
                 cmd->cmd);

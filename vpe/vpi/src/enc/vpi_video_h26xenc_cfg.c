@@ -27,6 +27,7 @@
 
 #include "vpi_log.h"
 #include "vpi.h"
+#include "vpi_error.h"
 #include "vpi_video_h26xenc_utils.h"
 #include "vpi_video_h26xenc.h"
 #include "vpi_video_enc_common.h"
@@ -1194,8 +1195,9 @@ static void h26x_enc_params_value_print(struct VpiH26xEncCtx *vpi_h26xe_ctx)
 int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                          H26xEncCfg *h26x_enc_cfg)
 {
-    VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
-    i32 ret                    = 0;
+    VPIH26xEncOptions *options       = &vpi_h26xe_ctx->options;
+    VpiEncParamSet *para_set = h26x_enc_cfg->param_list;
+    i32 ret                          = 0;
 
     h26x_enc_set_default_opt(vpi_h26xe_ctx, h26x_enc_cfg);
     if ((vpi_h26xe_ctx->pp_index == VPI_DEC_OUT_RFC) ||
@@ -1218,30 +1220,13 @@ int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     h26x_enc_get_params(vpi_h26xe_ctx);
     h26x_enc_params_value_print(vpi_h26xe_ctx);
 
-    VPILOGD("\nh26x_enc_cfg->enc_params:%s\n",h26x_enc_cfg->enc_params);
-    if (h26x_enc_cfg->enc_params) {
-        char param_name[ENC_PARAMS_NAME_MAX_LEN]   = { "\0" };
-        char param_val[ENC_PARAMS_VALUE_MAX_LEN]   = { "\0" };
-        char *str            = h26x_enc_cfg->enc_params;
-        while (1) {
-            str = vpi_enc_get_paraname_paravalue(str, param_name, param_val);
-            if (strlen(param_name) != 0 && strlen(param_val) != 0) {
-                VPILOGD("[parame_name:%s,param_val:%s]---\n", param_name, param_val);
-                if (h26x_enc_get_params_from_cmd(vpi_h26xe_ctx, param_name,
-                                                 param_val) < 0) {
-                    VPILOGD("Error parsing option '%s=%s'. Please check if it is valid hantro-params option.\n",
-                            param_name, param_val);
-                }
-                str++;
-                if (strlen(str) == 0) {
-                    VPILOGD("%s,%d, reach to the end\n", __FUNCTION__,__LINE__);
-                    break;
-                }
-            } else {
-                VPILOGE("%s,%d, no valid paramters %s\n", __FUNCTION__,__LINE__, str);
-                break;
-            }
-        }
+    /*parse user setting*/
+    while (para_set != NULL) {
+        ret = h26x_enc_get_params_from_cmd(vpi_h26xe_ctx, para_set->key,
+                                           para_set->value);
+        if (ret!=0)
+            return ret;
+        para_set = para_set->next;
     }
 
     h26x_enc_params_value_print(vpi_h26xe_ctx);

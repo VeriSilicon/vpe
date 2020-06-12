@@ -19,6 +19,7 @@
 #include <string.h>
 #include "stddef.h"
 #include "vpi_log.h"
+#include "vpi_error.h"
 #include "vpi_video_enc_common.h"
 #include "vpi_video_h26xenc.h"
 #include "vpi_video_h26xenc_options.h"
@@ -515,7 +516,7 @@ int h26x_enc_get_params_from_cmd(struct VpiH26xEncCtx *vpi_h26xe_ctx,
 
     p_param_line = find_option(vpi_h26xe_ctx->h26x_enc_param_table, name);
     if (!p_param_line)
-        return -1;
+        return VPI_ERR_INVALID_PARAM;
 
     if (p_param_line->flag & OPT_FLAG_CTX) {
         /*p = (u8 *)ctx;*/
@@ -535,7 +536,7 @@ int h26x_enc_get_params_from_cmd(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                 if (value != 0 && value != DEFAULT_VALUE) {
                     VPILOGE("option %s value %ld less than min %d or not 0 nor DEFAULT_VALUE!\n",
                            p_param_line->name, value, p_param_line->min);
-                    return -1;
+                    return VPI_ERR_INVALID_PARAM;
                 }
             }
         }
@@ -543,7 +544,7 @@ int h26x_enc_get_params_from_cmd(struct VpiH26xEncCtx *vpi_h26xe_ctx,
             if (value > p_param_line->max) {
                 VPILOGE("option %s value %ld greater than max %d!\n",
                        p_param_line->name, value, p_param_line->max);
-                return -1;
+                return VPI_ERR_INVALID_PARAM;
             }
         }
         *((int *)p) = value;
@@ -563,15 +564,15 @@ int h26x_enc_get_params_from_cmd(struct VpiH26xEncCtx *vpi_h26xe_ctx,
         seg_num = vpi_enc_split_string((char **)&pstrs, ENC_PARAM_MAX_SEG_NUM, input_value, ":");
         if (seg_num < 0) {
             VPILOGE("error seg_num %d\n", seg_num);
-            return -1;
+            return VPI_ERR_INVALID_PARAM;
         }
         if (p_param_line->type == TYPE_COLON2 && seg_num != 2) {
            VPILOGE("seg_num %d not match TYPE_COLON2\n", seg_num);
-           return -1;
+           return VPI_ERR_INVALID_PARAM;
         }
         if (p_param_line->type == TYPE_COLON4 && seg_num != 4) {
             VPILOGE("seg_num %d not match TYPE_COLON4\n", seg_num);
-            return -1;
+            return VPI_ERR_INVALID_PARAM;
         }
         for (i = 0; i < seg_num; i++) {
             *((int *)p) = atoi(pstrs[i]);

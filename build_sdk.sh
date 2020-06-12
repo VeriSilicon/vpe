@@ -19,7 +19,7 @@ cd drivers
 	./build_drivers.sh
 cd -
 
-cd ${COMMON_BASE}
+cd common
 	if [ "${clean_option}" == "y" ]
 	then
 		make clean

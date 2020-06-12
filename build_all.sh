@@ -2,4 +2,4 @@
 
 ./build_sdk.sh
 #./release.sh
-sudo ./build_vpe.sh
+./build_vpe.sh

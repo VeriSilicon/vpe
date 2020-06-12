@@ -2,7 +2,7 @@
 
 . ./drv_env_set.sh
 
-cd ${COMMON_BASE}
+cd common
 	make clean
 cd -
 
@@ -17,7 +17,11 @@ cd -
 cd Bigsea/software
 	make clean
 cd -
-	
+
+cd vpe
+	make clean
+cd -
+
 cd ffmpeg
 	make clean
 cd -

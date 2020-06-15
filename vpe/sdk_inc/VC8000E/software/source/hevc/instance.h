@@ -58,6 +58,11 @@ struct vcenc_instance
   u32 temp_size;      /* Size (bytes) of buffer */
   u32 temp_bufferBusAddress;
 
+  /* add for idr resend ssp header */
+  u8 *header_buffer;      /* Data buffer, user set */
+  u32 header_size;      /* Size (bytes) of buffer */
+  u32 headerBufferBusAddress;
+
   // SPS&PPS parameters
   i32 max_cu_size;    /* Max coding unit size in pixels */
   i32 min_cu_size;    /* Min coding unit size in pixels */

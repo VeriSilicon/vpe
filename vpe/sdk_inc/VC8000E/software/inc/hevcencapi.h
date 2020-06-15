@@ -806,6 +806,8 @@ extern "C"
     ptr_t RoimapCuCtrlIndexAddr; /* Bus address of ROI map cu ctrl index  */
     i8 *pRoiMapDelta;  /* Pointer address of QpDelta map  */
     u32 roiMapDeltaSize; /* size of QpDelta map (per frame) */
+    i32 picture_cnt; /* encoded picture count */
+    i32 last_idr_picture_cnt;/* encoded picture count of last IDR */
 
     /* for low latency */
     u32 lineBufWrCnt;    /* The number of MB lines already in input MB line buffer */
@@ -837,6 +839,7 @@ extern "C"
     Pass2HWParam PrivData;
     Pass2HWParam PassTwoHWData;
     i32 indexTobeEncode;
+    bool forceIDR;
     int64_t pts;
     int64_t dts;
   } VCEncIn;
@@ -1039,6 +1042,9 @@ extern "C"
     i32 indexEncoded; /* add for look ahead*/
     int64_t pts;
     int64_t dts;
+    bool resendSPS; /* add for idr resend SPS... */
+    u8 *header_buffer; /* store SPS header*/
+    u32 header_size;  /* SPS header stored size */
   } VCEncOut;
 
   /* Input pre-processing */
@@ -1272,7 +1278,7 @@ i32 ReleasePass2InputHwTransformer(VCEncInst inst, Pass2HWParam *privPass2HwPara
    VCEncRet VCEncGetCuInfo(VCEncInst inst, VCEncCuOutData *pEncCuOutData,
                                       VCEncCuInfo *pEncCuInfo, u32 ctuNum, u32 cuNum);
 
-   VCEncPictureCodingType VCEncFindNextPic (VCEncInst inst, VCEncIn *encIn, i32 nextGopSize, const u8 *gopCfgOffset, i32 *p_picture_cnt, i32 last_idr_picture_cnt);
+   VCEncPictureCodingType VCEncFindNextPic (VCEncInst inst, VCEncIn *encIn, i32 nextGopSize, const u8 *gopCfgOffset, bool forceIDR);
    /*------------------------------------------------------------------------------
       5. Encoder API tracing callback function
   ------------------------------------------------------------------------------*/

@@ -10,15 +10,16 @@
 #include <linux/ioctl.h>
 #include "common.h"
 
-#define VCD_PLL_M_NORMAL 520 /* 650MHz */
-#define VCD_PLL_S_NORMAL 2 /* 650MHz */
-#define VCD_PLL_M_75 390 /* 487.5MHz */
-#define VCD_PLL_S_75 2 /* 487.5MHz */
-#define VCD_PLL_M_50 520 /* 325MHz */
-#define VCD_PLL_S_50 3 /* 325MHz */
-#define VCD_PLL_M_25 520 /* 162.5MHz */
-#define VCD_PLL_S_25 4 /* 162.5MHz */
-#define VCD_MAX_CORES 4
+#define VCD_PLL_M_NORMAL	520 /* 650MHz */
+#define VCD_PLL_S_NORMAL	2   /* 650MHz */
+#define VCD_PLL_M_75		390 /* 487.5MHz */
+#define VCD_PLL_S_75		2   /* 487.5MHz */
+#define VCD_PLL_M_50		520 /* 325MHz */
+#define VCD_PLL_S_50		3   /* 325MHz */
+#define VCD_PLL_M_25		520 /* 162.5MHz */
+#define VCD_PLL_S_25		4   /* 162.5MHz */
+
+#define VCD_MAX_CORES		4
 
 /*
  * This struct record vc8000d detail information.
@@ -40,31 +41,34 @@
  * @tdev: record transcoder devices description
  */
 struct vc8000d_t {
-    int cores;
-    struct video_core_info core[VCD_MAX_CORES];
-    u32 core_format[VCD_MAX_CORES];
-    struct vcd_core_config vcd_cfg[VCD_MAX_CORES];
-    spinlock_t rsv_lock;
-    spinlock_t chk_irq_lock;
-    wait_queue_head_t dec_wait_queue;
-    wait_queue_head_t hw_queue;
-    struct list_head list_live;
-    struct list_head list_vod;
-    struct rsv_taskq *taskq[TR_MAX_LIST];
-    int live_count;
-    int vod_count;
-    struct loading_info loading[2];
-    struct timer_list loading_timer;
-    struct cb_tranx_t *tdev;
+	int cores;
+	struct video_core_info core[VCD_MAX_CORES];
+	u32 core_format[VCD_MAX_CORES];
+	struct vcd_core_config vcd_cfg[VCD_MAX_CORES];
+	spinlock_t rsv_lock;
+	spinlock_t chk_irq_lock;
+	wait_queue_head_t dec_wait_queue;
+	wait_queue_head_t hw_queue;
+	struct list_head list_live;
+	struct list_head list_vod;
+	struct rsv_taskq *taskq[TR_MAX_LIST];
+	int live_count;
+	int vod_count;
+	struct loading_info loading[2];
+	struct timer_list loading_timer;
+	struct cb_tranx_t *tdev;
 };
+
 
 int vc8000d_init(struct cb_tranx_t *tdev);
 int vc8000d_release(struct cb_tranx_t *tdev);
-long vc8000d_ioctl(struct file *filp, unsigned int cmd, unsigned long arg,
-                   struct cb_tranx_t *tdev);
+long vc8000d_ioctl(struct file *filp,
+			unsigned int cmd,
+			unsigned long arg,
+			struct cb_tranx_t *tdev);
 int adjust_vcd_pll(struct cb_tranx_t *tdev, u32 slice_id);
 void vcd_close(struct cb_tranx_t *tdev, struct file *filp);
-int vc8000d_reset(struct cb_tranx_t *tdev);
+int vc8000d_core_reset(struct cb_tranx_t *tdev, int core_id);
 irqreturn_t vcd_isr(int irq, void *data);
 
 #endif /* _CB_VC8000D_H_ */

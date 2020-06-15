@@ -359,6 +359,8 @@ extern "C"
         u32 write_stats;
         EncScaledPicture scaledPicture;
 
+		int64_t pts;
+		int64_t dts;
         i32 indexTobeEncode; /* add for lag_in */
         size_t busLumaTable;
         size_t busChromaTable;
@@ -398,6 +400,8 @@ extern "C"
         double  ssim_cb;  /* Chroma Cb SSIM, if enabled */
         double  ssim_cr;  /* Chroma Cr SSIM, if enabled */
 
+		int64_t pts;
+		int64_t dts;
         i32 indexEncoded; /* add for lag_in */
         i32 nextIndex;		
     } VP9EncOut;

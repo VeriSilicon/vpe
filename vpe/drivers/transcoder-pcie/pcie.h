@@ -12,8 +12,10 @@
 #include "common.h"
 
 int cb_pci_init(struct cb_tranx_t *tdev);
-long cb_pci_ioctl(struct file *filp, unsigned int cmd, unsigned long arg,
-                  struct cb_tranx_t *tdev);
+long cb_pci_ioctl(struct file *filp,
+		      unsigned int cmd,
+		      unsigned long arg,
+		      struct cb_tranx_t *tdev);
 void cb_pci_release(struct cb_tranx_t *tdev);
 
 #endif /* _CB_PCIE_H_ */

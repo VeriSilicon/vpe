@@ -30,7 +30,7 @@
 #include "vpi_video_hevcdec.h"
 #include "vpi_video_vp9dec.h"
 
-static void vpi_dec_log_header_init(VpiDecCtx *vpi_ctx, DecOption *dec_cfg)
+static void vpi_dec_log_header_init(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
 {
 #ifdef FB_SYSLOG_ENABLE
     static char module_name[] = "DEC";
@@ -78,7 +78,7 @@ void *decode_process(void *param)
 
 static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
 {
-    DecOption *dec_cfg = (DecOption *)cfg;
+    VpiDecOption *dec_cfg = (VpiDecOption *)cfg;
     VpiRet ret         = VPI_SUCCESS;
     uint32_t size, i;
 
@@ -343,10 +343,10 @@ VpiRet vpi_vdec_control(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
             return ret;
         }
         case VPI_CMD_DEC_INIT_OPTION: {
-            DecOption **dec_opt;
-            dec_opt = (DecOption **)outdata;
-            *dec_opt = (DecOption *)malloc(sizeof(DecOption));
-            memset(*dec_opt, 0, sizeof(DecOption));
+            VpiDecOption **dec_opt;
+            dec_opt = (VpiDecOption **)outdata;
+            *dec_opt = (VpiDecOption *)malloc(sizeof(VpiDecOption));
+            memset(*dec_opt, 0, sizeof(VpiDecOption));
             return ret;
         }
         default:

@@ -26,7 +26,7 @@
 #include "vpi_video_hevcdec.h"
 #include "vpi_video_vp9dec.h"
 
-VpiRet vpi_check_out_format_for_trans(VpiDecCtx *vpi_ctx, DecOption *dec_cfg)
+VpiRet vpi_check_out_format_for_trans(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
 {
     VPILOGD("transcode %d\n", dec_cfg->transcode);
     if (dec_cfg->transcode == 0) {
@@ -133,7 +133,7 @@ void vpi_dec_set_default_config(VpiDecCtx *vpi_ctx)
     vpi_ctx->vpi_dec_config.use_p010_output        = 0;
 }
 
-void vpi_dec_init_hw_cfg(VpiDecCtx *vpi_ctx, DecOption *dec_cfg)
+void vpi_dec_init_hw_cfg(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
 {
     vpi_ctx->stream_stop           = NULL;
     vpi_ctx->align                 = DEC_ALIGN_1024B;

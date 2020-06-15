@@ -279,7 +279,7 @@ int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
                                     struct VPIH26xEncCfg *vpi_h26xe_cfg);
 void h26x_enc_init_pic_config(VCEncIn *p_enc_in);
 int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
-                         H26xEncCfg *h26x_enc_cfg);
+                         VpiH26xEncCfg *h26x_enc_cfg);
 int h26x_enc_get_deviceId(char *dev);
 int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
                        struct VPIH26xEncCfg *vpi_h26xe_cfg);

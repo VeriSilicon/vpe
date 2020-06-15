@@ -30,6 +30,7 @@ else
 endif
 
 prepare:
+	@echo "VPE build step - prepare"
 	$(shell if [ ! -d $(DLL_PATH) ]; then sudo mkdir $(DLL_PATH); fi;)
 	$(shell if [ ! -d $(INC_PATH) ]; then sudo mkdir $(INC_PATH); fi;)
 	sudo cp $(PWD)/sdk_libs/*.so $(DLL_PATH)
@@ -37,6 +38,7 @@ prepare:
 	sudo cp $(PWD)/build/libvpi.pc $(PKG_PATH)
 
 vpi: prepare
+	@echo "VPE build step - build VPI"
 	make -C vpi DEBUG=$(DEBUG)
 
 drivers:
@@ -44,6 +46,7 @@ drivers:
 	make -C drivers/transcoder-pcie all
 
 install:
+	@echo "VPE build step - install"
 	$(shell if [ ! -d $(DLL_PATH) ]; then mkdir $(DLL_PATH); fi;)
 	$(shell if [ ! -d $(INC_PATH) ]; then mkdir $(INC_PATH); fi;)
 	cp $(PWD)/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin

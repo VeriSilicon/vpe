@@ -306,7 +306,7 @@ typedef enum VpiEncRet {
     VPI_ENC_FLUSH_FINISH_END /*END returned at encoder's FLUSH_FINISH stage*/
 } VpiEncRet;
 
-typedef struct DecOption {
+typedef struct VpiDecOption {
     char *pp_setting;
     char *dev_name;
     int buffer_depth;
@@ -314,9 +314,9 @@ typedef struct DecOption {
     int task_id;
     int priority;
     VpiFrame *frame;
-} DecOption;
+} VpiDecOption;
 
-typedef struct H26xEncCfg {
+typedef struct VpiH26xEncCfg {
     char module_name[20];
     int pp_index;
     int priority;
@@ -341,7 +341,7 @@ typedef struct H26xEncCfg {
 
     /*VPE H26x encoder public parameters with -enc_params*/
     VpiEncParamSet *param_list;
-} H26xEncCfg;
+} VpiH26xEncCfg;
 
 typedef struct VpiApi {
     int (*init)(VpiCtx, void *);

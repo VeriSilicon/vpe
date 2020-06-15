@@ -249,7 +249,7 @@ static int split_string(char **tgt, int max, char *src, char *split)
     return count;
 }
 
-VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, DecOption *dec_cfg)
+VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
 {
     int i;
 #define MAX_SEG_NUM 4

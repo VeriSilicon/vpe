@@ -22,10 +22,10 @@ extern "C" {
 
 #include "vpi_video_dec.h"
 
-VpiRet vpi_check_out_format_for_trans(VpiDecCtx *vpi_ctx, DecOption *dec_cfg);
+VpiRet vpi_check_out_format_for_trans(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg);
 VpiRet vpi_dec_init_wrapper(VpiDecCtx *vpi_ctx);
 void vpi_dec_set_default_config(VpiDecCtx *vpi_ctx);
-void vpi_dec_init_hw_cfg(VpiDecCtx *vpi_ctx, DecOption *dec_cfg);
+void vpi_dec_init_hw_cfg(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg);
 void vpi_dec_get_tb_cfg(VpiDecCtx *vpi_ctx);
 int vpi_dec_cfg_by_seqeuence_info(VpiDecCtx *vpi_ctx);
 

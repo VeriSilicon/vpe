@@ -100,7 +100,7 @@ static int h26x_enc_get_options(struct VpiH26xEncCtx *vpi_h26xe_ctx)
 }
 
 static int h26x_enc_set_default_opt(struct VpiH26xEncCtx *vpi_h26xe_ctx,
-                                    H26xEncCfg *h26x_enc_cfg)
+                                    VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
@@ -460,7 +460,7 @@ static int h26x_enc_level_check(enum VpiH26xCodecID codec, const char *codec_nam
 }
 
 static int h26x_enc_get_profile_and_level(struct VpiH26xEncCtx *vpi_h26xe_ctx,
-                                          H26xEncCfg *h26x_enc_cfg)
+                                          VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
@@ -478,7 +478,7 @@ static int h26x_enc_get_profile_and_level(struct VpiH26xEncCtx *vpi_h26xe_ctx,
 }
 
 static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
-                                 H26xEncCfg *h26x_enc_cfg)
+                                 VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
@@ -1120,7 +1120,7 @@ static int h26x_enc_set_opt_accord_preset(enum VpiH26xCodecID codec,
 }
 
 static int h26x_enc_preset_params_set(struct VpiH26xEncCtx *vpi_h26xe_ctx,
-                                      H26xEncCfg *h26x_enc_cfg)
+                                      VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
@@ -1193,7 +1193,7 @@ static void h26x_enc_params_value_print(struct VpiH26xEncCtx *vpi_h26xe_ctx)
 }
 
 int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
-                         H26xEncCfg *h26x_enc_cfg)
+                         VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options       = &vpi_h26xe_ctx->options;
     VpiEncParamSet *para_set = h26x_enc_cfg->param_list;

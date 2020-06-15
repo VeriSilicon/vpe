@@ -23,7 +23,7 @@ extern VPIH26xParamsDef h26x_enc_param_table[];
 #define NEXT_MULTIPLE(value, n) (((value) + (n)-1) & ~((n)-1))
 #endif
 
-int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, H26xEncCfg *enc_cfg);
+int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg);
 int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output);
 int vpi_h26xe_close(struct VpiH26xEncCtx *enc_ctx);
 int vpi_h26xe_ctrl(struct VpiH26xEncCtx *enc_ctx, void *vpi_ctrl_type,

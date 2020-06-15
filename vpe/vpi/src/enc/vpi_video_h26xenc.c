@@ -1738,7 +1738,7 @@ static int h26x_enc_end(struct VpiH26xEncCtx *enc_ctx, VCEncOut *enc_out)
  *  @Params: enc_cfg The configure of the encoder
  *  @Return: 0 for success, -1 for error
  */
-int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, H26xEncCfg *enc_cfg)
+int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
 {
     i32 ret = OK;
     i32 i   = 0;

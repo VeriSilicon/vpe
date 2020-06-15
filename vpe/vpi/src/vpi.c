@@ -45,7 +45,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
     VpiH26xEncCtx *h26xenc_ctx;
     VpiPrcCtx *prc_ctx;
     VpiRet ret = VPI_SUCCESS;
-    DecOption *dec_option = (DecOption *)cfg;
+    VpiDecOption *dec_option = (VpiDecOption *)cfg;
 
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
@@ -80,9 +80,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
 
     case H26XENC_VPE:
         h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
-        // memset(h26xenc_ctx, 0, sizeof(VpiH26xEncCtx));
-        // h26xenc_ctx->enc_fmt = Enc_H26x;
-        H26xEncCfg *h26x_enc_cfg         = (H26xEncCfg *)cfg;
+        VpiH26xEncCfg *h26x_enc_cfg         = (VpiH26xEncCfg *)cfg;
         h26x_enc_cfg->priority           = vpi_hw_ctx->priority;
         h26x_enc_cfg->device             = vpi_hw_ctx->device_name;
         h26x_enc_cfg->frame_ctx->task_id = vpi_hw_ctx->task_id;
@@ -237,11 +235,7 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
         ret = VPI_ERR_WRONG_PLUGIN;
         break;
     case H26XENC_VPE:
-        //ret = vpi_venc_put_frame(enc_ctx, indata);
-        return ret;
     case VP9ENC_VPE:
-        //ret = vpi_venc_vp9_put_frame(enc_ctx, indata);
-        return ret;
     default:
         break;
     }

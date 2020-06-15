@@ -27,7 +27,7 @@ void dump_ppu(PpUnitConfig *ppu_cfg);
 VpiRet vpi_dec_parse_ppu_cfg(VpiDecCtx *vpi_ctx, PpUnitConfig *ppu_cfg);
 void vpi_resolve_pp_overlap_ppu(PpUnitConfig *ppu_cfg,
                                 struct TBPpUnitParams *pp_units_params);
-VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, DecOption *dec_cfg);
+VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg);
 void vpi_dec_disable_all_pp_shaper(struct DecConfig *config);
 
 #ifdef __cplusplus

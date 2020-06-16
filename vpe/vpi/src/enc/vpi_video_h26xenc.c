@@ -1567,8 +1567,8 @@ static int h26x_enc_encode(struct VpiH26xEncCtx *enc_ctx,
             VCEncFindNextPic(enc_ctx->hantro_encoder, p_enc_in,
                              enc_ctx->next_gop_size,
                              vpi_h26xe_cfg->enc_in.gopConfig.gopCfgOffset,
-                             &vpi_h26xe_cfg->picture_cnt,
-                             vpi_h26xe_cfg->last_idr_picture_cnt);
+                             false);
+        vpi_h26xe_cfg->picture_cnt = p_enc_in->picture_cnt;
         p_enc_in->timeIncrement = vpi_h26xe_cfg->output_rate_denom;
         break;
     case VCENC_FRAME_READY:
@@ -1622,8 +1622,8 @@ static int h26x_enc_encode(struct VpiH26xEncCtx *enc_ctx,
             VCEncFindNextPic(enc_ctx->hantro_encoder, p_enc_in,
                              enc_ctx->next_gop_size,
                              vpi_h26xe_cfg->enc_in.gopConfig.gopCfgOffset,
-                             &vpi_h26xe_cfg->picture_cnt,
-                             vpi_h26xe_cfg->last_idr_picture_cnt);
+                             false);
+        vpi_h26xe_cfg->picture_cnt = p_enc_in->picture_cnt;
 
         VPILOGE("%s %d p_enc_in->gopSize = %d, vpi_h26xe_cfg->next_gop_size = %d\n",
                 __FILE__, __LINE__, p_enc_in->gopSize,
@@ -1707,8 +1707,8 @@ static int h26x_enc_flush_set(struct VpiH26xEncCtx *enc_ctx)
         enc_ctx->next_coding_type =
             VCEncFindNextPic(enc_ctx->hantro_encoder, p_enc_in, 1,
                              vpi_h26xe_cfg->enc_in.gopConfig.gopCfgOffset,
-                             &vpi_h26xe_cfg->picture_cnt,
-                             vpi_h26xe_cfg->last_idr_picture_cnt);
+                             false);
+        vpi_h26xe_cfg->picture_cnt = p_enc_in->picture_cnt;
         p_enc_in->gopSize       = 1;
         p_enc_in->timeIncrement = vpi_h26xe_cfg->output_rate_denom;
     }

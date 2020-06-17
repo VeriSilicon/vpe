@@ -533,16 +533,16 @@ int vpi_decode_vp9_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
 
 int vpi_decode_vp9_get_used_strm_mem(VpiDecCtx *vpi_ctx, void *mem)
 {
-    uint64_t *rls_mem = NULL;
+    VpiBufRef **ref;
 
-    rls_mem = (uint64_t *)mem;
+    ref = (VpiBufRef **)mem;
     if (vpi_ctx->rls_strm_buf_head) {
-        *rls_mem = (uint64_t)vpi_ctx->rls_strm_buf_head->opaque;
+        *ref = (VpiBufRef *)vpi_ctx->rls_strm_buf_head->opaque;
         vpi_ctx->rls_strm_buf_head =
             vpi_dec_buf_list_delete(vpi_ctx->rls_strm_buf_head);
         return 0;
     } else {
-        *rls_mem = 0;
+        *ref = NULL;
         return -1;
     }
 }
@@ -1224,7 +1224,6 @@ int vpi_decode_vp9_dec_process(VpiDecCtx *vpi_ctx)
 
     pthread_mutex_lock(&vpi_ctx->dec_thread_mutex);
     if (NULL == vpi_ctx->strm_buf_head && 0 == vpi_ctx->eos_received) {
-        VPILOGE("stream buffer empty\n");
         pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
         return 0;
     }
@@ -1610,17 +1609,19 @@ int vpi_decode_vp9_close(VpiDecCtx *vpi_ctx)
     int idx;
 
     while (vpi_ctx->strm_buf_head) {
-        idx = vpi_ctx->rls_mem_index;
-        vpi_ctx->rls_strm_buf_list[idx]->mem_idx = vpi_ctx->rls_mem_index;
-        vpi_ctx->rls_strm_buf_list[idx]->item    = vpi_ctx->strm_buf_head->item;
-        vpi_ctx->rls_strm_buf_list[idx]->opaque  =
-            vpi_ctx->strm_buf_head->opaque;
-        vpi_dec_buf_list_add(&vpi_ctx->rls_strm_buf_head,
-                             vpi_ctx->rls_strm_buf_list[idx]);
+        if (vpi_ctx->strm_buf_head->item_size) {
+            idx = vpi_ctx->rls_mem_index;
+            vpi_ctx->rls_strm_buf_list[idx]->mem_idx = vpi_ctx->rls_mem_index;
+            vpi_ctx->rls_strm_buf_list[idx]->item    = vpi_ctx->strm_buf_head->item;
+            vpi_ctx->rls_strm_buf_list[idx]->opaque  =
+                vpi_ctx->strm_buf_head->opaque;
+            vpi_dec_buf_list_add(&vpi_ctx->rls_strm_buf_head,
+                                 vpi_ctx->rls_strm_buf_list[idx]);
 
-        vpi_ctx->rls_mem_index++;
-        if (vpi_ctx->rls_mem_index == 32) {
-            vpi_ctx->rls_mem_index = 0;
+            vpi_ctx->rls_mem_index++;
+            if (vpi_ctx->rls_mem_index == 32) {
+                vpi_ctx->rls_mem_index = 0;
+            }
         }
 
         vpi_ctx->strm_buf_head =

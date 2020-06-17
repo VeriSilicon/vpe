@@ -109,6 +109,8 @@ extern "C" {
               "%s([%d]): " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #endif
 
+typedef struct VpiBufRef VpiBufRef;
+
 typedef const void *VpiDecInst;
 
 typedef enum DecFormat { Dec_NULL, Dec_VP9, Dec_HEVC, Dec_H264_H10P } DecFormat;

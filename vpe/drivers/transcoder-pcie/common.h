@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  */
 
 #ifndef _CB_COMMON_H_
@@ -153,7 +153,7 @@ struct cb_tranx_t {
 	void __iomem *ccm; /* clock controller base virtual address */
 	int print_level; /* log level */
 	u32 clock_adjust; /* adjust video pll frequency */
-	u32 reduce_strategy; /* reduce strategy when the temperature exceeds the threshold, a temporary variate */
+	u32 reduce_strategy; /* reduce strategy when the temperature exceeds the threshold */
 	struct mutex reset_lock;
 };
 

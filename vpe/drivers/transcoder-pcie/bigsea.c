@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * This is bigsea management driver for Linux.
  * Bigsea is a video encoder, has two cores, only support vp9 format.
@@ -220,13 +220,19 @@ static int bigsea_release_core(struct cb_tranx_t *tdev, u32 id,
 	status = readl(tbigsea->core[id].hwregs + BIGSEA_IRQ_STAT_OFF);
 	/* make sure HW is disabled */
 	if (status & BIGSEA_ENABLE) {
-		trans_dbg(tdev, TR_ERR,
-			"bigsea: %s, core:%d is enabled, force reset,hw_status=0x%x\n",
-			__func__, id, status);
+		trans_dbg(tbigsea->tdev, TR_ERR,
+			"bigsea: core:%d status is enabled, wait 50ms\n", id);
+		usleep_range(50000, 60000);
+		status = readl(tbigsea->core[id].hwregs + BIGSEA_IRQ_STAT_OFF);
+		if (status & BIGSEA_ENABLE) {
+			trans_dbg(tdev, TR_ERR,
+				"bigsea: after waiting 50ms,core:%d still is enabled, force reset,hw_status=0x%x\n",
+				id, status);
 
-		/* abort codec */
-		status |= BIGSEA_ABORT | BIGSEA_IRQ_DISABLE;
-		writel(status, tbigsea->core[id].hwregs+BIGSEA_IRQ_STAT_OFF);
+			/* abort codec */
+			status |= BIGSEA_ABORT | BIGSEA_IRQ_DISABLE;
+			writel(status, tbigsea->core[id].hwregs+BIGSEA_IRQ_STAT_OFF);
+		}
 	}
 
 	tbigsea->core[id].core_status = IDLE_FLAG;
@@ -277,8 +283,10 @@ static int bigsea_wait_ready(struct bigsea_t *tbigsea,
 		 * according application requirement, if wait is interrupted by
 		 * signal, it still return 0.
 		 */
-	//	if (ret == -ERESTARTSYS)
-	//		ret = 0;
+		/*
+		if (ret == -ERESTARTSYS)
+			ret = 0;
+		*/
 	} else
 		ret = 0;
 

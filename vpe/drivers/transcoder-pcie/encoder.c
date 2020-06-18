@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * This is encoder management driver for Linux.
  * The driver provide unify reserve/release function for bigsea and vc8000e.
@@ -240,7 +240,8 @@ int release_encoder(struct cb_tranx_t *tdev, u32 core)
 
 	if (tenc->codec[core].is_reserved == 0) {
 		trans_dbg(tdev, TR_ERR,
-			  "encoder: %s core:%d already in release status.\n", core);
+			  "encoder: %s core:%d already in release status.\n",
+			  core);
 		return -EFAULT;
 	}
 
@@ -601,7 +602,7 @@ static ssize_t enc_reset_store(struct device *dev,
 		return -1;
 	}
 
-	trans_dbg(tdev, TR_ERR, "encoder: manual reset encoder:%d\n",id );
+	trans_dbg(tdev, TR_ERR, "encoder: manual reset encoder:%d\n", id);
 	enc_reset_core(tdev, id);
 
 	return count;
@@ -626,7 +627,7 @@ static ssize_t tcache_reset_store(struct device *dev,
 		return -1;
 	}
 
-	trans_dbg(tdev, TR_ERR, "tcache: manual reset tcache:%d\n",id );
+	trans_dbg(tdev, TR_ERR, "tcache: manual reset tcache:%d\n", id);
 	tcache_subsys_reset(tdev, id);
 
 	return count;

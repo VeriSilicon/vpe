@@ -1,4 +1,4 @@
-# Copyright 2018 VeriSilicon Holdings Co., Ltd. All Rights Reserved.
+# Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
 
 ifeq ($(obj),)
 obj = .

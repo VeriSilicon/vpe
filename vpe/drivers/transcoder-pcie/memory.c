@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * Support manage two slices memory;
  * the memory is in ep side, so the address is in ep pcie axi master view
@@ -40,8 +40,8 @@
 /* aggress as follows: the first slice is slice_0, another is slice_1 */
 #define MAX_TASK_NUM	16
 #define MIN_TASK_ID	1
-#define S0_BLOCK_CNT	48
-#define S1_BLOCK_CNT	48
+#define S0_BLOCK_CNT	47
+#define S1_BLOCK_CNT	47
 #define CHUNK_SIZE	0x1000
 
 #define SLICE0_INDEX	0

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * This is vc8000d management driver for Linux.
  * vc8000d is a video decoder, has two slices, every slice has two cores.
@@ -485,38 +485,38 @@ int vc8000d_core_reset(struct cb_tranx_t *tdev, int core_id)
 	mutex_lock(&tdev->reset_lock);
 	vcdbase = tdev->bar2_virt + VCD_SLICE0_A_OFF;
 	switch (core_id) {
-		case 0:
-			if (vcd_a_sft_reset(tdev, 0))
-				goto out;
-			ccm_write(tdev, 0x100A4, 0xFFFFFFFF);
-			if (vcd_a_sft_release(tdev, vcdbase, 0))
-				goto out;
-			break;
-		case 1:
-			if (vcd_b_sft_reset(tdev, 0))
-				goto out;
-			ccm_write(tdev, 0x100AC, 0xFFFFFFFF);
-			if (vcd_b_sft_release(tdev, vcdbase, 0))
-				goto out;
-			break;
-		case 2:
-			if (vcd_a_sft_reset(tdev, 1))
-				goto out;
-			ccm_write(tdev, 0x10114, 0xFFFFFFFF);
-			if (vcd_a_sft_release(tdev, vcdbase, 1))
-				goto out;
-			break;
-		case 3:
-			if (vcd_b_sft_reset(tdev, 1))
-				goto out;
-			ccm_write(tdev, 0x1011C, 0xFFFFFFFF);
-			if (vcd_b_sft_release(tdev, vcdbase, 1))
-				goto out;
-			break;
-		default:
+	case 0:
+		if (vcd_a_sft_reset(tdev, 0))
 			goto out;
+		ccm_write(tdev, 0x100A4, 0xFFFFFFFF);
+		if (vcd_a_sft_release(tdev, vcdbase, 0))
+			goto out;
+		break;
+	case 1:
+		if (vcd_b_sft_reset(tdev, 0))
+			goto out;
+		ccm_write(tdev, 0x100AC, 0xFFFFFFFF);
+		if (vcd_b_sft_release(tdev, vcdbase, 0))
+			goto out;
+		break;
+	case 2:
+		if (vcd_a_sft_reset(tdev, 1))
+			goto out;
+		ccm_write(tdev, 0x10114, 0xFFFFFFFF);
+		if (vcd_a_sft_release(tdev, vcdbase, 1))
+			goto out;
+		break;
+	case 3:
+		if (vcd_b_sft_reset(tdev, 1))
+			goto out;
+		ccm_write(tdev, 0x1011C, 0xFFFFFFFF);
+		if (vcd_b_sft_release(tdev, vcdbase, 1))
+			goto out;
+		break;
+	default:
+		goto out;
 	}
-	trans_dbg(tdev, TR_DBG,
+	trans_dbg(tdev, TR_NOTICE,
 		"vc8000d: %s core %d reset done.\n", __func__, core_id);
 	ret = 0;
 out:
@@ -892,19 +892,18 @@ static void vc8000d_release_core(struct vc8000d_t *tvcd,
 			"vc8000d: %s, abnorm exit, wait core_%d 50ms for ip done, core status:%s\n",
 			__func__, id, core_status[tvcd->core[id].core_status]);
 		if (id == 0) {
-			tedma->tc_info[0].status = 0x11; /* done flag */
+			tedma->tc_info[0].status = TC_EDMA_DONE; /* done flag */
 			usleep_range(50000, 60000);
 		} else if (id == 2) {
-			tedma->tc_info[1].status = 0x11; /* done flag */
+			tedma->tc_info[1].status = TC_EDMA_DONE; /* done flag */
 			usleep_range(50000, 60000);
 		}
 
 		vc8000d_core_reset(tvcd->tdev, id);
-		if (id == 0) {
+		if (id == 0)
 			tcache_subsys_reset(tvcd->tdev, 0);
-		} else if (id == 2) {
+		else if (id == 2)
 			tcache_subsys_reset(tvcd->tdev, 1);
-		}
 		tvcd->tdev->hw_err_flag = 0;
 	}
 
@@ -920,14 +919,19 @@ static void vc8000d_release_core(struct vc8000d_t *tvcd,
 	status = readl(tvcd->core[id].hwregs + VCD_IRQ_STAT_OFF);
 	if (status & VCD_DEC_E) {
 		trans_dbg(tvcd->tdev, TR_ERR,
-			"vc8000d: core:%d status is enabled, force reset; status=0x%x, reg[21]=0x%x reg[3]=0x%x, filp=%p\n",
-			id, status,
-			readl(tvcd->core[id].hwregs + VCD_VLC_CODE_LEN_OFF),
-			readl(tvcd->core[id].hwregs + VCD_CTRL_REG3_OFF),
-			filp);
-		/* abort decoder */
-		status |= VCD_DEC_ABORT | VCD_DEC_IRQ_DISABLE;
-		writel(status, tvcd->core[id].hwregs + VCD_IRQ_STAT_OFF);
+			"vc8000d: core:%d status is enabled, wait 50ms\n", id);
+		usleep_range(50000, 60000);
+		status = readl(tvcd->core[id].hwregs + VCD_IRQ_STAT_OFF);
+		if (status & VCD_DEC_E) {
+			trans_dbg(tvcd->tdev, TR_ERR,
+				"vc8000d: after waiting 50ms,core:%d still is enabled, force reset; status=0x%x, reg[21]=0x%x reg[3]=0x%x\n",
+				id, status,
+				readl(tvcd->core[id].hwregs + VCD_VLC_CODE_LEN_OFF),
+				readl(tvcd->core[id].hwregs + VCD_CTRL_REG3_OFF));
+			/* abort decoder */
+			status |= VCD_DEC_ABORT | VCD_DEC_IRQ_DISABLE;
+			writel(status, tvcd->core[id].hwregs + VCD_IRQ_STAT_OFF);
+		}
 	}
 
 	if (id == 0) {
@@ -1057,7 +1061,7 @@ static ssize_t dec_reset_store(struct device *dev,
 		return -1;
 	}
 
-	trans_dbg(tdev, TR_ERR, "vc8000d: manual reset vc8000d:%d\n",id );
+	trans_dbg(tdev, TR_ERR, "vc8000d: manual reset vc8000d:%d\n", id);
 	vcd_enable_clock(tvcd, id);
 	vc8000d_core_reset(tdev, id);
 
@@ -1182,10 +1186,10 @@ static int vc8000d_wait_core_ready(struct vc8000d_t *tvcd,
 	int ret;
 
 	ret = wait_event_interruptible(tvcd->dec_wait_queue,
-				       check_core_irq(tvcd, filp, id));
+					check_core_irq(tvcd, filp, id));
 	return ret;
 }
-   
+
 irqreturn_t vcd_isr(int index, void *data)
 {
 	int i;

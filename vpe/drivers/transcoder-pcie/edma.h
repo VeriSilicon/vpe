@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  */
 
 #ifndef _CB_EDMA_H_
@@ -10,6 +10,12 @@
 #include <linux/ioctl.h>
 
 #include "common.h"
+
+#define TC_EDMA_RSV		0x00
+#define TC_EDMA_RUNNING		0x01
+#define TC_EDMA_ERROR		0x10
+#define TC_EDMA_DONE		0x11
+
 
 /*
  * This struct record edma performance detail information.

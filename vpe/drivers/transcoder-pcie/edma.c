@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * This is edma transfer driver for Linux.
  */
@@ -25,7 +25,7 @@
 
 /* wait edma done timeout time, unit is ms */
 #ifndef EMULATOR
-#define EDMA_TIMEOUT		300
+#define EDMA_TIMEOUT		500
 #define EDMA_TC_TIMEOUT		(4*1000)
 #else
 #define EDMA_TIMEOUT		(120*1000)
@@ -53,7 +53,6 @@
 #define DMA_NS_DST			(1<<23)
 #define DMA_NS_SRC			(1<<24)
 #define DMA_RO				(1<<25)
-#define DMA_TD				(1<<26)
 #define DMA_TC(x)			((x)<<27)
 #define DMA_AT(x)			((x)<<30)
 
@@ -180,11 +179,6 @@
 #define TC_MAX		192
 
 #define EDMA_ERROR_FLAG		0xdeadbeef
-
-#define TC_EDMA_RSV		0x00
-#define TC_EDMA_RUNNING		0x01
-#define TC_EDMA_ERROR		0x10
-#define TC_EDMA_DONE		0x11
 
 
 struct rc_addr_info {
@@ -322,7 +316,7 @@ static int get_edma_channel(u8 direct, struct edma_t *tedma)
 		spin_unlock(&tedma->rc2ep_cs_lock);
 		if (i == 3) {
 			trans_dbg(tedma->tdev, TR_NOTICE,
-				"edma: %s can't get valid channel.\n", __func__);
+				"edma: %s can't get valid channel\n", __func__);
 			return -EFAULT;
 		} else
 			return i;
@@ -340,7 +334,7 @@ static int get_edma_channel(u8 direct, struct edma_t *tedma)
 
 		if (i == 4) {
 			trans_dbg(tedma->tdev, TR_NOTICE,
-				"edma: %s can't get valid channel.\n", __func__);
+				"edma: %s can't get valid channel\n", __func__);
 			return -EFAULT;
 		} else
 			return i;
@@ -434,11 +428,11 @@ static void dump_link_table(struct dma_link_table *table_info, int cnt,
 }
 
 /*
- * return value: 0: edma need reset; 1: maybe lost irq; -EFAULT: hw_err 
+ * return value: 0: edma need reset; 1: maybe lost irq; -EFAULT: hw_err
  */
 static int double_check_edma_status(struct dma_link_table *table_info,
 					int cnt, struct cb_tranx_t *tdev,
-				 	int dir, int c, u8 condition)
+					int dir, int c, u8 condition)
 {
 	u32 src_l, src_h, dst_l, dst_h, size;
 	u32 control, status;
@@ -499,14 +493,15 @@ static int double_check_edma_status(struct dma_link_table *table_info,
 	} else {
 		trans_dbg(tdev, TR_ERR,
 			"edma: %s:%d status=0x%x condition:%d control=0x%x size=0x%x src_reg=0x%lx dst_reg=0x%lx src_tb=0x%lx dst_tb=0x%lx.\n",
-			(dir == EP2RC)?"ep2rc":"rc2ep", c, status, condition, control, size, src_reg, dst_reg, src_tb, dst_tb);
+			(dir == EP2RC)?"ep2rc":"rc2ep", c, status, condition,
+			control, size, src_reg, dst_reg, src_tb, dst_tb);
 		ret = -EFAULT;
 	}
 
 	spin_lock_irqsave(&edma_err_chk->chk_lock, flags);
 	if (edma_err_chk->err_status == 0) {
 		edma_err_chk->err_status = EDMA_ERROR_FLAG;
-		start_hrtimer_us(&edma_err_chk->err_timer, (RESET_TIME*1000)); /* RESET_TIME ms */
+		start_hrtimer_us(&edma_err_chk->err_timer, (RESET_TIME*1000));
 	} else
 		trans_dbg(tedma->tdev, TR_NOTICE,
 			"edma: other %s task has enable edma error flag, c:%d\n",
@@ -624,9 +619,10 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 		c, cnt, edma_info->direct);
 
 	if (tedma->rc2ep_err_chk.err_status == EDMA_ERROR_FLAG) {
-		if (tc_force == 1) { /* for tcache, if tc_force is 1, force run */
+		if (tc_force == 1) {
+			/* for tcache, if tc_force is 1, force run */
 			trans_dbg(tdev, TR_NOTICE,
-				"edma: tcache:%d, rc2ep edma err, but force to continue\n", c/3);
+				"edma: tcache:%d, rc2ep edma err, continue\n", c/3);
 		} else {
 			/* if this channel is used by tcache, return edma error */
 			if ((c == 0) || (c == 3)) {
@@ -644,7 +640,7 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 					return -EFAULT;
 				}
 				trans_dbg(tdev, TR_NOTICE,
-					"edma: wait rc2ep reset done, c:%d.\n", c);
+					"edma: wait rc2ep reset done, c:%d\n", c);
 			}
 		}
 	}
@@ -693,7 +689,7 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 				tedma->wait_condition_r[c], EDMA_TIMEOUT);
 	if (ret == 0) {
 		val = edma_read(tdev, DMA_READ_INT_STATUS_OFF);
-		ctl = edma_read(tdev, DMA_CHN(c)+DMA_CH_CTL1_RD_OFF);
+		ctl = edma_read(tdev, DMA_CHN(c) + DMA_CH_CTL1_RD_OFF);
 
 		/* double check edma status and registers */
 		rv = double_check_edma_status(link_table, cnt, tdev, RC2EP, c,
@@ -705,10 +701,14 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 				c, val, ctl, tedma->wait_condition_r[c]);
 		} else {
 			if (ctl == 0x300) {
+				usleep_range(100000, 105000);
+				ctl = edma_read(tdev, DMA_CHN(c) + DMA_CH_CTL1_RD_OFF);
 				trans_dbg(tdev, TR_ERR,
 					"edma: rc2ep:%d timeout,ctl is 0x%x, only return error\n",
 					c, ctl);
 			} else {
+				usleep_range(100000, 105000);
+				ctl = edma_read(tdev, DMA_CHN(c) + DMA_CH_CTL1_RD_OFF);
 				tdev->hw_err_flag = HW_ERR_FLAG;
 				trans_dbg(tdev, TR_ERR,
 					"edma: rc2ep:%d crash, enable hw_err, status=0x%x,ctl=0x%x,condition=%d\n",
@@ -718,10 +718,13 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 				dump_edma_regs(tdev, "rc2ep", c);
 			}
 		}
-	} else if (ret < 0)
-		trans_dbg(tdev, TR_NOTICE,
-			"edma: rc2ep,wait transmission terminated, c:%d\n", c);
-	else {
+	} else if (ret < 0) {
+		usleep_range(100000, 105000);
+		ctl = edma_read(tdev, DMA_CHN(c) + DMA_CH_CTL1_RD_OFF);
+		if ((ctl&0xfff) != 0x278)
+			trans_dbg(tdev, TR_ERR,
+			"edma: rc2ep terminated, c:%d ctl=0x%x\n", c, ctl);
+	} else {
 		done = 1;
 		atomic64_add(edma_info->size, &tedma->edma_perf.rc2ep_size);
 	}
@@ -855,10 +858,14 @@ static int edma_tranx_ep2rc(struct dma_link_table *table_info,
 				c, val, ctl, tedma->wait_condition_w[c]);
 		} else {
 			if (ctl == 0x300) {
+				usleep_range(100000, 105000);
+				ctl = edma_read(tdev, DMA_CHN(c)+DMA_CH_CTL1_WR_OFF);
 				trans_dbg(tdev, TR_ERR,
 					"edma: ep2rc:%d timeout,ctl is 0x%x, only return error\n",
 					c, ctl);
 			} else {
+				usleep_range(100000, 105000);
+				ctl = edma_read(tdev, DMA_CHN(c)+DMA_CH_CTL1_WR_OFF);
 				tdev->hw_err_flag = HW_ERR_FLAG;
 				trans_dbg(tdev, TR_ERR,
 					"edma: ep2rc:%d crash, enable hw_err,status=0x%x,ctl=0x%x,condition=%d\n",
@@ -868,10 +875,14 @@ static int edma_tranx_ep2rc(struct dma_link_table *table_info,
 				dump_edma_regs(tdev, "ep2rc", c);
 			}
 		}
-	} else if (ret < 0)
-		trans_dbg(tdev, TR_NOTICE,
-			"edma: ep2rc,wait transmission terminated, c:%d\n", c);
-	else {
+	} else if (ret < 0) {
+		usleep_range(100000, 105000);
+		ctl = edma_read(tdev, DMA_CHN(c)+DMA_CH_CTL1_WR_OFF);
+		if ((ctl&0xfff) != 0x278)
+			trans_dbg(tdev, TR_ERR,
+				"edma: ep2rc terminated, c:%d, ctl=0x%x\n",
+				c, ctl);
+	} else {
 		done = 1;
 		atomic64_add(edma_info->size, &tedma->edma_perf.ep2rc_size);
 	}
@@ -1116,6 +1127,7 @@ static int cb_get_dma_addr(struct cb_tranx_t *tdev, unsigned long start,
 	struct scatterlist *sg;
 	struct sg_table sgt;
 	struct page **user_pages;
+	unsigned int flags = FOLL_FORCE;
 
 	if (!len)
 		return -EFAULT;
@@ -1127,11 +1139,18 @@ static int cb_get_dma_addr(struct cb_tranx_t *tdev, unsigned long start,
 		goto out;
 	}
 
+	flags |= FOLL_WRITE;
 	down_read(&current->mm->mmap_sem);
-	rv = get_user_pages(start, page_cnt, FOLL_WRITE, user_pages, NULL);
+	rv = get_user_pages(start, page_cnt, flags, user_pages, NULL);
 	up_read(&current->mm->mmap_sem);
 	if (rv != page_cnt) {
-		trans_dbg(tdev, TR_ERR, "edma: get_user_pages failed:%ld\n", rv);
+		trans_dbg(tdev, TR_ERR,
+			"edma: get_user_pages failed:%ld\n", rv);
+		if (rv > 0) {
+			for (i = 0 ; i < rv ; i++)
+				if (user_pages[i])
+					put_page(user_pages[i]);
+		}
 		rv = -EFAULT;
 		goto out_free_page_mem;
 	}
@@ -1139,7 +1158,8 @@ static int cb_get_dma_addr(struct cb_tranx_t *tdev, unsigned long start,
 	rv = sg_alloc_table_from_pages(&sgt, user_pages, page_cnt,
 				       start & (PAGE_SIZE-1), len, GFP_KERNEL);
 	if (rv) {
-		trans_dbg(tdev, TR_ERR, "edma: alloc sg_table failed:%ld\n", rv);
+		trans_dbg(tdev, TR_ERR,
+			"edma: alloc sg_table failed:%ld\n", rv);
 		rv = -EFAULT;
 		goto out_put_user_pages;
 	}
@@ -1161,7 +1181,8 @@ out_free_sg_table:
 	sg_free_table(&sgt);
 out_put_user_pages:
 	for (i = 0 ; i < page_cnt ; i++)
-		put_page(user_pages[i]);
+		if (user_pages[i])
+			put_page(user_pages[i]);
 out_free_page_mem:
 	vfree(user_pages);
 out:
@@ -1301,7 +1322,7 @@ static int edma_tranx_tcache_mode(struct trans_pcie_edma *edma_info,
 
 		if ((i+1) == edma_info->element_size)
 			ctl |= (DMA_LIE | DMA_RIE);
-		new_table[i].control = ctl ;
+		new_table[i].control = ctl;
 		new_table[i].size = paddr_array.size;
 		new_table[i].sar_high = QWORD_HI(paddr_array.paddr);
 		new_table[i].sar_low = QWORD_LO(paddr_array.paddr);
@@ -1311,7 +1332,7 @@ static int edma_tranx_tcache_mode(struct trans_pcie_edma *edma_info,
 	}
 
 	tedma->tcache_link_size[edma_info->slice] = edma_info->element_size;
-	
+
 #ifndef ENABLE_HANDSHAKE
 	edma_info->element_size =
 		min(tedma->tc_info[edma_info->slice].each_cnt, tedma->tc_info[edma_info->slice].total_element_cnt);
@@ -1370,13 +1391,14 @@ static void pcie_bw_timer_isr(struct timer_list *t)
 irqreturn_t edma_isr(int irq, void *data)
 {
 	u32 val_r, val_w;
-	int i, chn;
+	int i;
 	struct cb_tranx_t *tdev = data;
 	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
 
 	val_r = edma_read(tdev, DMA_READ_INT_STATUS_OFF);
 	if (val_r & ABORT_INT_STATUS) {
-		trans_dbg(tdev, TR_ERR, "edma: edma abort_isr rc2ep:0x%x \n", val_r);
+		trans_dbg(tdev, TR_ERR,
+			"edma: edma abort_isr rc2ep:0x%x \n", val_r);
 		dump_edma_regs(tedma->tdev, "RC2EP", 0);
 	}
 	/* clear read interrupt */
@@ -1384,7 +1406,8 @@ irqreturn_t edma_isr(int irq, void *data)
 
 	val_w = edma_read(tdev, DMA_WRITE_INT_STATUS_OFF);
 	if (val_w & ABORT_INT_STATUS) {
-		trans_dbg(tdev, TR_ERR, "edma: edma abort_isr ep2rc:0x%x \n", val_w);
+		trans_dbg(tdev, TR_ERR,
+			"edma: edma abort_isr ep2rc:0x%x\n", val_w);
 		dump_edma_regs(tedma->tdev, "EP2RC", 0);
 	}
 	/* clear write interrupt */
@@ -1398,49 +1421,6 @@ irqreturn_t edma_isr(int irq, void *data)
 		if ((val_w >> i) & 0x1)
 			tedma->wait_condition_w[i] = 0x1;
 	}
-#if 1
-/* only for test */
-	if (tedma->err_flag) {
-		chn = tedma->err_flag & 0x3;
-		if (tedma->err_flag & 0x100) { //only timeout
-			if (tedma->err_flag & 0x10) { //only ep2rc
-				if ((val_w >> chn) & 0x1) {
-					trans_dbg(tdev, TR_NOTICE,
-						"edma: timeout ep2rc c:%d err_flag:0x%x\n",
-						chn, tedma->err_flag);
-					tedma->err_flag = 0;
-					mdelay(300); // delay 300ms
-				}
-			} else if (tedma->err_flag & 0x20) { //only rc2ep
-				if ((val_r >> chn) & 0x1) {
-					trans_dbg(tdev, TR_NOTICE,
-						"edma: timeout rc2ep c:%d err_flag:0x%x\n",
-						chn, tedma->err_flag);
-					tedma->err_flag = 0;
-					mdelay(300); // delay 200ms
-				}
-			}
-		}  else if (tedma->err_flag & 0x200) {//remove condition
-			if (tedma->err_flag & 0x10) { //only ep2rc
-				if ((val_w >> chn) & 0x1) {
-					trans_dbg(tdev, TR_NOTICE,
-						"edma: remove_c ep2rc c:%d  err_flag:0x%x\n",
-						chn, tedma->err_flag);
-					tedma->err_flag = 0;
-					tedma->wait_condition_w[chn] = 0; // remove condition
-				}
-			} else if (tedma->err_flag & 0x20) { //only rc2ep
-				if ((val_r >> chn) & 0x1) {
-					trans_dbg(tdev, TR_NOTICE,
-						"edma: remove_c rc2ep c:%d  err_flag:0x%x\n",
-						chn, tedma->err_flag);
-					tedma->err_flag = 0;
-					tedma->wait_condition_r[chn] = 0; // remove condition
-				}
-			}
-		}
-	}
-#endif
 	wake_up_interruptible_all(&tedma->queue_wait);
 
 	return IRQ_HANDLED;
@@ -1517,72 +1497,6 @@ static ssize_t pcie_w_bw_show(struct device *dev,
 	return sprintf(buf, "%d\n", tedma->edma_perf.rc2ep_per);
 }
 
-static ssize_t edma_err_test_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf,
-				size_t count)
-{
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
-	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
-	int flag, ret;
-
-	if (count == 0)
-		return 0;
-
-	ret = sscanf(buf, "%x", &flag);
-	if (ret != 1) {
-		trans_dbg(tdev, TR_ERR, "edma: %s ret=%d, input_val:%d\n",
-			  __func__, ret, flag);
-		return -1;
-	}
-	tedma->err_flag = flag;
-
-	return count;
-}
-
-static ssize_t edma_err_test_show(struct device *dev,
-			     struct device_attribute *attr,
-			     char *buf)
-{
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
-	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
-
-	return sprintf(buf, "0x%x\n", tedma->err_flag);
-}
-
-static ssize_t tc_err_test_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf,
-				size_t count)
-{
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
-	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
-	int flag, ret;
-
-	if (count == 0)
-		return 0;
-
-	ret = sscanf(buf, "%x", &flag);
-	if (ret != 1) {
-		trans_dbg(tdev, TR_ERR, "edma: %s ret=%d, input_val:%d\n",
-			  __func__, ret, flag);
-		return -1;
-	}
-	tedma->tc_err_test = flag;
-
-	return count;
-}
-
-static ssize_t tc_err_test_show(struct device *dev,
-			     struct device_attribute *attr,
-			     char *buf)
-{
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
-	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
-
-	return sprintf(buf, "0x%x\n", tedma->tc_err_test);
-}
-
 static ssize_t edma_reset_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf,
@@ -1615,17 +1529,12 @@ static ssize_t edma_reset_store(struct device *dev,
 	return count;
 }
 static DEVICE_ATTR_WO(edma_reset);
-
-static DEVICE_ATTR_RW(tc_err_test);
-static DEVICE_ATTR_RW(edma_err_test);
 static DEVICE_ATTR_RO(pcie_r_bw);
 static DEVICE_ATTR_RO(pcie_w_bw);
 
 static struct attribute *trans_edma_sysfs_entries[] = {
 	&dev_attr_pcie_r_bw.attr,
 	&dev_attr_pcie_w_bw.attr,
-	&dev_attr_edma_err_test.attr,
-	&dev_attr_tc_err_test.attr,
 	&dev_attr_edma_reset.attr,
 	NULL
 };
@@ -1648,7 +1557,8 @@ static int edma_register_irq(struct cb_tranx_t *tdev)
 	return ret;
 }
 
-void print_tc_debug_info(struct cb_tranx_t *tdev, struct tcache_info *tc_info,
+void print_tc_debug_info(struct cb_tranx_t *tdev,
+				struct tcache_info *tc_info,
 				struct dma_link_table  *new_table, int c)
 {
 	int j, i;
@@ -1698,11 +1608,11 @@ static enum hrtimer_restart tcache_timer_isr(struct hrtimer *t)
 		tc_info->chk_rc2ep_err = 0;
 		if (tc_empty && tedma->wait_condition_r[c]) {
 			tc_info->current_index += tc_info->each_cnt;
-			
-			if (tc_info->current_index < tc_info->total_element_cnt) {/* it's not finished for total link table, setup next tranx  */
+
+			if (tc_info->current_index < tc_info->total_element_cnt) {/* it's not finished for total link table, setup next tranx */
 				edma_info.element_size = min((tc_info->total_element_cnt-tc_info->current_index), tc_info->each_cnt);
 				if (!tc_info->retry_flag) {
-					if ((edma_info.element_size + tc_info->current_index) == tc_info->total_element_cnt) { //Last transmission
+					if ((edma_info.element_size + tc_info->current_index) == tc_info->total_element_cnt) { //last transmission
 						for (i = 0; i < 10; i++)
 							tcache_write(tedma->tdev, tc_info->id, (0x1301+i), tc_info->tc_cfg[1][i]);
 					} else {
@@ -1742,25 +1652,24 @@ static enum hrtimer_restart tcache_timer_isr(struct hrtimer *t)
 				tc_info->status = TC_EDMA_DONE;
 				wake_up_interruptible_all(&tedma->queue_wait);
 			}
-		}else {
+		} else {
 			tc_info->timeout_cnt++;
 			if (!tedma->wait_condition_r[c] && (tc_info->timeout_cnt >= EDMA_TIMEOUT)) { /* wait edma done, max EDMA_TIMEOUT ms */
 				trans_dbg(tedma->tdev, TR_NOTICE,
 					"edma: %s_%d, wait edma done %dms timeout, reg_1334=0x%x\n",
 					__func__, tc_info->id, EDMA_TIMEOUT, reg_1334);
 				/* double check edma status and registers */
-				rv = double_check_edma_status(link_table, 
-							      tc_info->cur_element_cnt, 
-							      tedma->tdev, RC2EP, c,
-							      tedma->wait_condition_r[c]);
+				rv = double_check_edma_status(link_table,
+								tc_info->cur_element_cnt,
+								tedma->tdev, RC2EP, c,
+								tedma->wait_condition_r[c]);
 				if (rv == 0) {
 					tedma->wait_condition_r[c] = 1;
 					trans_dbg(tedma->tdev, TR_NOTICE,
 						"edma: %s_%d, wait edma done timeout:%dms, chk regs done,setup %dms timer\n",
 						__func__, tc_info->id, EDMA_TIMEOUT, (RESET_TIME+5));
 					start_hrtimer_us(&tc_info->tc_timer, ((RESET_TIME+5)*1000)); /* timer RESET_TIME+5 ms */
-				}
-				else if (rv == 1) {
+				} else if (rv == 1) {
 					tedma->wait_condition_r[c] = 1;
 					trans_dbg(tedma->tdev, TR_NOTICE,
 						"edma: %s_%d, wait edma done timeout:%dms, lose irq,setup 100us timer\n",
@@ -1841,7 +1750,7 @@ int edma_init(struct cb_tranx_t *tdev)
 	/* disable all edma channel */
 	edma_write(tdev, DMA_READ_ENGINE_EN_OFF, 0x0);
 	edma_write(tdev, DMA_WRITE_ENGINE_EN_OFF, 0x0);
-	
+
 	/* init all write_channel interrupt register */
 	/*  mask all write interrupt */
 	edma_write(tdev, DMA_WRITE_INT_MASK_OFF, MASK_ALL_INTE);
@@ -2003,7 +1912,7 @@ void edma_release(struct cb_tranx_t *tdev)
 
 	hrtimer_cancel(&tedma->ep2rc_err_chk.err_timer);
 	hrtimer_cancel(&tedma->rc2ep_err_chk.err_timer);
-	
+
 	iounmap(tedma->vedma_lt);
 	edma_free_irq(tdev);
 
@@ -2106,7 +2015,7 @@ long edma_ioctl(struct file *filp, unsigned int cmd,
 			trans_dbg(tdev, TR_ERR,
 				"edma: RC2tcache timeout: c:%d,status=0x%x,ctl=0x%x,condition=0x%x\n",
 				c, val, ctl, tedma->wait_condition_r[c]);
-			
+
 			/* double check edma status */
 			if (((DMA_DONE(c)|DMA_ABORT(c)) & val) || tedma->wait_condition_r[c]) {
 				trans_dbg(tdev, TR_NOTICE,
@@ -2127,13 +2036,9 @@ long edma_ioctl(struct file *filp, unsigned int cmd,
 			trans_dbg(tdev, TR_ERR,
 				"edma: RC2tcache timeout: c:%d,status=0x%x,ctl=0x%x,tc_status=0x%x\n",
 				c, val, ctl, tedma->tc_info[slice].status);
-	//		tdev->hw_err_flag = HW_ERR_FLAG;
 			tedma->tc_info[slice].status = TC_EDMA_ERROR;
 			user_table = tedma->vedma_lt + LT_OFF(c);
 			new_table = tedma->tc_info[slice].table_buffer;
-	//		dump_link_table(user_table, tl_s, tdev, "user", 0, "RC2EP", c);
-	//		dump_link_table(new_table, tl_s, tdev, "new", 1, "RC2EP", c);
-	//		dump_edma_regs(tdev, "RC2EP", c);
 #endif
 		} else if (ret < 0)
 			trans_dbg(tdev, TR_NOTICE,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * This is hardware monitor driver for Linux.
  * this driver for monitoring the hardware health.
@@ -295,10 +295,10 @@ MODULE_PARM_DESC(fw,
 	"load zsp firmware flag,1:load; 0:not load; default is 1.");
 
 /* check firmware heartbeat,1:check; 0:not check */
-unsigned int hb = 0;
+unsigned int hb = 1;
 module_param(hb, uint, 0644);
 MODULE_PARM_DESC(hb,
-	"check firmware heartbeat,1:check; 0:not check; default is 0.");
+	"check firmware heartbeat,2:check; 1:not check; default is 1.");
 
 static int send_info_to_zsp(struct hwm_t *thwm, void *data);
 
@@ -1437,7 +1437,7 @@ static void heartbeat_timer_isr(struct timer_list *t)
 {
 	struct hwm_t *thwm = from_timer(thwm, t, hb_timer);
 #endif
-	if (hb == 1) {
+	if (hb == 2) {
 		if (thwm->heartbeat_live)
 			thwm->heartbeat_live = 0;
 		else

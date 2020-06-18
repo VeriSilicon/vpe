@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *  Author: Fengyin Wu <Fengyin.Wu@verisilicon.com>
  *  Author: Huaidong Mo <Huaidong.Mo@verisilicon.com>
  */
@@ -29,7 +29,7 @@
 #include "transcoder.h"
 
 #define description_string	"transcoder driver"
-#define version_string		"2.38"
+#define version_string		"2.40"
 
 #define VENDOR_ID		0x1d9b
 #define DEVICE_ID		0xface

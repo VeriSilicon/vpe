@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 Verisilicon Inc.
+ * Copyright (C) 2020 VeriSilicon Holdings Co., Ltd.
  *
  * This is misc ip management driver for Linux.
  * There are eight types of small ip, we call them misc ip.they are: L2CACH_VCD,
@@ -228,7 +228,8 @@ static inline void check_bar2_addr(struct cb_tranx_t *tdev,
 	if ((addr < tdev->bar2_virt) || (addr > tdev->bar2_virt_end))
 		trans_dbg(tdev, TR_ERR,
 			"%s ip_id=%d bar2_start=0x%p bar2_end=0x%p addr=0x%p\n",
-			__func__, ip_id, tdev->bar2_virt, tdev->bar2_virt_end, addr, ip_id);
+			__func__, ip_id, tdev->bar2_virt,
+			tdev->bar2_virt_end, addr, ip_id);
 }
 
 int tcache_subsys_reset(struct cb_tranx_t *tdev, int slice)
@@ -243,9 +244,8 @@ int tcache_subsys_reset(struct cb_tranx_t *tdev, int slice)
 	mask = slice ? 0x80000000 : 0x40000000;
 	while (round--) {
 		val = ccm_read(tdev, 0x20464);
-		if (val & mask) {
+		if (val & mask)
 			break;
-		}
 		usleep_range(100, 200);
 	}
 	if (round <= 0) {
@@ -263,7 +263,7 @@ int tcache_subsys_reset(struct cb_tranx_t *tdev, int slice)
 	mutex_unlock(&tdev->reset_lock);
 
 	/* clear interrupt status */
-	for (i = 0; i< 10; i++)
+	for (i = 0; i < 10; i++)
 		ccm_write(tdev, 0x10000+0xc4+i*8+slice*0x70, 0xFFFFFFFF);
 
 	trans_dbg(tdev, TR_NOTICE,
@@ -388,7 +388,8 @@ out:
 	return ret;
 }
 
-static void check_core_status(struct cb_tranx_t *tdev, int ip_id, int core_id, char *fun_name, int reg_id)
+static void check_core_status(struct cb_tranx_t *tdev, int ip_id,
+					int core_id, char *fun_name, int reg_id)
 {
 	struct vc8000d_t *tvcd = tdev->modules[TR_MODULE_VC8000D];
 	struct vc8000e_t *tvce = tdev->modules[TR_MODULE_VC8000E];

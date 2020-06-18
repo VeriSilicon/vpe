@@ -325,7 +325,7 @@ static int pp_parse_low_res(VpiPPFilter *filter)
     filter->low_res_num = 0;
 
     if (!filter->low_res)
-        return -1;
+        return 0;
 
     seg_num =
         pp_split_string((char **)&pstrs, MAX_SEG_NUM, filter->low_res, "()");

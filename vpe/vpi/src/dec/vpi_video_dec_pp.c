@@ -96,56 +96,36 @@ VpiRet vpi_dec_parse_ppu_cfg(VpiDecCtx *vpi_ctx, PpUnitConfig *ppu_cfg)
 #endif
 
     // for 1/4 ds 1pass
-    if (vpi_ctx->vce_ds_enable) {
-        if (resizes_num) {
-            VPILOGE("When use vce ds 1pass, don't support other downscaler!\n");
-            return VPI_ERR_VALUE;
+    for (i = pp_count; i < resizes_num; i++) {
+        if (p_resizes[i].x == 0 && p_resizes[i].y == 0 &&
+            p_resizes[i].cw == 0 && p_resizes[i].ch == 0 &&
+            p_resizes[i].sw == 0 && p_resizes[i].sh == 0) {
+            continue;
         }
-        pp_enabled         = 1;
-        ppu_cfg[1].enabled = 1;
-        ppu_cfg[1].tiled_e = 1;
-#ifndef BUILD_CMODEL
-        ppu_cfg[1].align          = 10;
-        ppu_cfg[1].shaper_enabled = 1;
-#endif
-        ppu_cfg[1].scale.enabled = 1;
-        ppu_cfg[1].scale.width   = -2;
-        ppu_cfg[1].scale.height  = -2;
 
-        ppu_cfg[2].enabled = 0;
-        ppu_cfg[3].enabled = 0;
-    } else {
-        for (i = pp_count; i < resizes_num; i++) {
-            if (p_resizes[i].x == 0 && p_resizes[i].y == 0 &&
-                p_resizes[i].cw == 0 && p_resizes[i].ch == 0 &&
-                p_resizes[i].sw == 0 && p_resizes[i].sh == 0) {
-                continue;
-            }
+        VPILOGD("pp %d resize %d get param\n", i, i);
+        pp_enabled                = 1;
+        pp_index                  = i;
+        ppu_cfg[pp_index].enabled = 1;
+        ppu_cfg[pp_index].tiled_e = 1;
 
-            VPILOGD("pp %d resize %d get param\n", i, i);
-            pp_enabled                = 1;
-            pp_index                  = i;
-            ppu_cfg[pp_index].enabled = 1;
-            ppu_cfg[pp_index].tiled_e = 1;
-
-            if (!(p_resizes[i].x == 0 && p_resizes[i].y == 0 &&
-                  p_resizes[i].cw == 0 && p_resizes[i].ch == 0)) {
-                ppu_cfg[pp_index].crop.enabled = 1;
-                ppu_cfg[pp_index].crop.x       = p_resizes[i].x;
-                ppu_cfg[pp_index].crop.y       = p_resizes[i].y;
-                ppu_cfg[pp_index].crop.width   = p_resizes[i].cw;
-                ppu_cfg[pp_index].crop.height  = p_resizes[i].ch;
-            }
-            if (!(p_resizes[i].sw == 0 && p_resizes[i].sh == 0)) {
-                ppu_cfg[pp_index].scale.enabled = 1;
-                ppu_cfg[pp_index].scale.width   = p_resizes[i].sw;
-                ppu_cfg[pp_index].scale.height  = p_resizes[i].sh;
-            }
-#ifndef BUILD_CMODEL
-            ppu_cfg[pp_index].align          = 10;
-            ppu_cfg[pp_index].shaper_enabled = 1;
-#endif
+        if (!(p_resizes[i].x == 0 && p_resizes[i].y == 0 &&
+              p_resizes[i].cw == 0 && p_resizes[i].ch == 0)) {
+            ppu_cfg[pp_index].crop.enabled = 1;
+            ppu_cfg[pp_index].crop.x       = p_resizes[i].x;
+            ppu_cfg[pp_index].crop.y       = p_resizes[i].y;
+            ppu_cfg[pp_index].crop.width   = p_resizes[i].cw;
+            ppu_cfg[pp_index].crop.height  = p_resizes[i].ch;
         }
+        if (!(p_resizes[i].sw == 0 && p_resizes[i].sh == 0)) {
+            ppu_cfg[pp_index].scale.enabled = 1;
+            ppu_cfg[pp_index].scale.width   = p_resizes[i].sw;
+            ppu_cfg[pp_index].scale.height  = p_resizes[i].sh;
+        }
+#ifndef BUILD_CMODEL
+        ppu_cfg[pp_index].align          = 10;
+        ppu_cfg[pp_index].shaper_enabled = 1;
+#endif
     }
 
     vpi_ctx->pp_enabled = pp_enabled;
@@ -288,9 +268,6 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
             VPILOGE("resizes syntax error!\n");
             return VPI_ERR_VALUE;
         }
-    } else {
-        VPILOGD("No valid PP params\n");
-        return VPI_ERR_VALUE;
     }
 
     if (resize_str) {

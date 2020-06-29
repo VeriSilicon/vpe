@@ -1956,6 +1956,8 @@ error_exit:
  */
 int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
 {
+    int ret        = 0;
+    int flush_ret   = 0;
     struct DecPicturePpu *pic_ppu = NULL;
     struct DecPicture *pic_data   = NULL;
     VpiH26xEncInAddr *p_addrs     = NULL;
@@ -1998,8 +2000,6 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
     VCEncIn *p_enc_in     = (VCEncIn *)&(enc_ctx->vpi_h26xe_cfg.enc_in);
     VpiPacket *vpi_packet = (VpiPacket *)output;
 
-    int ret        = 0;
-    int flush_ret   = 0;
     if (enc_ctx->flush_state == VPIH26X_FLUSH_IDLE) {
         if (p_addrs->bus_luma == 0 || p_addrs->bus_chroma == 0) {
             enc_ctx->trans_flush_pic = HANTRO_TRUE;
@@ -2009,23 +2009,19 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
     }
 
     if (enc_ctx->no_input_pict == 1) {
-        /*-1:no valid pict input*/
-        VPILOGE("No data trans from dec, will flush...\n");
+        /*no valid pict input*/
+        VPILOGD("No data trans from dec, will flush...\n");
         enc_ctx->no_input_pict = 0;
         switch (enc_ctx->flush_state) {
         case VPIH26X_FLUSH_IDLE:
             flush_ret = h26x_enc_encode(enc_ctx, p_addrs, enc_out);
-            VPILOGE("+++ vpi_h26xe_ctx.trans_flush_pic = %d\n",
-                    enc_ctx->trans_flush_pic);
-
             if (enc_ctx->trans_flush_pic == HANTRO_TRUE) {
                 enc_ctx->flush_state = VPIH26X_FLUSH_PREPARE;
             }
-            if (flush_ret != VCENC_ERROR) {
+            if (flush_ret > VCENC_ERROR) {
                 if (flush_ret == VCENC_FRAME_READY) {
                     ret = VPI_ENC_FLUSH_IDLE_READY;
-                }
-                if (flush_ret == OK) {
+                }else{
                     ret = VPI_ENC_FLUSH_IDLE_OK;
                 }
             } else {
@@ -2034,14 +2030,14 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
             break;
 
         case VPIH26X_FLUSH_PREPARE:
-            VPILOGE(" VPIH26X_FLUSH_PREPARE \n");
+            VPILOGD(" VPIH26X_FLUSH_PREPARE \n");
             h26x_enc_flush_set(enc_ctx);
             ret = VPI_ENC_FLUSH_PREPARE;
             break;
 
         case VPIH26X_FLUSH_TRANSPIC: /* flush data in dec fifo */
             flush_ret = h26x_enc_encode(enc_ctx, p_addrs, enc_out);
-            VPILOGE("+++ h26x_enc_encode ret = %d, VPIH26X_FLUSH_TRANSPIC \n",
+            VPILOGD("+++ h26x_enc_encode ret = %d, VPIH26X_FLUSH_TRANSPIC \n",
                     flush_ret);
             if (p_addrs->bus_luma == 0 || p_addrs->bus_chroma == 0)
                 enc_ctx->flush_state = VPIH26X_FLUSH_ENCDATA;
@@ -2072,11 +2068,11 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
         case VPIH26X_FLUSH_FINISH:
             if (enc_ctx->encoder_is_end != HANTRO_TRUE) {
                 flush_ret = h26x_enc_end(enc_ctx, enc_out);
-                VPILOGE("+++ h26x_enc_end ret = %d, FLUSH_FINISH \n", flush_ret);
+                VPILOGD("+++ h26x_enc_end ret = %d, FLUSH_FINISH \n", flush_ret);
                 if (flush_ret == VCENC_OK) {
                     ret = VPI_ENC_FLUSH_FINISH_OK;
                 } else {
-                    VPILOGE("h26x_enc_end error. ret = %d\n", ret);
+                    VPILOGD("h26x_enc_end error. ret = %d\n", ret);
                     ret = VPI_ENC_FLUSH_FINISH_ERROR;
                 }
             } else {

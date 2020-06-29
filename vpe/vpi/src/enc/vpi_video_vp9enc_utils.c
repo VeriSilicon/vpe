@@ -2074,11 +2074,19 @@ void vp9enc_get_max_frame_delay(VpiEncVp9Ctx *ctx, VpiFrame *v_frame,
 * output: enc_instance
 * return: o is good, others if input data is NULL or empty
 */
-int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance,
-                                  struct DecPicture *enc_data,
-                                  VpiEncVp9Setting *ecfg)
+int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance, int pp_index,
+                                  VpiFrame *input, VpiEncVp9Setting *ecfg)
 {
-    EncInAddr addrs = { 0, 0, 0, 0 };
+    struct DecPicture *enc_data = NULL;
+    EncInAddr addrs             = { 0, 0, 0, 0 };
+    struct DecPicturePpu *pic = pic = (struct DecPicturePpu *)input->data[0];
+
+    if (pic) {
+        enc_data = &pic->pictures[pp_index];
+        VPILOGD("Dump pic: %ld %ld %ld %ld\n", enc_data->luma.bus_address,
+                enc_data->chroma.bus_address, enc_data->luma_table.bus_address,
+                enc_data->chroma_table.bus_address);
+    }
 
     if (!enc_data) {
         VPILOGE("Input picture is NULL, clean enc_instance buffer\n");
@@ -2100,6 +2108,8 @@ int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance,
         enc_instance->height         = ecfg->lum_height_src;
         enc_instance->encode_width   = ecfg->width;
         enc_instance->encode_height  = ecfg->height;
+        enc_instance->pts            = input->pts;
+        enc_instance->dts            = input->pkt_dts;
         VPILOGD(" busLuma[%p], busCU[%p], busLT[%p],"
                 "busCT[%p],compress=%d,width=%d,height=%d\n",
                 enc_instance->busLuma, enc_instance->busChromaU,

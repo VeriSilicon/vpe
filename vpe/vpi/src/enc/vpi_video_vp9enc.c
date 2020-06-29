@@ -181,8 +181,6 @@ int vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
     VpiEncVp9Setting *cfg       = &ctx->vp9_enc_cfg;
     VP9EncIn *enc_in            = &ctx->enc_in;
     VP9EncInst encoder          = ctx->encoder;
-    struct DecPicturePpu *pic   = NULL;
-    struct DecPicture *enc_data = NULL;
     int pic_width               = cfg->lum_width_src;
     int pic_height              = cfg->lum_height_src;
     int i                       = 0;
@@ -220,18 +218,10 @@ int vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
         }
     }
 
-    pic = (struct DecPicturePpu *)input->data[0];
-    if (pic) {
-        enc_data = &pic->pictures[ctx->pp_index];
-
-        VPILOGD("Dump pic: %ld %ld %ld %ld\n", enc_data->luma.bus_address,
-                enc_data->chroma.bus_address, enc_data->luma_table.bus_address,
-                enc_data->chroma_table.bus_address);
-    }
-    VPILOGD("Input data=%p, picture[%d]=%p\n", pic, ctx->pp_index, enc_data);
-
     if (ctx->loop_condition) {
-        ret = vp9enc_send_buffer_to_encoder(enc_in, enc_data, cfg);
+        ret = vp9enc_send_buffer_to_encoder(enc_in, ctx->pp_index, input, cfg);
+        enc_in->pts = input->pts;
+        enc_in->dts = input->pkt_dts;
         if (ret == 0) {
             ctx->frame_count++;
             ctx->input_real_count++;
@@ -264,8 +254,8 @@ int vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
         !ctx->loop_condition &&
         ctx->frame_count_out == (ctx->input_frm_total + ctx->frame_count);
 
-    VPILOGD("VP9DBG pic %p loop_condition=%d, frame_count_out=%d,input_frm_total=%d, frame_count=%d\n",
-            pic, ctx->loop_condition, ctx->frame_count_out,
+    VPILOGD("VP9DBG loop_condition=%d, frame_count_out=%d,input_frm_total=%d, frame_count=%d\n",
+            ctx->loop_condition, ctx->frame_count_out,
             ctx->input_frm_total, ctx->frame_count);
 
     if (ctx->loop_break) {

@@ -252,7 +252,6 @@ typedef struct {
     int next;
     int poc;
     int pp_index;
-    int draining_set_flag;
     unsigned int initialized;
     bool encoder_is_open;
     unsigned long total_bits;
@@ -265,7 +264,6 @@ typedef struct {
     unsigned int tile_pos[16];
     unsigned int tile_cols;
 
-    int inter_draining_cnt;
     unsigned int in_width;
     unsigned int in_height;
 

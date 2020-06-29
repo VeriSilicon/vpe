@@ -118,8 +118,7 @@ void vp9enc_statistic(VpiEncVp9Ctx *ctx);
 void vp9enc_hw_performance(VpiEncVp9Ctx *ctx);
 void vp9enc_free_resource(VpiEncVp9Ctx *ctx);
 int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiEncVp9Opition *cfg);
-int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance,
-                                  struct DecPicture *enc_data,
-                                  VpiEncVp9Setting *cfg);
+int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance, int pp_index,
+                                  VpiFrame *input, VpiEncVp9Setting *ecfg);
 
 #endif

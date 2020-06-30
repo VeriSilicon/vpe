@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
---       Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved        --
+--Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved --
 --         Copyright (c) 2011-2014, Google Inc. All rights reserved.          --
 --         Copyright (c) 2007-2010, Hantro OY. All rights reserved.           --
 --                                                                            --
@@ -108,7 +108,7 @@ struct DWLInitParam {
 	int mem_id;
 	int fd;          /* decoder device file */
 	int fd_mem;      /* /dev/mem for mapping */
-	int fd_memalloc; /* linear memory allocator */	
+	int fd_memalloc; /* linear memory allocator */
     int mem_err_test;
 };
 

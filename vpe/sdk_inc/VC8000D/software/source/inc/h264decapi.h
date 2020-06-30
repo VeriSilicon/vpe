@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
---       Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved        --
+--Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved --
 --         Copyright (c) 2011-2014, Google Inc. All rights reserved.          --
 --         Copyright (c) 2007-2010, Hantro OY. All rights reserved.           --
 --                                                                            --
@@ -246,7 +246,7 @@ typedef void H264DecMCStreamConsumed(void *stream, void *p_user_data);
  *  A typename for #H264DecMCConfig_.
  */
 typedef struct H264DecMCConfig_ {
-  u32 mc_enable; 
+  u32 mc_enable;
   /*! Application provided callback for stream buffer processed. */
   H264DecMCStreamConsumed *stream_consumed_callback;
 

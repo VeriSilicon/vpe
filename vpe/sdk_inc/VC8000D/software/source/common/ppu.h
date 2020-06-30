@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
---       Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved        --
+--Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved --
 --                                                                            --
 -- This software is confidential and proprietary and may be used only as      --
 --   expressly authorized by VeriSilicon in a written licensing agreement.    --
@@ -142,15 +142,15 @@ PP_CHROMA_BUF_RES
 PP_LUMA_BUF_RES
 [pp3UV]
 PP_CHROMA_BUF_RES
-bigsea_dummy_space_1KB 
-pp0_Y_dec400_table_8KB 
-pp0_UV_dec400_table_8KB 
-pp1_Y_dec400_table_8KB 
-pp1_UV_dec400_table_8KB 
-pp2_Y_dec400_table_8KB 
-pp2_UV_dec400_table_8KB 
-pp3_Y_dec400_table_8KB 
-pp3_UV_dec400_table_8KB 
+bigsea_dummy_space_1KB
+pp0_Y_dec400_table_8KB
+pp0_UV_dec400_table_8KB
+pp1_Y_dec400_table_8KB
+pp1_UV_dec400_table_8KB
+pp2_Y_dec400_table_8KB
+pp2_UV_dec400_table_8KB
+pp3_Y_dec400_table_8KB
+pp3_UV_dec400_table_8KB
 
 */
 #define BIGSEA_DUMMY_SPACE 1024

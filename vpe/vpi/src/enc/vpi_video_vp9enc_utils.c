@@ -758,7 +758,8 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
     /* round to 4k to avoid triggering model dram checker */
     outbufSize &= (~4095);
 
-    ret = allocate_hw_linear_mem(encoder, outbufSize, &ctx->outbuff_mem);
+    void *cwl = VP9EncGetCWL(encoder);
+    ret = CWLMallocEpLinear(cwl, outbufSize, &ctx->outbuff_mem);
     if (ret != CWL_OK) {
         VPILOGE("Failed to allocate output buffer!\n");
         return 1;
@@ -806,7 +807,8 @@ void vp9enc_free_resource(VpiEncVp9Ctx *ctx)
     VP9EncInst enc         = ctx->encoder;
 
     VPILOGD("start free resource!!\n");
-    free_hw_linear_mem(enc, &ctx->outbuff_mem);
+    void *cwl = VP9EncGetCWL(enc);
+    CWLFreeEpLinear(cwl, &ctx->outbuff_mem);
 
     if (ecfg->pp_dump) {
         free_hw_pic_mem(enc, &ctx->scaled_pic_mem);

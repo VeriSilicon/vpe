@@ -93,6 +93,7 @@ extern "C" {
  * and be ready when core has finished
  */
 #define MAX_STRM_BUFFERS (MAX_ASIC_CORES + 1)
+#define MAX_PTS_DTS_DEPTH 36
 
 #ifdef FB_SYSLOG_ENABLE
 #include "syslog_sink.h"
@@ -269,7 +270,7 @@ typedef struct VpiDecCtx {
     uint32_t stream_mem_used[MAX_STRM_BUFFERS];
     BufLink *strm_buf_head;
     BufLink *strm_buf_list[MAX_STRM_BUFFERS];
-    TimeStampInfo time_stamp_info[MAX_STRM_BUFFERS];
+    TimeStampInfo time_stamp_info[MAX_PTS_DTS_DEPTH];
     uint32_t eos_received;
     uint32_t eos_handled;
     BufLink *rls_strm_buf_head;

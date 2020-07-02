@@ -243,9 +243,10 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     vpi_frame->key_frame =
         (pic->pictures[1].picture_info.pic_coding_type == DEC_PIC_TYPE_I);
 
-    for (i = 0; i < MAX_STRM_BUFFERS; i++) {
-        if (vpi_ctx->time_stamp_info[i].decode_id ==
-            pic->pictures[0].picture_info.decode_id) {
+    for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+        if ((vpi_ctx->time_stamp_info[i].used == 1) &&
+            (vpi_ctx->time_stamp_info[i].decode_id ==
+            pic->pictures[0].picture_info.decode_id)) {
             vpi_frame->pts     = vpi_ctx->time_stamp_info[i].pts;
             vpi_frame->pkt_dts = vpi_ctx->time_stamp_info[i].pkt_dts;
             vpi_ctx->time_stamp_info[i].used = 0;
@@ -253,7 +254,7 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
         }
     }
 
-    if (i == MAX_STRM_BUFFERS) {
+    if (i == MAX_PTS_DTS_DEPTH) {
         vpi_frame->pts     = VDEC_NOPTS_VALUE;
         vpi_frame->pkt_dts = VDEC_NOPTS_VALUE;
     }

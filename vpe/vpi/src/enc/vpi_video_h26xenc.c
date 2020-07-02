@@ -1845,16 +1845,17 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
         max_frames_delay = 17 + options->lookahead_depth;
     } else {
         if (options->gop_size == 0) {
-            max_frames_delay = MAX_GOP_SIZE + 2;
+            /* superfast need store 1 more buf,
+               when 3 outpus(4 outputs total) occur error need exit */
+            max_frames_delay = MAX_GOP_SIZE + 2 + 1;
         } else {
-            max_frames_delay = options->gop_size + 2;
+            max_frames_delay = options->gop_size + 2 + 1;
         }
     }
     if (max_frames_delay > enc_cfg->frame_ctx->max_frames_delay) {
         enc_cfg->frame_ctx->max_frames_delay = max_frames_delay;
     }
     VPILOGD("max_frames_delay = %d\n", enc_cfg->frame_ctx->max_frames_delay);
-
     /* Encoder initialization */
 #ifdef DRV_NEW_ARCH
     vpi_h26xe_cfg->priority = options->priority;

@@ -602,6 +602,7 @@ int vpi_decode_h264_put_packet(VpiDecCtx *vpi_ctx, void *indata)
     }
     vpi_ctx->got_package_number++;
     vpi_ctx->stream_mem_used[idx] = 1;
+    vpi_ctx->duration = vpi_packet->duration;
 
     vpi_ctx->stream_mem_index++;
     if (vpi_ctx->stream_mem_index == vpi_ctx->allocated_buffers) {

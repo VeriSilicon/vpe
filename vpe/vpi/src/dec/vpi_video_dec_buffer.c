@@ -257,7 +257,17 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     if (i == MAX_PTS_DTS_DEPTH) {
         vpi_frame->pts     = VDEC_NOPTS_VALUE;
         vpi_frame->pkt_dts = VDEC_NOPTS_VALUE;
+        VPILOGD("Can't find matched pts/dts\n");
+        return VPI_ERR_VALUE;
     }
+
+    if (vpi_frame->pts == VDEC_NOPTS_VALUE) {
+        vpi_frame->pts = vpi_ctx->pts;
+    } else {
+        vpi_ctx->pts = vpi_frame->pts;
+    }
+    vpi_ctx->pts += vpi_ctx->duration;
+
     VPILOGD("width = %d, height = %d, linesize[0] = %d, key_frame = %d\n",
             vpi_frame->width, vpi_frame->height, vpi_frame->linesize[0],
             vpi_frame->key_frame);

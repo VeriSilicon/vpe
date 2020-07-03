@@ -156,6 +156,7 @@ typedef struct VpiPacket {
     int64_t pkt_dts;
     int32_t index_encoded;
     void *opaque;
+    int64_t duration;
 } VpiPacket;
 
 typedef struct VpiCrop{

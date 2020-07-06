@@ -276,6 +276,7 @@ typedef struct VpiDecCtx {
     BufLink *rls_strm_buf_head;
     BufLink *rls_strm_buf_list[32];
     uint32_t rls_mem_index;
+    int eos_flush;
 
     // dec statistics data
     uint32_t pic_display_number;

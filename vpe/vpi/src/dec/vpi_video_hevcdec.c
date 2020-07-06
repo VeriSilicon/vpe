@@ -615,6 +615,26 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
         pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
         return 0;
     }
+    if (vpi_packet->size > vpi_ctx->stream_mem[idx].size)
+    {
+        int new_size;
+
+        VPILOGD("packet size is too large(%d > %d @%d), re-allocing\n",
+                 vpi_packet->size, vpi_ctx->stream_mem[idx].size, idx);
+        vpi_ctx->stream_mem[idx].virtual_address = NULL;
+        DWLFreeLinear(vpi_ctx->dwl_inst, &vpi_ctx->stream_mem[idx]);
+        //alloc again
+        vpi_ctx->stream_mem[idx].mem_type = DWL_MEM_TYPE_DPB;
+        new_size = NEXT_MULTIPLE(vpi_packet->size, 0x10000);
+        if(DWLMallocLinear(vpi_ctx->dwl_inst, new_size,
+                           vpi_ctx->stream_mem + idx) != DWL_OK) {
+            VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
+            H264DecEndOfStream(vpi_ctx->dec_inst,1);
+            return -1;
+        } else {
+            VPILOGD("new alloc size %d\n", new_size);
+        }
+    }
 
     vpi_ctx->strm_buf_list[idx]->mem_idx   = vpi_ctx->stream_mem_index;
     vpi_ctx->strm_buf_list[idx]->item_size = vpi_packet->size;
@@ -902,14 +922,16 @@ int vpi_decode_hevc_dec_frame(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
             /* Increment decoding number for every decoded picture */
             vpi_ctx->pic_decode_number++;
             vpi_ctx->dec_output.data_left = 0;
+            break;
         case DEC_PENDING_FLUSH:
             /* case DEC_FREEZED_PIC_RDY: */
             /* Picture is now ready */
-            vpi_ctx->pic_rdy = 1;
+            vpi_ctx->pic_rdy   = 1;
+            vpi_ctx->eos_flush = 1;
             /* use function HevcDecNextPicture() to obtain next picture
                  * in display order. Function is called until no more images
                  * are ready for display */
-
+            vpi_ctx->dec_output.data_left = 0;
             vpi_ctx->retry = 0;
             break;
         case DEC_STRM_PROCESSED:
@@ -1062,14 +1084,16 @@ static int vpi_decode_hevc_frame_decoding(VpiDecCtx *vpi_ctx)
             /* Increment decoding number for every decoded picture */
             vpi_ctx->pic_decode_number++;
             vpi_ctx->dec_output.data_left = 0;
+            break;
         case DEC_PENDING_FLUSH:
             /* case DEC_FREEZED_PIC_RDY: */
             /* Picture is now ready */
             vpi_ctx->pic_rdy = 1;
+            vpi_ctx->eos_flush = 1;
             /* use function HevcDecNextPicture() to obtain next picture
                  * in display order. Function is called until no more images
                  * are ready for display */
-
+            vpi_ctx->dec_output.data_left = 0;
             vpi_ctx->retry = 0;
             break;
         case DEC_STRM_PROCESSED:
@@ -1095,6 +1119,8 @@ static int vpi_decode_hevc_frame_decoding(VpiDecCtx *vpi_ctx)
         case DEC_NO_DECODING_BUFFER:
             VPILOGD("---DEC_NO_DECODING_BUFFER---, waiting.....\n");
             return 1;
+        case DEC_RESOLUTION_CHANGE:
+            VPILOGW("hantro decoder NOT SUPPORT header changing in sequence\n");
         default:
             VPILOGE("FATAL ERROR: %d\n", ret);
             return -1;
@@ -1117,7 +1143,7 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
         pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
         return 0;
     }
-    if (vpi_ctx->eos_received == 1) {
+    if (vpi_ctx->eos_received == 1 || vpi_ctx->eos_flush == 1) {
         if (vpi_ctx->strm_buf_head && vpi_ctx->strm_buf_head->item_size == 0) {
             // The last frame packet
             HevcDecEndOfStream(vpi_ctx->dec_inst);
@@ -1180,16 +1206,6 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
 
     vpi_packet.data = (uint8_t *)vpi_ctx->strm_buf_head->item;
     vpi_packet.size = vpi_ctx->strm_buf_head->item_size;
-    if (vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].logical_size <
-        vpi_packet.size) {
-        VPILOGE("packet size %d is larger than stream mem size %d\n",
-                vpi_packet.size,
-                vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx]
-                    .logical_size);
-        vpi_packet.size =
-            vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].logical_size;
-    }
-
     vpi_send_packet_to_decode_buffer(vpi_ctx, &vpi_packet,
                         vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx]);
     vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].virtual_address =

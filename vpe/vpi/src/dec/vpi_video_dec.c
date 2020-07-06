@@ -171,7 +171,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         size = 4096 * 1165;
     } else {
         //size = vpi_ctx->max_strm_len;
-        size = 3 * 1024 * 1024;
+        size = 1 * 1024 * 1024;
     }
 
     for (i = 0; i < vpi_ctx->allocated_buffers; i++) {

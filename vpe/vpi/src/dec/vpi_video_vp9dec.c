@@ -440,6 +440,26 @@ int vpi_decode_vp9_put_packet(VpiDecCtx *vpi_ctx, void *indata)
         pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
         return 0;
     }
+    if (vpi_packet->size > vpi_ctx->stream_mem[idx].size)
+    {
+        int new_size;
+
+        VPILOGD("packet size is too large(%d > %d @%d), re-allocing\n",
+                 vpi_packet->size, vpi_ctx->stream_mem[idx].size, idx);
+        vpi_ctx->stream_mem[idx].virtual_address = NULL;
+        DWLFreeLinear(vpi_ctx->dwl_inst, &vpi_ctx->stream_mem[idx]);
+        //alloc again
+        vpi_ctx->stream_mem[idx].mem_type = DWL_MEM_TYPE_DPB;
+        new_size = NEXT_MULTIPLE(vpi_packet->size, 0x10000);
+        if(DWLMallocLinear(vpi_ctx->dwl_inst, new_size,
+                           vpi_ctx->stream_mem + idx) != DWL_OK) {
+            VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
+            H264DecEndOfStream(vpi_ctx->dec_inst,1);
+            return -1;
+        } else {
+            VPILOGD("new alloc size %d\n", new_size);
+        }
+    }
 
     vpi_ctx->strm_buf_list[idx]->mem_idx   = vpi_ctx->stream_mem_index;
     vpi_ctx->strm_buf_list[idx]->item_size = vpi_packet->size;
@@ -1292,14 +1312,6 @@ int vpi_decode_vp9_dec_process(VpiDecCtx *vpi_ctx)
 
     vpi_packet.data = (uint8_t *)vpi_ctx->strm_buf_head->item;
     vpi_packet.size = vpi_ctx->strm_buf_head->item_size;
-    if (vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].logical_size <
-        vpi_packet.size) {
-        VPILOGE("packet size %d is larger than stream mem size %d\n",
-                vpi_packet.size,
-                vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].logical_size);
-        vpi_packet.size =
-            vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].logical_size;
-    }
     vpi_send_packet_to_decode_buffer(vpi_ctx, &vpi_packet,
                         vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx]);
     vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].virtual_address =

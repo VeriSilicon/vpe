@@ -20,6 +20,7 @@ The enc_params parameter fully follow FFmpeg rule, for example:
 |sei|                       INT|    -|      -|  enable SEI messages.|
 |disable_cabac|             INT|    0|      1|  disable cabac, use cavlc.|
 |slice_size|                INT|    0|      -|  slice size in number of CTU rows. (default [0], 0..height/ctu_size)0 - to encode each picture in one slice1..height/ctu_size - to each slice with N CTU row|
+|tol_moving_bitrate|        INT|    0|   2000|  percent tolerance over target bitrate of moving bit rate (default [2000], 0..2000%%).|
 | bit_var_range_I|          INT|    10| 10000|  percent variations over average bits per frame for I frame. (default [10000], 10..10000%%).|
 | bit_var_range_P|          INT|    10| 10000|  percent variations over average bits per frame for P frame. (default [10000], 10..10000%%).|
 | bit_var_range_B|          INT|    10| 10000|  percent variations over average bits per frame for B frame. (default [10000], 10..10000%%).|

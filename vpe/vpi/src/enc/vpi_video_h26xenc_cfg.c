@@ -181,7 +181,6 @@ static int h26x_enc_set_default_opt(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     }
 
     options->bit_per_second                      = DEFAULT;
-    options->tol_moving_bitrate                  = 2000;
     options->monitor_frames                      = DEFAULT;
     options->u32_static_scene_ibit_percent       = 80;
     options->disable_deblocking                  = 0;

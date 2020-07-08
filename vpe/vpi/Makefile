@@ -99,6 +99,10 @@ ifeq ($(PERFORMANCE),y)
 CFLAGS += -DFB_PERFORMANCE_STATIC
 endif
 
+ifeq ($(CHECK_MEM_LEAK), y)
+CFLAGS += -DCHECK_MEM_LEAK_TRANS
+endif
+
 all: $(OBJS)
 	  $(CC) $(DEBFLAGS) -shared -fPIC -o $(TARGET) $(OBJS) $(LDFLAGS) $(LIBS)
 

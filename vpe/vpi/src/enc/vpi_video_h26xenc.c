@@ -247,8 +247,11 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
 #endif
 #endif
     VPILOGE("\n+++ cfg.w = %d, cfg.h = %d\n", cfg.width, cfg.height);
-
+#ifdef CHECK_MEM_LEAK_TRANS
+    cfg.perf = EWLcalloc(1, sizeof(ENCPERF));
+#else
     cfg.perf = calloc(1, sizeof(ENCPERF));
+#endif
     if (cfg.perf) {
         ENCPERF *perf       = cfg.perf;
         vpi_h26xe_cfg->perf = perf;
@@ -1048,7 +1051,11 @@ static void h26x_enc_close_encoder(VCEncInst encoder,
         PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vce_total);
         PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vce_total);
 #endif
+#ifdef CHECK_MEM_LEAK_TRANS
+        EWLfree(vpi_h26xe_cfg->perf);
+#else
         free(vpi_h26xe_cfg->perf);
+#endif
     }
 }
 
@@ -1648,7 +1655,11 @@ static int h26x_enc_encode(struct VpiH26xEncCtx *enc_ctx,
  *              * we disable the user data and free the memory after
  *                           * first frame has been encoded. */
             VCEncSetSeiUserData(enc_ctx->hantro_encoder, NULL, 0);
+#ifdef CHECK_MEM_LEAK_TRANS
+            EWLfree(enc_ctx->p_user_data);
+#else
             free(enc_ctx->p_user_data);
+#endif
             enc_ctx->p_user_data = NULL;
         }
         break;

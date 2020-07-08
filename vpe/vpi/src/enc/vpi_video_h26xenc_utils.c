@@ -534,8 +534,13 @@ static i32 copy_qp_delta_2_memory(VPIH26xEncOptions *options, VCEncInst enc,
     i32 line_idx = 0, i;
     i32 qpdelta, qptype, qpdelta_num = 0;
     char *rowbufferptr;
+#ifdef CHECK_MEM_LEAK_TRANS
+    char *ach_parser_buffer =
+        (char *)EWLmalloc(sizeof(char) * MAX_LINE_LENGTH_BLOCK);
+#else
     char *ach_parser_buffer =
         (char *)malloc(sizeof(char) * MAX_LINE_LENGTH_BLOCK);
+#endif
 
     if (ach_parser_buffer == NULL) {
         ENC_TB_ERROR_PRINT("Qp delta config Error: fail to alloc buffer!\n");
@@ -634,8 +639,13 @@ copyEnd:
                           vpi_h26xe_cfg->roi_map_delta_qp_mem->size))
         ret = NOK;
 #endif
-    if (ach_parser_buffer)
+    if (ach_parser_buffer) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        EWLfree(ach_parser_buffer);
+#else
         free(ach_parser_buffer);
+#endif
+    }
     return ret;
 }
 
@@ -2709,7 +2719,11 @@ u8 *read_userdata(VCEncInst encoder, char *name)
         byteCnt = 2048;
 
     /* Allocate memory for user data */
+#ifdef CHECK_MEM_LEAK_TRANS
+    if ((data = (u8 *)EWLmalloc(sizeof(u8) * byteCnt)) == NULL) {
+#else
     if ((data = (u8 *)malloc(sizeof(u8) * byteCnt)) == NULL) {
+#endif
         fclose(file);
         ENC_TB_ERROR_PRINT("Unable to alloc User Data memory\n");
         return NULL;

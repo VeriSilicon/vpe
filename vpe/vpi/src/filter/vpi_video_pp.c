@@ -127,8 +127,12 @@ static i32 pp_mwl_release(const void *instance)
         if (mwl->fd_memalloc > 0) {
             TranscodeCloseFD(mwl->fd_memalloc);
         }
-
+#ifdef CHECK_MEM_LEAK_TRANS
+        DWLfree(mwl);
+#else
         free(mwl);
+#endif
+        mwl = NULL;
     }
     return 0;
 }
@@ -136,7 +140,11 @@ static i32 pp_mwl_release(const void *instance)
 static void *pp_mwl_init(VpiMwlInitParam *param)
 {
     VpiMwl *mwl;
+#ifdef CHECK_MEM_LEAK_TRANS
+    mwl = (VpiMwl *)DWLcalloc(1, sizeof(VpiMwl));
+#else
     mwl = (VpiMwl *)calloc(1, sizeof(VpiMwl));
+#endif
     if (mwl == NULL) {
         VPILOGE("%s", "failed to alloc struct VpiMwl\n");
         return NULL;
@@ -1448,8 +1456,11 @@ pp_raw_parser_inst pp_raw_parser_open(VpiPixsFmt format, int width, int height)
 {
     VpiRawParser *inst;
     int i;
-
+#ifdef CHECK_MEM_LEAK_TRANS
+    inst = DWLcalloc(1, sizeof(VpiRawParser));
+#else
     inst = calloc(1, sizeof(VpiRawParser));
+#endif
     if (inst == NULL) {
         VPILOGE("alloc failed!\n");
         goto err_exit;
@@ -1566,9 +1577,15 @@ pp_raw_parser_inst pp_raw_parser_open(VpiPixsFmt format, int width, int height)
     return (pp_raw_parser_inst)inst;
 
 err_exit:
-    if (inst)
+    if (inst) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        DWLfree(inst);
+#else
         free(inst);
-    inst = NULL;
+#endif
+        inst = NULL;
+    }
+
     return NULL;
 }
 
@@ -1745,7 +1762,11 @@ static int vpi_ppclient_release(PPClient *pp_client)
         if (pp_client->dwl != NULL)
             DWLRelease(pp_client->dwl);
 
+#ifdef CHECK_MEM_LEAK_TRANS
+        DWLfree(pp_client);
+#else
         free(pp_client);
+#endif
         pp_client = NULL;
     }
     return 0;
@@ -1763,7 +1784,11 @@ static PPClient *pp_client_init(VpiPPParams *params)
     u32 alignh = 2;
     u32 alignw = 2;
 
+#ifdef CHECK_MEM_LEAK_TRANS
+    pp_client = (PPClient *)DWLcalloc(1, sizeof(PPClient));
+#else
     pp_client = (PPClient *)calloc(1, sizeof(PPClient));
+#endif
     if (pp_client == NULL) {
         VPILOGE("pp client malloc failed!!!\n");
         goto err_exit;
@@ -2828,6 +2853,7 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
 {
     VpiPPFilter *filter = &ctx->ppfilter;
     PPClient *pp_client = filter->pp_client;
+    VpiRawParser *inst  = (VpiRawParser *)filter->inst;
 
     if (pp_client != NULL) {
         pp_buf_release(pp_client);
@@ -2835,9 +2861,21 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
 
         if (pp_client->dwl)
             DWLRelease(pp_client->dwl);
-
+#ifdef CHECK_MEM_LEAK_TRANS
+        DWLfree(pp_client);
+#else
         free(pp_client);
+#endif
         filter->pp_client = NULL;
+    }
+
+    if (inst) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        DWLfree(inst);
+#else
+        free(inst);
+#endif
+        filter->inst = NULL;
     }
 
     if (filter->mwl != NULL) {

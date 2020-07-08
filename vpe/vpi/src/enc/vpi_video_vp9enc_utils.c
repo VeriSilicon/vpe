@@ -124,7 +124,11 @@ void vp9enc_test_segmentation(VpiEncVp9Ctx *ctx, int pic_width, int pic_height,
     }
 
     if (!ctx->seg_buf) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        ctx->seg_buf = (u8 *)CWLmalloc(num_sbs * 32 * sizeof(u8));
+#else
         ctx->seg_buf = (u8 *)malloc(num_sbs * 32 * sizeof(u8));
+#endif
     }
 
     segment_ctrl.enable = 1;
@@ -768,7 +772,11 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
     pictureSize =
         ((ecfg->width + 63) & (~63)) * ((ecfg->height + 63) & (~63)) * 3 / 2;
     if (ecfg->frameComp) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        ctx->ref_desc_mem = (u16 *)CWLmalloc(pictureSize * sizeof(u16));
+#else
         ctx->ref_desc_mem = (u16 *)malloc(pictureSize * sizeof(u16));
+#endif
         if (ctx->ref_desc_mem == NULL) {
             VPILOGE("Failed to allocate reference pic_info dump buffer!\n");
             return 1;
@@ -815,16 +823,28 @@ void vp9enc_free_resource(VpiEncVp9Ctx *ctx)
     }
 
     if (ctx->ref_desc_mem) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        CWLfree(ctx->ref_desc_mem);
+#else
         free(ctx->ref_desc_mem);
+#endif
         ctx->ref_desc_mem = NULL;
     }
     if (ctx->rc_twopass_stats_in) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        CWLfree(ctx->rc_twopass_stats_in);
+#else
         free(ctx->rc_twopass_stats_in);
+#endif
         ctx->rc_twopass_stats_in = NULL;
     }
 
     if (ctx->seg_buf) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        CWLfree(ctx->seg_buf);
+#else
         free(ctx->seg_buf);
+#endif
         ctx->seg_buf = 0;
     }
 }

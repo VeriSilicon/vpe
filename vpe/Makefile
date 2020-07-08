@@ -39,7 +39,7 @@ prepare:
 
 vpi: prepare
 	@echo "VPE build step - build VPI"
-	make -C vpi DEBUG=$(DEBUG)
+	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG)
 
 drivers:
 	make -C drivers/transcoder-pcie clean

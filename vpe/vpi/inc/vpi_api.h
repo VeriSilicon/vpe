@@ -57,19 +57,33 @@ int vpi_get_media_proc_struct(VpiMediaProc **media_proc);
 
 /**
  * @brief Create empty context structure and api function pointers.
- *        Use functions in VpiApi to access vpe services.
- * @param ctx pointer of the vpe context
- * @param vpi pointer of the vpe api function
- * @param plugin vpe plugin type
+ *        Use functions in VpiApi to access vpi services.
+ * @param ctx pointer of the vpi context
+ * @param vpi pointer of the vpi api function
+ * @param plugin vpi plugin type
  */
 
 int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin);
 
 /**
- * @brief Destroy vpe context and free both context and vpi structure
- * @param ctx The context of vpe
+ * @brief Destroy vpi context and free both context and vpi structure
+ * @param ctx The context of vpi
  */
 
 int vpi_destroy(VpiCtx ctx);
+
+/**
+ * @brief Open vpi hardware device
+ * @param device The hardware device path
+ */
+
+int vpi_open_hwdevice(const char *device);
+
+/**
+ * @brief Close vpi hardware device
+ * @param fd The device handle
+ */
+
+int vpi_close_hwdevice(int fd);
 
 #endif

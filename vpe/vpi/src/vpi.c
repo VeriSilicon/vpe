@@ -42,14 +42,17 @@
 #include "vpi_video_vp9enc.h"
 
 #include "transcoder.h"
+#include "trans_fd_api.h"
+#include "trans_mem_api.h"
 
 #ifdef FB_SYSLOG_ENABLE
 #include "syslog_sink.h"
 #endif
 
-static VpiCodecCtx *vpi_codec_ctx      = NULL;
-static VpiHwCtx *vpi_hw_ctx = NULL;
-static int log_enabled      = 0;
+static VpiCodecCtx *vpi_codec_ctx = NULL;
+static VpiHwCtx *vpi_hw_ctx       = NULL;
+static int log_enabled            = 0;
+static char *device_name          = NULL;
 
 static int vpi_init(VpiCtx vpe_ctx, void *cfg)
 {
@@ -66,7 +69,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_ctx = (VpiDecCtx *)vpe_vpi_ctx->ctx;
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
         dec_ctx->dec_fmt      = Dec_H264_H10P;
-        dec_option->dev_name  = vpi_hw_ctx->device_name;
+        dec_option->dev_name  = device_name;
         dec_option->task_id   = vpi_hw_ctx->task_id;
         dec_option->priority  = vpi_hw_ctx->priority;
         ret                   = vpi_vdec_init(dec_ctx, dec_option);
@@ -76,7 +79,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_ctx = (VpiDecCtx *)vpe_vpi_ctx->ctx;
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
         dec_ctx->dec_fmt      = Dec_HEVC;
-        dec_option->dev_name  = vpi_hw_ctx->device_name;
+        dec_option->dev_name  = device_name;
         dec_option->task_id   = vpi_hw_ctx->task_id;
         dec_option->priority  = vpi_hw_ctx->priority;
         ret                   = vpi_vdec_init(dec_ctx, cfg);
@@ -86,7 +89,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_ctx = (VpiDecCtx *)vpe_vpi_ctx->ctx;
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
         dec_ctx->dec_fmt      = Dec_VP9;
-        dec_option->dev_name  = vpi_hw_ctx->device_name;
+        dec_option->dev_name  = device_name;
         dec_option->task_id   = vpi_hw_ctx->task_id;
         dec_option->priority  = vpi_hw_ctx->priority;
         ret                   = vpi_vdec_init(dec_ctx, cfg);
@@ -96,7 +99,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
         VpiH26xEncCfg *h26x_enc_cfg         = (VpiH26xEncCfg *)cfg;
         h26x_enc_cfg->priority           = vpi_hw_ctx->priority;
-        h26x_enc_cfg->device             = vpi_hw_ctx->device_name;
+        h26x_enc_cfg->device             = device_name;
         h26x_enc_cfg->frame_ctx->task_id = vpi_hw_ctx->task_id;
         ret                              = vpi_h26xe_init(h26xenc_ctx, h26x_enc_cfg);
         break;
@@ -105,7 +108,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         vp9enc_ctx                    = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
         VpiEncVp9Opition *vp9_enc_cfg = (VpiEncVp9Opition *)cfg;
         vp9_enc_cfg->priority         = vpi_hw_ctx->priority;
-        vp9_enc_cfg->dev_name         = vpi_hw_ctx->device_name;
+        vp9_enc_cfg->dev_name         = device_name;
         vp9_enc_cfg->task_id          = vpi_hw_ctx->task_id;
         ret = vpi_venc_vp9_init(vp9enc_ctx, vp9_enc_cfg);
         break;
@@ -130,7 +133,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         prc_ctx->filter_type = FILTER_HW_DOWNLOADER;
         if (vpi_hw_ctx) {
-            vpi_vprc_init(prc_ctx, vpi_hw_ctx->device_name);
+            vpi_vprc_init(prc_ctx, device_name);
         }
         break;
 
@@ -571,7 +574,6 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
                 VPILOGE("get task id failed!\n");
                 return -1;
             }
-            strcpy(vpi_hw_ctx->device_name, vpi_dev_info->device_name);
             vpi_dev_info->task_id = vpi_hw_ctx->task_id;
             vpi_hw_ctx->priority  = vpi_dev_info->priority;
 
@@ -706,4 +708,31 @@ int vpi_destroy(VpiCtx ctx)
     }
 
     return 0;
+}
+
+int vpi_open_hwdevice(const char *device)
+{
+    if (!device_name) {
+        device_name = malloc(sizeof(device));
+        strcpy(device_name, device);
+    }
+
+#ifdef CHECK_MEM_LEAK_TRANS
+    TransCheckMemLeakInit();
+#endif
+
+    return TranscodeOpenFD(device_name, O_RDWR);
+}
+
+int vpi_close_hwdevice(int fd)
+{
+    if (device_name) {
+        free(device_name);
+        device_name = NULL;
+    }
+#ifdef CHECK_MEM_LEAK_TRANS
+    TransCheckMemLeakGotResult();
+#endif
+
+    return TranscodeCloseFD(fd);
 }

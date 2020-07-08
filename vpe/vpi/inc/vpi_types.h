@@ -232,7 +232,6 @@ typedef struct VpiFrame {
 
 typedef struct VpiSysInfo {
     int device;
-    char *device_name;
     int sys_log_level;
     int task_id;
     int priority;

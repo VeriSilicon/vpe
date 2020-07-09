@@ -642,13 +642,9 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
     vpi_ctx->strm_buf_list[idx]->opaque    = vpi_packet->opaque;
     vpi_dec_buf_list_add(&vpi_ctx->strm_buf_head, vpi_ctx->strm_buf_list[idx]);
 
-    for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
-        if (vpi_ctx->time_stamp_info[i].used == 0) {
-            vpi_ctx->time_stamp_info[i].pts = vpi_packet->pts;
-            vpi_ctx->time_stamp_info[i].pkt_dts = vpi_packet->pkt_dts;
-            vpi_ctx->time_stamp_info[i].decode_id = vpi_ctx->got_package_number + 1;
-            vpi_ctx->time_stamp_info[i].used = 1;
-            break;
+    if (vpi_packet->size > 0) {
+        if (vpi_dec_set_pts_dts(vpi_ctx, vpi_packet) == -1) {
+            return -1;
         }
     }
     vpi_ctx->got_package_number++;
@@ -1100,8 +1096,9 @@ static int vpi_decode_hevc_frame_decoding(VpiDecCtx *vpi_ctx)
         case DEC_NONREF_PIC_SKIPPED:
         case DEC_STRM_ERROR:
             /* Used to indicate that picture decoding needs to
-                 * finalized prior to corrupting next picture
-                 */
+             * finalized prior to corrupting next picture
+             */
+            vpi_ctx->dec_output.data_left = 0;
             break;
         case DEC_WAITING_FOR_BUFFER:
 #ifdef USE_EXTERNAL_BUFFER

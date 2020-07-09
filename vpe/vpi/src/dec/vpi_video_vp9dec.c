@@ -467,13 +467,9 @@ int vpi_decode_vp9_put_packet(VpiDecCtx *vpi_ctx, void *indata)
     vpi_ctx->strm_buf_list[idx]->opaque    = vpi_packet->opaque;
     vpi_dec_buf_list_add(&vpi_ctx->strm_buf_head, vpi_ctx->strm_buf_list[idx]);
 
-    for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
-        if (vpi_ctx->time_stamp_info[i].used == 0) {
-            vpi_ctx->time_stamp_info[i].pts = vpi_packet->pts;
-            vpi_ctx->time_stamp_info[i].pkt_dts = vpi_packet->pkt_dts;
-            vpi_ctx->time_stamp_info[i].decode_id = vpi_ctx->got_package_number + 1;
-            vpi_ctx->time_stamp_info[i].used = 1;
-            break;
+    if (vpi_packet->size > 0) {
+        if (vpi_dec_set_pts_dts(vpi_ctx, vpi_packet) == -1) {
+            return -1;
         }
     }
     vpi_ctx->got_package_number++;

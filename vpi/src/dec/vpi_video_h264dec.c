@@ -645,16 +645,18 @@ int vpi_decode_h264_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
         return 2;
     }
 
-    vpi_ctx->max_frames_delay = vpi_ctx->frame->max_frames_delay;
-    ret = vpi_dec_check_buffer_number_for_trans(vpi_ctx);
-    if (ret == 1) {
-        if (vpi_ctx->waiting_for_dpb == 1) {
-            pthread_cond_signal(&vpi_ctx->dec_thread_cond);
-            vpi_ctx->waiting_for_dpb = 0;
-        }
-    } else if (ret == -1) {
-        pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
-        return 2;
+    if (vpi_ctx->enc_type != VPI_ENC_NONE) {
+        vpi_ctx->max_frames_delay = vpi_ctx->frame->max_frames_delay;
+        ret = vpi_dec_check_buffer_number_for_trans(vpi_ctx);
+        if (ret == 1) {
+            if (vpi_ctx->waiting_for_dpb == 1) {
+                pthread_cond_signal(&vpi_ctx->dec_thread_cond);
+                vpi_ctx->waiting_for_dpb = 0;
+            }
+        } else if (ret == -1) {
+            pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
+            return 2;
+    }
     }
 
     if (NULL == vpi_ctx->frame_buf_head) {
@@ -838,7 +840,7 @@ static int vpi_decode_h264_frame_decoding(VpiDecCtx *vpi_ctx)
         case DEC_PIC_DECODED:
             /* lint -esym(644,tmp_image,pic_size) variable initialized at
                  * DEC_HDRS_RDY_BUFF_NOT_EMPTY case */
-
+            vpi_ctx->h264_dec_output.data_left = 0;
             if (ret == DEC_PIC_DECODED) {
                 vpi_ctx->h264_dec_output.data_left = 0;
                 /* If enough pictures decoded -> force decoding to err_exit
@@ -886,6 +888,12 @@ static int vpi_decode_h264_frame_decoding(VpiDecCtx *vpi_ctx)
             VPILOGE("FATAL ERROR: %d\n", ret);
             return -1;
         }
+        vpi_ctx->h264_dec_input.stream =
+            vpi_ctx->h264_dec_output.strm_curr_pos;
+        vpi_ctx->h264_dec_input.stream_bus_address =
+            vpi_ctx->h264_dec_output.strm_curr_bus_address;
+        vpi_ctx->h264_dec_input.data_len =
+            vpi_ctx->h264_dec_output.data_left;
     } while (vpi_ctx->h264_dec_output.data_left);
 
     return 0;
@@ -977,8 +985,10 @@ int vpi_decode_h264_dec_process(VpiDecCtx *vpi_ctx)
         vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].bus_address;
     vpi_ctx->h264_dec_input.data_len = vpi_ctx->strm_buf_head->item_size;
     VPILOGD("set to stream_mem_index %d\n", vpi_ctx->strm_buf_head->mem_idx);
-    if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
-        return -1;
+    if (vpi_ctx->enc_type != VPI_ENC_NONE) {
+        if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
+            return -1;
+        }
     }
 
     do {
@@ -1127,8 +1137,10 @@ int vpi_decode_h264_dec_frame(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
         vpi_ctx->stream_mem[vpi_ctx->stream_mem_index].bus_address;
     vpi_ctx->h264_dec_input.data_len = vpi_packet->size;
 
-    if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
-        return -1;
+    if (vpi_ctx->enc_type != VPI_ENC_NONE) {
+        if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
+            return -1;
+        }
     }
     do {
         vpi_ctx->h264_dec_input.pic_id = vpi_ctx->pic_decode_number;
@@ -1261,6 +1273,13 @@ int vpi_decode_h264_dec_frame(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
             VPILOGE("FATAL ERROR: %d\n", ret);
             return -1;
         }
+        vpi_ctx->h264_dec_input.stream =
+            vpi_ctx->h264_dec_output.strm_curr_pos;
+        vpi_ctx->h264_dec_input.stream_bus_address =
+            vpi_ctx->h264_dec_output.strm_curr_bus_address;
+        vpi_ctx->h264_dec_input.data_len =
+            vpi_ctx->h264_dec_output.data_left;
+
     } while (vpi_ctx->h264_dec_output.data_left);
 
     ret = vpi_dec_h264_next_picture(vpi_ctx->dec_inst, &vpi_ctx->pic);

@@ -676,16 +676,18 @@ int vpi_decode_hevc_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
         return 2;
     }
 
-    vpi_ctx->max_frames_delay = vpi_ctx->frame->max_frames_delay;
-    ret = vpi_dec_check_buffer_number_for_trans(vpi_ctx);
-    if (ret == 1) {
-        if (vpi_ctx->waiting_for_dpb == 1) {
-            pthread_cond_signal(&vpi_ctx->dec_thread_cond);
-            vpi_ctx->waiting_for_dpb = 0;
+    if (vpi_ctx->enc_type != VPI_ENC_NONE) {
+        vpi_ctx->max_frames_delay = vpi_ctx->frame->max_frames_delay;
+        ret = vpi_dec_check_buffer_number_for_trans(vpi_ctx);
+        if (ret == 1) {
+            if (vpi_ctx->waiting_for_dpb == 1) {
+                pthread_cond_signal(&vpi_ctx->dec_thread_cond);
+                vpi_ctx->waiting_for_dpb = 0;
+            }
+        } else if (ret == -1) {
+            pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
+            return 2;
         }
-    } else if (ret == -1) {
-        pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
-        return 2;
     }
 
     if (NULL == vpi_ctx->frame_buf_head) {
@@ -841,8 +843,10 @@ int vpi_decode_hevc_dec_frame(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
         vpi_ctx->stream_mem[vpi_ctx->stream_mem_index].bus_address;
     vpi_ctx->hevc_dec_input.data_len = vpi_packet->size;
 
-    if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1)
-        return -1;
+    if (vpi_ctx->enc_type != VPI_ENC_NONE) {
+        if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1)
+            return -1;
+    }
     do {
         vpi_ctx->hevc_dec_input.pic_id = vpi_ctx->pic_decode_number;
         VPILOGD("hevc_dec_input.data_len = %d\n",
@@ -1215,8 +1219,10 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
     vpi_ctx->hevc_dec_input.data_len = vpi_ctx->strm_buf_head->item_size;
     VPILOGD("decoding stream size %d\n", vpi_ctx->hevc_dec_input.data_len);
 
-    if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1)
-        return -1;
+    if (vpi_ctx->enc_type != VPI_ENC_NONE) {
+        if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1)
+            return -1;
+    }
     do {
         ret = vpi_decode_hevc_frame_decoding(vpi_ctx);
 

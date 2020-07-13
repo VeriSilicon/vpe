@@ -1980,6 +1980,11 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
     p_addrs               = &vpi_h26x_enc_in_addr;
     memset(p_addrs, 0, sizeof(vpi_h26x_enc_in_addr));
     if (enc_ctx->find_pict == 1) {
+        if (enc_ctx->first_pts_flag == 0) {
+            enc_ctx->first_pts      = vpi_frame->pts;
+            enc_ctx->first_pts_flag = 1;
+        }
+
         enc_ctx->find_pict = 0;
 
         pic_ppu  = (struct DecPicturePpu *)vpi_frame->data[0];
@@ -2134,8 +2139,10 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
                 .rc_virtualAddress;
 #endif
         vpi_packet->pts     = enc_out->pts;
-        vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt;
-
+        vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt - 9;
+        if (enc_ctx->first_pts_flag) {
+            vpi_packet->pkt_dts += enc_ctx->first_pts;
+        }
         return ret;
 
     } else {
@@ -2162,7 +2169,10 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
             else
                 vpi_packet->size = enc_out->streamSize;
             vpi_packet->pts     = enc_out->pts;
-            vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt;
+            vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt - 9;
+            if (enc_ctx->first_pts_flag) {
+                vpi_packet->pkt_dts += enc_ctx->first_pts;
+            }
             return ret;
         }
 
@@ -2182,8 +2192,10 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
         else
             vpi_packet->size = enc_out->streamSize;
         vpi_packet->pts     = enc_out->pts;
-        vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt;
-
+        vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt - 9;
+        if (enc_ctx->first_pts_flag) {
+            vpi_packet->pkt_dts += enc_ctx->first_pts;
+        }
         if (ret == VCENC_FRAME_READY) {
             return VPI_ENC_ENC_READY;
         } else if (ret == VCENC_OK) {

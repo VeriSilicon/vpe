@@ -221,6 +221,111 @@ err_exit:
     return -1;
 }
 
+static void dump_dec_pts_dts(VpiDecCtx *vpi_ctx)
+{
+    int i;
+
+    for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+        VPILOGD("dec_pts_dts[%d] %s, pts %ld, dts %ld, id %d\n", i,
+            vpi_ctx->time_stamp_info[i].used ? "used" : "unused",
+            vpi_ctx->time_stamp_info[i].pts,
+            vpi_ctx->time_stamp_info[i].pkt_dts,
+            vpi_ctx->time_stamp_info[i].decode_id);
+    }
+}
+
+int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
+{
+    int i;
+    int empty_index;
+    int pn_count;
+    int frame_index;
+
+    for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+        if (vpi_ctx->time_stamp_info[i].used == 0) {
+            break;
+        }
+    }
+    if (i == MAX_PTS_DTS_DEPTH) {
+        uint32_t min_dec_id;
+        int min_index;
+
+        VPILOGE("No empty pos to store pts/dts\n");
+        min_dec_id = vpi_ctx->time_stamp_info[0].decode_id;
+        min_index = 0;
+        for (i = 1; i < MAX_PTS_DTS_DEPTH; i++) {
+            if (vpi_ctx->time_stamp_info[i].used &&
+                vpi_ctx->time_stamp_info[i].decode_id < min_dec_id) {
+                min_dec_id = vpi_ctx->time_stamp_info[i].decode_id;
+                min_index = i;
+            }
+        }
+        i = min_index;
+        vpi_ctx->time_stamp_info[i].used = 0;
+    }
+    empty_index = i;
+
+    if (pkt->size == 1) {
+        uint8_t marker = pkt->data[0];
+        VPILOGD("marker = 0x%x\n", marker);
+        if (marker & 0x8) {
+            /* PN frame, to find pts -1 */
+            pn_count = 0;
+            for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                if (vpi_ctx->time_stamp_info[i].used == 1 &&
+                    vpi_ctx->time_stamp_info[i].pts == -1) {
+                    if (pn_count == 0)
+                        frame_index = i;
+                    pn_count++;
+                }
+            }
+            if (pn_count == 0) {
+                VPILOGE("can't find match frame\n");
+                return 0;
+            }
+            if (pn_count > 1) {
+                VPILOGE("can't decide match frame\n");
+                goto err_exit;
+            }
+            VPILOGD("frame_index = %d\n", frame_index);
+            vpi_ctx->time_stamp_info[frame_index].pts = pkt->pts;
+            dump_dec_pts_dts(vpi_ctx);
+        } else {
+            VPILOGE("unknow case\n");
+            goto err_exit;
+        }
+    } else {
+        vpi_ctx->time_stamp_info[empty_index].used = 1;
+        if (pkt->pts == vpi_ctx->last_pts &&
+            pkt->pts != VDEC_NOPTS_VALUE &&
+            vpi_ctx->got_package_number != 0) {
+            /* mark before same pts as -1 wait PN frame */
+            for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                if (vpi_ctx->time_stamp_info[i].used == 1 &&
+                    vpi_ctx->time_stamp_info[i].pts == pkt->pts) {
+                    frame_index = i;
+                    break;
+                }
+            }
+            if (i >= MAX_PTS_DTS_DEPTH) {
+                VPILOGE("can't find last same pts\n");
+                goto err_exit;
+            }
+            vpi_ctx->time_stamp_info[frame_index].pts = -1;
+        }
+        vpi_ctx->time_stamp_info[empty_index].pts       = pkt->pts;
+        vpi_ctx->time_stamp_info[empty_index].pkt_dts   = pkt->pkt_dts;
+        vpi_ctx->time_stamp_info[empty_index].decode_id =
+                                vpi_ctx->got_package_number + 1;
+        vpi_ctx->last_pts = pkt->pts;
+    }
+    return 0;
+
+err_exit:
+    dump_dec_pts_dts(vpi_ctx);
+    return -1;
+}
+
 VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
                             struct DecPicturePpu *decoded_pic)
 {
@@ -255,10 +360,9 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     }
 
     if (i == MAX_PTS_DTS_DEPTH) {
-        vpi_frame->pts     = VDEC_NOPTS_VALUE;
-        vpi_frame->pkt_dts = VDEC_NOPTS_VALUE;
-        VPILOGD("Can't find matched pts/dts\n");
-        return VPI_ERR_VALUE;
+        VPILOGE("Can't find valid pts info\n");
+        vpi_frame->pts     = pic->pictures[0].picture_info.pic_id - 1;
+        vpi_frame->pkt_dts = pic->pictures[0].picture_info.pic_id - 1;
     }
 
     if (vpi_frame->pts == VDEC_NOPTS_VALUE) {
@@ -267,6 +371,7 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
         vpi_ctx->pts = vpi_frame->pts;
     }
     vpi_ctx->pts += vpi_ctx->duration;
+    VPILOGD("pts %ld, pkt_dts %ld\n", vpi_frame->pts, vpi_frame->pkt_dts);
 
     VPILOGD("width = %d, height = %d, linesize[0] = %d, key_frame = %d\n",
             vpi_frame->width, vpi_frame->height, vpi_frame->linesize[0],

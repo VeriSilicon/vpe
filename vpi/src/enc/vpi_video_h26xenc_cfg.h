@@ -269,6 +269,8 @@ typedef struct VpiH26xEncCtx {
     int no_input_pict;
     int find_pict;
     int pp_index;
+    int64_t first_pts;
+    int first_pts_flag;
     VCEncOut enc_out;
     VCEncGopPicConfig gop_pic_cfg[MAX_GOP_PIC_CONFIG_NUM];
     VCEncGopPicConfig gop_pic_cfg_pass2[MAX_GOP_PIC_CONFIG_NUM];

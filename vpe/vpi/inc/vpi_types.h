@@ -37,6 +37,8 @@
 #define VPE_TASK_LIVE        0
 #define VPE_TASK_VOD         1
 
+#define MAX_WAIT_DEPTH       78
+
 typedef void *VpiCtx;
 
 typedef enum {
@@ -55,9 +57,9 @@ typedef enum {
     VPI_CMD_HWDW_SET_INDEX,
 
     /*vp9 encoder command*/
-    VPI_CMD_VP9ENC_SET_PENDDING_FRAMES_COUNT,
-    VPI_CMD_VP9ENC_GET_NEXT_PIC,
-    VPI_CMD_VP9ENC_GET_PIC_TOBE_FREE,
+    VPI_CMD_VP9ENC_GET_EMPTY_FRAME_SLOT,
+    VPI_CMD_VP9ENC_GET_FRAME_PACKET,
+    VPI_CMD_VP9ENC_CONSUME_PIC,
 
     /*H26x encoder command*/
     VPI_CMD_H26xENC_GET_NEXT_PIC,
@@ -328,6 +330,10 @@ typedef struct VpiDecOption {
     int task_id;
     int priority;
     VpiFrame *frame;
+    int src_width;
+    int src_height;
+    int frmrate_n;
+    int frmrate_d;
 } VpiDecOption;
 
 typedef struct VpiH26xEncCfg {

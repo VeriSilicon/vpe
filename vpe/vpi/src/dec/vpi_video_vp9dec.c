@@ -1623,24 +1623,8 @@ int vpi_decode_vp9_close(VpiDecCtx *vpi_ctx)
     int i;
     int idx;
 
-    while (vpi_ctx->strm_buf_head) {
-        if (vpi_ctx->strm_buf_head->item_size) {
-            idx = vpi_ctx->rls_mem_index;
-            vpi_ctx->rls_strm_buf_list[idx]->mem_idx = vpi_ctx->rls_mem_index;
-            vpi_ctx->rls_strm_buf_list[idx]->item    = vpi_ctx->strm_buf_head->item;
-            vpi_ctx->rls_strm_buf_list[idx]->opaque  =
-                vpi_ctx->strm_buf_head->opaque;
-            vpi_dec_buf_list_add(&vpi_ctx->rls_strm_buf_head,
-                                 vpi_ctx->rls_strm_buf_list[idx]);
-
-            vpi_ctx->rls_mem_index++;
-            if (vpi_ctx->rls_mem_index == 32) {
-                vpi_ctx->rls_mem_index = 0;
-            }
-        }
-
-        vpi_ctx->strm_buf_head =
-            vpi_dec_buf_list_delete(vpi_ctx->strm_buf_head);
+    for (i = 0; i < 32; i++) {
+        free(vpi_ctx->rls_strm_buf_list[i]);
     }
 
     if (vpi_ctx->dec_inst) {

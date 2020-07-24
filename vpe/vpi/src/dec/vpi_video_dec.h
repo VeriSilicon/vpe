@@ -49,6 +49,7 @@ extern "C" {
 #include "vpi_types.h"
 #include "vpi_video_dec_tb_defs.h"
 #include "vpi_error.h"
+#include "vpi.h"
 
 #ifdef SW_PERFORMANCE
 #define INIT_SW_PERFORMANCE                                                    \
@@ -109,8 +110,6 @@ extern "C" {
     FB_SYSLOG(&vpi_ctx->log_header, SYSLOG_SINK_LEV_DEBUG_SW_VERBOSE,          \
               "%s([%d]): " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #endif
-
-typedef struct VpiBufRef VpiBufRef;
 
 typedef const void *VpiDecInst;
 
@@ -308,6 +307,8 @@ typedef struct VpiDecCtx {
     // pic info
     struct DecPicturePpu pic;
     uint32_t pic_size;
+    int src_width;
+    int src_height;
 
     // vpe_codec_sdk
 #ifdef USE_EXTERNAL_BUFFER

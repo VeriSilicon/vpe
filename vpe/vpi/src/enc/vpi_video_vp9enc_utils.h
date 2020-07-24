@@ -71,7 +71,6 @@
 /* Intermediate Video File Format */
 #define IVF_HDR_BYTES 32
 #define IVF_FRM_BYTES 12
-#define MAX_WAIT_DEPTH 44
 
 /* The maximum amount of frames for bitrate moving average calculation */
 #define MOVING_AVERAGE_FRAMES 30
@@ -93,6 +92,8 @@ typedef struct ENC_IN_ADDR_s {
     size_t bus_chroma_table;
 } EncInAddr;
 
+void vp9enc_buf_list_add(Vp9EncBufLink **head, Vp9EncBufLink *list);
+Vp9EncBufLink* vp9enc_buf_list_delete(Vp9EncBufLink *head);
 int vp9enc_default_parameters(VpiEncVp9Setting *cfg);
 int vp9enc_default_parameters(VpiEncVp9Setting *cfg);
 int vp9enc_updatesetting_fromframe(VpiEncVp9Ctx *ctx, VpiFrame *in,
@@ -118,7 +119,13 @@ void vp9enc_statistic(VpiEncVp9Ctx *ctx);
 void vp9enc_hw_performance(VpiEncVp9Ctx *ctx);
 void vp9enc_free_resource(VpiEncVp9Ctx *ctx);
 int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiEncVp9Opition *cfg);
-int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance, int pp_index,
-                                  VpiFrame *input, VpiEncVp9Setting *ecfg);
+int vp9enc_send_buffer_to_encoder(VpiEncVp9Ctx *ctx, VP9EncIn *enc_instance,
+                                  VpiEncVp9Setting *ecfg);
+int vp9enc_get_empty_stream_buffer(VpiEncVp9Ctx *ctx);
+int vp9enc_get_used_pic_mem(VpiEncVp9Ctx *ctx, void *mem);
+void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc);
+int vp9enc_get_pic_buffer(VpiEncVp9Ctx *ctx, void *outdata);
+int vp9enc_get_frame_packet(VpiEncVp9Ctx *ctx, void *outdata);
+void vp9enc_superframe(VpiEncVp9Ctx *ctx, VpiPacket *pkt);
 
 #endif

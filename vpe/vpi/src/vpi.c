@@ -238,6 +238,7 @@ static int vpi_decode(VpiCtx vpe_ctx, void *indata, void *outdata)
 static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
 {
     VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
+    VpiEncVp9Ctx *vp9_enc_ctx;
     VpiRet ret                = VPI_SUCCESS;
 
     switch (vpe_vpi_ctx->plugin) {
@@ -253,6 +254,9 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
         break;
     case H26XENC_VPE:
     case VP9ENC_VPE:
+        vp9_enc_ctx = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
+        ret = vpi_venc_vp9_put_frame(vp9_enc_ctx, indata);
+        break;
     default:
         break;
     }
@@ -263,6 +267,7 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
 static int vpi_encode_get_packet(VpiCtx vpe_ctx, void *outdata)
 {
     VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
+    VpiEncVp9Ctx *vp9_enc_ctx;
     VpiRet ret                = VPI_SUCCESS;
 
     switch (vpe_vpi_ctx->plugin) {
@@ -280,7 +285,8 @@ static int vpi_encode_get_packet(VpiCtx vpe_ctx, void *outdata)
         //ret = vpi_venc_get_packet(enc_ctx, outdata);
         return ret;
     case VP9ENC_VPE:
-        //ret = vpi_venc_vp9_get_packet(enc_ctx, outdata);
+        vp9_enc_ctx = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
+        ret = vpi_venc_vp9_get_packet(vp9_enc_ctx, outdata);
         return ret;
     default:
         break;
@@ -425,8 +431,8 @@ static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
         break;
 
     case VP9ENC_VPE:
-        vpi_venc_vp9_control(vp9_enc_ctx, indata, outdata);
-        break;
+        ret = vpi_venc_vp9_control(vp9_enc_ctx, indata, outdata);
+        return ret;
 
     case PP_VPE:
     case SPLITER_VPE:

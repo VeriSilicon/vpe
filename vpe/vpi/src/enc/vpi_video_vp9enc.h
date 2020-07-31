@@ -50,6 +50,7 @@ typedef const void *VpiEncVp9Inst;
 
 typedef struct {
     int state;
+    int used;
     int poc;
     VpiFrame *pic;
 } VpiEncVp9Pic;

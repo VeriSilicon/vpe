@@ -797,6 +797,7 @@ void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
 
     trans_pic->poc = -1;
     trans_pic->state = 0;
+    trans_pic->used  = 0;
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->rls_pic_list[i]->used == 0) {
             ctx->rls_pic_list[i]->item = trans_pic->pic->opaque;
@@ -811,11 +812,44 @@ void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
     vp9enc_buf_list_add(&ctx->rls_pic_head, ctx->rls_pic_list[i]);
 }
 
+int vp9enc_get_enc_status(VpiEncVp9Ctx *ctx)
+{
+    int i;
+
+    // check whether all the input frame has been send to enoder
+    // because decoder's speed is faster than encoder
+    // If not control and hold here, the frame buffer in decoder will used off
+    // and come into deadlock status
+    pthread_mutex_lock(&ctx->enc_thread_mutex);
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 1) {
+            if (ctx->pic_wait_list[i].used == 0) {
+                VPILOGD("%d not used\n", i);
+                pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                return 1;
+            }
+        }
+    }
+    pthread_mutex_unlock(&ctx->enc_thread_mutex);
+    return 0;
+}
+
 int vp9enc_get_pic_buffer(VpiEncVp9Ctx *ctx, void *outdata)
 {
     VpiFrame **frame;
     VpiEncVp9Pic *trans_pic = NULL;
-    int i;
+    int status, i;
+
+
+    do {
+        status = vp9enc_get_enc_status(ctx);
+        if (status == 1) {
+            usleep(1000);
+            continue;
+        } else {
+            break;
+        }
+    } while(1);
 
     pthread_mutex_lock(&ctx->enc_thread_mutex);
     frame = (VpiFrame **)outdata;
@@ -1990,6 +2024,7 @@ int vp9enc_open(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
     VP9EncConfig cfg;
     VP9ENCPERF *perf = &ctx->perf;
     EncPreProcessingCfg proccfg;
+    int i;
 
     if (ctx == NULL || ecfg == NULL) {
         VPILOGE("vp9enc_open input error.\n");
@@ -2063,6 +2098,11 @@ int vp9enc_open(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
     if (ret != 0) {
         VPILOGE("vp9_pre_encode failed\n");
         return -VP9ENC_ERROR;
+    }
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        ctx->pic_wait_list[i].state = 0;
+        ctx->pic_wait_list[i].used  = 0;
     }
 
     ctx->poc              = 0;
@@ -2472,6 +2512,7 @@ int vp9enc_send_buffer_to_encoder(VpiEncVp9Ctx *ctx, VP9EncIn *enc_instance,
         goto error;
     }
 
+    trans_pic->used = 1;
     if (pic) {
         enc_data = &pic->pictures[pp_index];
         if (!enc_data) {

@@ -777,6 +777,7 @@ int vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
     } else {
         ctx->poc         = ctx->poc + 1;
         trans_pic->state = 1;
+        trans_pic->used  = 0;
         trans_pic->poc   = ctx->poc;
     }
 

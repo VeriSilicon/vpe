@@ -39,6 +39,9 @@
 
 #define MAX_WAIT_DEPTH       78
 
+#define HWUPLOAD_FLAG        1
+#define PP_FLAG              2
+
 typedef void *VpiCtx;
 
 typedef enum {
@@ -78,9 +81,14 @@ typedef enum {
     /*common command*/
     VPI_CMD_GET_VPEFRAME_SIZE,
     VPI_CMD_GET_PICINFO_SIZE,
+
+    /*hw upload command*/
+    VPI_CMD_HWDL_INIT_OPTION,
+    VPI_CMD_HWUL_FREE_BUF,
 } VpiCmd;
 
 typedef enum VpiPixsFmt {
+    VPI_FMT_NULL,
     VPI_FMT_YUV420P,
     VPI_FMT_NV12,
     VPI_FMT_NV21,
@@ -98,6 +106,8 @@ typedef enum VpiPixsFmt {
     VPI_FMT_RGBA,
     VPI_FMT_ABGR,
     VPI_FMT_BGRA,
+    VPI_FMT_VPE,
+    VPI_FMT_OTHERS,
 } VpiPixsFmt;
 
 typedef struct VpiEncParamSet {
@@ -148,6 +158,7 @@ typedef struct VpiPPOpition {
     VpiPixsFmt format;
     /*low level hardware frame context, point to one VpiFrame pointer*/
     void *frame;
+    int b_disable_tcache;
 } VpiPPOpition;
 
 typedef struct VpiPacket {
@@ -227,7 +238,12 @@ typedef struct VpiFrame {
     int used_cnt;
     /* number of ext frame buffer for transcoding case */
     int max_frames_delay;
+    /* number of ext frame buffer when hwupload link to encoder directly */
+    int hwupload_max_frames_delay;
+    /* frame flow flag */
+    int flag;
     void *opaque;
+    VpiPixsFmt raw_format;
     void (*vpe_frame_free)(void *opaque, uint8_t *data);
 } VpiFrame;
 
@@ -252,6 +268,7 @@ typedef enum VpiPlugin {
     PP_VPE,
     SPLITER_VPE,
     HWDOWNLOAD_VPE,
+    HWUPLOAD_VPE,
     HWCONTEXT_VPE,
 } VpiPlugin;
 
@@ -292,6 +309,7 @@ typedef enum VpiPixFmt{
     VPI_YUV420_SEMIPLANAR,
     VPI_YUV420_SEMIPLANAR_VU,
     VPI_YUV420_PLANAR_10BIT_P010,
+    VPI_YUV420_SEMIPLANAR_YUV420P,
 } VpiPixFmt;
 
 typedef enum VpiEncRet {
@@ -368,6 +386,14 @@ typedef struct VpiH26xEncCfg {
     /*VPE H26x encoder public parameters with -enc_params*/
     VpiEncParamSet *param_list;
 } VpiH26xEncCfg;
+
+typedef struct VpiHWUploadCfg{
+    int task_id;
+    int priority;
+    char *device;
+    VpiFrame *frame;
+    VpiPixsFmt format;
+} VpiHWUploadCfg;
 
 typedef struct VpiApi {
     int (*init)(VpiCtx, void *);

@@ -171,7 +171,7 @@ static void *pp_mwl_init(VpiMwlInitParam *param)
         VPILOGD("failed to open: %s\n", param->device);
         goto err;
     }
-
+    mwl->edma_handle = TRANS_EDMA_init(param->device);
 #ifdef PP_MEM_ERR_TEST
     if (pp_memory_check() != 0) {
         VPILOGE("[%s,%d]PP force memory error in function\n", __FUNCTION__,
@@ -645,6 +645,11 @@ static int pp_parse_params(PPClient *pp, VpiPPParams *params)
             tcache_cfg->rgb_cov_bd = TCACHE_COV_BD_8;
         }
 #endif
+    } else if (!strcmp(params->in_format, "vpe")){
+        if(params->in_10bit)
+            test_cfg->in_p010 = 1;
+        else
+            test_cfg->in_p010 = 0;
     } else {
         VPILOGE("unsupport input format %s!!!\n", params->in_format);
         return -1;
@@ -1079,7 +1084,6 @@ static int pp_buf_init(PPClient *pp)
     u32 pp_out_byte_per_pixel;
     u32 pp_width, pp_height, pp_stride, pp_stride_2;
     u32 pp_buff_size;
-    u32 ext_buffers_need;
 
     /* calc output buffer size */
     pp->out_buf_size = 0;
@@ -1178,15 +1182,13 @@ static int pp_buf_init(PPClient *pp)
 
     /*used for buffer management*/
     FifoInit(OUTPUT_BUF_DEPTH, &pp->pp_out_Fifo);
-    ext_buffers_need      = pp->max_frames_delay;
     pp->out_buf_nums_init = 3;
-    pp->out_buf_nums      = pp->out_buf_nums_init + ext_buffers_need;
+    pp->out_buf_nums      = pp->out_buf_nums_init + pp->max_frames_delay;
     if (pp->out_buf_nums > OUTPUT_BUF_DEPTH) {
-        VPILOGE("TOO MANY BUFFERS REQUEST, ext_buffers_need=%d\n",
-                ext_buffers_need);
+        VPILOGE("TOO MANY BUFFERS REQUEST, max_frames_delay=%d\n",
+                pp->max_frames_delay);
         goto end;
     }
-
     for (i = 0; i < pp->out_buf_nums; i++) {
         pp->pp_out_buffer[i].mem_type = DWL_MEM_TYPE_DPB;
         VPILOGD("Malloc No.%d pp out buffrer,(size=%d)\n", i, pp->out_buf_size);
@@ -1227,11 +1229,13 @@ static void pp_request_buf(PPClient *pp)
 {
     struct DWLLinearMem *pp_out_buffer;
 
+    pthread_mutex_lock(&pp->pp_mutex);
     FifoPop(pp->pp_out_Fifo, (FifoObject *)&pp_out_buffer,
             FIFO_EXCEPTION_DISABLE);
     pp->dec_cfg.pp_out_buffer = *pp_out_buffer;
     VPILOGD("[pp] get buffer bus address=%p, virtual address=%p\n",
             (void *)pp_out_buffer->bus_address, pp_out_buffer->virtual_address);
+    pthread_mutex_unlock(&pp->pp_mutex);
 }
 
 static int pp_buf_release(PPClient *pp)
@@ -1239,10 +1243,12 @@ static int pp_buf_release(PPClient *pp)
     u32 i;
     PPInst pp_inst = pp->pp_inst;
 
+    pthread_mutex_lock(&pp->pp_mutex);
     if (pp->pp_out_Fifo) {
         FifoRelease(pp->pp_out_Fifo);
         pp->pp_out_Fifo = NULL;
     }
+    pthread_mutex_unlock(&pp->pp_mutex);
 
     if (pp->pp_inst != NULL) {
         for (i = 0; i < pp->out_buf_nums; i++) {
@@ -1387,7 +1393,6 @@ static void pp_get_next_pic(PPClient *pp, PPDecPicture *hpic)
                 pic->pictures[j].chroma_table.virtual_address, j,
                 pic->pictures[j].chroma_table.bus_address);
     }
-
     return;
 }
 
@@ -1486,6 +1491,7 @@ pp_raw_parser_inst pp_raw_parser_open(VpiPixsFmt format, int width, int height)
         break;
     case VPI_FMT_NV12:
     case VPI_FMT_NV21:
+    case VPI_FMT_VPE:
         inst->planes        = 2;
         inst->byte_width[0] = inst->byte_width[1] = inst->img_width;
         inst->height[0]                           = inst->img_height;
@@ -1772,11 +1778,13 @@ static int vpi_ppclient_release(PPClient *pp_client)
     return 0;
 }
 
-static PPClient *pp_client_init(VpiPPParams *params)
+static PPClient *pp_client_init(VpiPPFilter *filter)
 {
+    VpiPPParams *params   = &filter->params;
     PPClient *pp_client   = NULL;
     PPInst pp_inst        = NULL;
     VpiPPConfig *test_cfg = NULL;
+    VpiFrame *in_frame    = filter->frame;
     int ret;
     u32 i;
     PPConfig *dec_cfg = NULL;
@@ -1921,6 +1929,16 @@ static PPClient *pp_client_init(VpiPPParams *params)
             pp_client->pp_config.in_width_align,
             pp_client->pp_config.in_stride);
 
+    if (filter->b_disable_tcache) {
+        pp_client->pp_config.in_stride = in_frame->pic_info[0].pic_width;
+    }
+    if(in_frame->raw_format == VPI_FMT_NV12)
+        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR;
+    else if(in_frame->raw_format == VPI_FMT_YUV420P)
+        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR_YUV420P;
+    else
+        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR_VU;
+
     /* Override command line options and tb.cfg for PPU0. */
     /* write pp params form tb_cfg.pp_units_params to pp_client->param.ppu_cfg
        or keep cml params - kwu */
@@ -2029,6 +2047,8 @@ static PPClient *pp_client_init(VpiPPParams *params)
             continue;
     }
 
+    pp_client->disable_tcache   = filter->b_disable_tcache;
+    pp_client->max_frames_delay = filter->frame->max_frames_delay;
     ret = pp_buf_init(pp_client);
     if (ret < 0) {
         VPILOGE("pp_buf_init failed!\n");
@@ -2308,6 +2328,10 @@ static int pp_trans_formats(VpiPixsFmt format, char **pp_format, int *in_10bit,
         *in_10bit  = 0;
         if (force_10bit)
             *in_10bit = 1;
+    } else if (format == VPI_FMT_VPE) {
+        *pp_format = "vpe";
+        if (force_10bit)
+            *in_10bit = 1;
     } else {
         VPILOGE("Transcoder unsupport input format %d!!!\n", format);
         return -1;
@@ -2317,7 +2341,6 @@ static int pp_trans_formats(VpiPixsFmt format, char **pp_format, int *in_10bit,
 
 static void pp_setup_defaul_params(VpiPPParams *params)
 {
-    memset(params, 0, sizeof(VpiPPParams));
     params->read_mode               = STREAMREADMODE_FRAME;
     params->fscale_cfg.down_scale_x = 1;
     params->fscale_cfg.down_scale_y = 1;
@@ -2325,9 +2348,6 @@ static void pp_setup_defaul_params(VpiPPParams *params)
     params->display_cropped         = 0;
     params->tile_by_tile            = 0;
     params->mc_enable               = 0;
-    params->device                  = "/dev/transcoder0";
-    params->mem_id                  = 1;
-    params->priority                = 0;
     memset(params->ppu_cfg, 0, sizeof(params->ppu_cfg));
 }
 
@@ -2336,6 +2356,7 @@ static int pp_set_params(VpiPPFilter *filter)
     int ret             = 0;
     int pp_index        = 0;
     VpiPPParams *params = &filter->params;
+    VpiFrame *frame     = filter->frame;
 
     /* check low_res and output numbers */
     if (filter->nb_outputs < 1 || filter->nb_outputs > 4) {
@@ -2403,16 +2424,30 @@ static int pp_set_params(VpiPPFilter *filter)
         VPILOGE("pp_trans_formats failed ret=%d\n", ret);
         return -1;
     }
+
+    /* upload link with pp, the frame format is vpe_format,
+       it needs to decide 10bit or 8bit */
+    if(frame->flag & PP_FLAG){
+        uint32_t in_10bit_hantro_fmt = 0;
+
+        if( frame->pic_info[0].picdata.pic_pixformat == 1)
+            in_10bit_hantro_fmt = 1;
+
+        if(!strcmp(params->in_format, "vpe") && in_10bit_hantro_fmt == 1)
+            params->in_10bit = 1;
+    }
+
     params->align           = DEC_ALIGN_1024B;
     params->compress_bypass = 0;
-    params->cache_enable = 1, params->shaper_enable = 1,
+    params->cache_enable    = 1;
+    params->shaper_enable   = 1;
 
     /* 17 buffers as default value, same to decoder and the buffer_depth is inc
      * value.*/
         // params->ext_buffers_need = 17 + filter->buffer_depth;
 
         /* set options to pp params */
-        params->pp_enabled            = 1;
+    params->pp_enabled                = 1;
     params->ppu_cfg[0].enabled        = 1;
     params->ppu_cfg[0].tiled_e        = 1;
     params->ppu_cfg[0].out_p010       = params->in_10bit;
@@ -2560,6 +2595,8 @@ static int pp_set_hwframe_res(VpiPPFilter *filter)
         frame->pic_info[2].flag = 1;
     }
 
+    frame->flag |= PP_FLAG;
+
     return 0;
 }
 
@@ -2568,13 +2605,14 @@ static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
     int ret = 0;
 
     /* get iput from ffmpeg*/
-    filter->nb_outputs  = cfg->nb_outputs;
-    filter->low_res     = cfg->low_res;
-    filter->force_10bit = cfg->force_10bit;
-    filter->w           = cfg->w;
-    filter->h           = cfg->h;
-    filter->format      = cfg->format;
-    filter->frame       = (VpiFrame *)cfg->frame;
+    filter->nb_outputs       = cfg->nb_outputs;
+    filter->low_res          = cfg->low_res;
+    filter->force_10bit      = cfg->force_10bit;
+    filter->w                = cfg->w;
+    filter->h                = cfg->h;
+    filter->format           = cfg->format;
+    filter->frame            = (VpiFrame *)cfg->frame;
+    filter->b_disable_tcache = cfg->b_disable_tcache;
 
     ret = pp_parse_low_res(filter);
     if (ret < 0) {
@@ -2600,7 +2638,7 @@ static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
         return -1;
     }
 
-    filter->pp_client = pp_client_init(&filter->params);
+    filter->pp_client = pp_client_init(filter);
     if (!filter->pp_client) {
         VPILOGE("pp_client_init failed!\n");
         return -1;
@@ -2616,6 +2654,8 @@ static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
     if (ret < 0) {
         return -1;
     }
+
+    pthread_mutex_init(&filter->pp_client->pp_mutex, NULL);
 
     return 0;
 }
@@ -2644,6 +2684,7 @@ static int pp_picture_consumed(VpiPPFilter *filter, VpiFrame *input)
         return -1;
     }
 
+    pthread_mutex_lock(&pp->pp_mutex);
     for (i = 0; i < pp->out_buf_nums; i++) {
         if (pp->pp_out_buffer[i].bus_address ==
             picture->pictures[index].luma.bus_address) {
@@ -2654,6 +2695,7 @@ static int pp_picture_consumed(VpiPPFilter *filter, VpiFrame *input)
     }
 
     free(picture);
+    pthread_mutex_unlock(&pp->pp_mutex);
     return 0;
 }
 
@@ -2760,6 +2802,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     VpiFrame *output    = (VpiFrame *)outdata;
     PPClient *pp        = filter->pp_client;
     PPDecPicture dec_picture;
+    struct DecPicturePpu * picPpu;
     PPInst pp_inst            = NULL;
     PPConfig *dec_cfg         = &pp->dec_cfg;
     PPContainer *pp_c         = NULL;
@@ -2774,48 +2817,57 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pp_inst = pp->pp_inst;
     pp_c    = (PPContainer *)pp_inst;
 
-    pp_c->b_disable_tcache = 0;
-    /* read frame from VpeFrame to pp_in_buffer*/
-    pp_send_packet(filter, &pp->pp_in_buffer, input);
-    if (pp->pp_in_buffer == NULL) {
-        goto err_exit;
-    }
-    dec_cfg->pp_in_buffer = pp->pp_in_buffer->buffer;
+    if (filter->b_disable_tcache == 0) {
+        pp_c->b_disable_tcache = 0;
+        /* read frame from VpeFrame to pp_in_buffer*/
+        pp_send_packet(filter, &pp->pp_in_buffer, input);
+        if (pp->pp_in_buffer == NULL) {
+            goto err_exit;
+        }
+        dec_cfg->pp_in_buffer = pp->pp_in_buffer->buffer;
 
 #ifdef SUPPORT_TCACHE
-    if (pp->tcache_handle == NULL) {
-        pp->tcache_handle =
-            DWLGetIpHandleByOffset(pp_c->dwl, TCACHE_OFFSET_TO_VCEA);
         if (pp->tcache_handle == NULL) {
-            VPILOGE("failed get tcache handle!\n");
-            goto err_exit;
+            pp->tcache_handle =
+                DWLGetIpHandleByOffset(pp_c->dwl, TCACHE_OFFSET_TO_VCEA);
+            if (pp->tcache_handle == NULL) {
+                VPILOGE("failed get tcache handle!\n");
+                goto err_exit;
+            }
         }
-    }
-    if (pp->edma_handle == NULL) {
-        pp->edma_handle = DWLGetIpHandleByOffset(pp_c->dwl, PCIE_EDMA_REG_BASE -
-                                                                PCIE_REG_START);
         if (pp->edma_handle == NULL) {
-            VPILOGE("failed get edma handle!\n");
-            goto err_exit;
+            pp->edma_handle = DWLGetIpHandleByOffset(pp_c->dwl,
+                                                     PCIE_EDMA_REG_BASE -
+                                                     PCIE_REG_START);
+            if (pp->edma_handle == NULL) {
+                VPILOGE("failed get edma handle!\n");
+                goto err_exit;
+            }
         }
-    }
 
-    ret = pp_tcache_config(pp);
-    if (ret < 0)
-        goto err_exit;
+        ret = pp_tcache_config(pp);
+        if (ret < 0)
+            goto err_exit;
 #endif
 
 #ifdef PP_EDMA_ERR_TEST
-    if (pp_edma_eerror_check() != 0) {
-        VPILOGE("[%s,%d]PP force edma error in function\n", __FUNCTION__,
-                __LINE__);
-        goto err_exit;
-    }
+        if (pp_edma_eerror_check() != 0) {
+            VPILOGE("[%s,%d]PP force edma error in function\n", __FUNCTION__,
+                    __LINE__);
+            goto err_exit;
+        }
 #endif
+    } else {
+        pp_c->b_disable_tcache = 1;
+
+        picPpu = (struct DecPicturePpu *)input->data[0];
+        pp->tcache_handle     = NULL;
+        dec_cfg->pp_in_buffer = picPpu->pictures[0].luma;
+    }
 
     ret = PPSetInput(pp_inst, pp->dec_cfg.pp_in_buffer);
     if (ret != PP_OK) {
-        VPILOGE("encode fails for PPSetInput\n");
+        VPILOGE("encode fails for PPSetInput, ret %d\n", ret);
         goto err_exit;
     }
 
@@ -2828,16 +2880,19 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
 
     pp_dump_config(pp);
 
-    pp->max_frames_delay = input->max_frames_delay;
-    if (pp_check_buffer_number_for_trans(pp) < 0)
-        goto err_exit;
+    pp->max_frames_delay = filter->frame->max_frames_delay;
+    pthread_mutex_lock(&pp->pp_mutex);
+    if (pp_check_buffer_number_for_trans(pp) < 0) {
+        pthread_mutex_unlock(&pp->pp_mutex);
+        return -1;
+    }
 
+    pthread_mutex_unlock(&pp->pp_mutex);
     ret = PPDecode(pp_inst);
     if (ret != PP_OK) {
         VPILOGE("encode fails for PPDecode failed, %d\n", ret);
         goto err_exit;
     }
-
     ret = PPNextPicture(pp_inst, &dec_picture);
     pp_get_next_pic(pp, &dec_picture);
     pp_print_dec_picture(&dec_picture, decode_pic_num++);
@@ -2859,7 +2914,6 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
     if (pp_client != NULL) {
         pp_buf_release(pp_client);
         PPRelease(pp_client->pp_inst);
-
         if (pp_client->dwl)
             DWLRelease(pp_client->dwl);
 #ifdef CHECK_MEM_LEAK_TRANS
@@ -2869,6 +2923,8 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
 #endif
         filter->pp_client = NULL;
     }
+
+    pthread_mutex_destroy(&pp_client->pp_mutex);
 
     if (inst) {
 #ifdef CHECK_MEM_LEAK_TRANS

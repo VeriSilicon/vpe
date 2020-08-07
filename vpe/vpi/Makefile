@@ -70,7 +70,8 @@ SRCS := src/vpi.c \
 		src/enc/vpi_video_vp9enc_utils.c \
 		src/filter/vpi_video_prc.c \
 		src/filter/vpi_video_hwdwprc.c \
-		src/filter/vpi_video_pp.c
+		src/filter/vpi_video_pp.c \
+		src/filter/vpi_video_hwulprc.c
 
 LDFLAGS := -L ../sdk_libs
 LIBS := -lh2enc -lenc

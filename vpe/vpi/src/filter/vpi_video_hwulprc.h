@@ -27,56 +27,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __VPI_VIDEO_PRC_H__
-#define __VPI_VIDEO_PRC_H__
+#ifndef __VPI_VIDEO_HWULPRC_H__
+#define __VPI_VIDEO_HWULPRC_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdint.h>
+#include "dwl.h"
+//#include "vpi_video_prc.h"
 
-#include "vpi_error.h"
-#include "trans_edma_api.h"
-#include "vpi_video_pp.h"
-#include "vpi_video_hwulprc.h"
+#define MWL_BUF_DEPTH 68
 
-typedef enum FilterType {
-    FILTER_NULL,
-    FILTER_PP,
-    FILTER_SPLITER,
-    FILTER_HW_DOWNLOADER,
-    FILTER_HW_UPLOAD
-} FilterType;
+typedef struct VpiPrcHwUlCtx {
+    void *mwl;
 
-typedef struct VpiPrcCtx {
-    FilterType filter_type;
+    int mwl_nums_init;
+    u32 mwl_item_size;
 
-    /*hwdownload/hwupload*/
-    EDMA_HANDLE edma_handle;
-    int pp_index;
+    uint8_t *p_hugepage_buf_y;
+    uint8_t *p_hugepage_buf_uv;
+    uint32_t i_hugepage_size_y;
+    uint32_t i_hugepage_size_uv;
 
-    /*pp filter*/
-    VpiPPFilter ppfilter;
+    VpiFrame *frame;
+    VpiPixsFmt format;
 
-    /*hwupload*/
-    VpiPrcHwUlCtx hwul_ctx;
-} VpiPrcCtx;
+    int mwl_nums;
+    struct DWLLinearMem mwl_mem[MWL_BUF_DEPTH];
+    uint8_t mwl_used[MWL_BUF_DEPTH];
 
-VpiRet vpi_vprc_init(VpiPrcCtx *vpi_ctx, void *prc_cfg);
-VpiRet vpi_vprc_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
-VpiRet vpi_vprc_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
-int vpi_vprc_close(VpiPrcCtx *vpi_ctx);
+    pthread_mutex_t hw_upload_mutex;
+}VpiPrcHwUlCtx;
 
-VpiRet vpi_prc_pp_init(VpiPrcCtx *vpi_ctx, void *cfg);
-VpiRet vpi_prc_pp_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
-VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
-VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx);
 
-VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg);
-VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
-VpiRet vpi_prc_hwul_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
-VpiRet vpi_prc_hwul_close(VpiPrcCtx *vpi_ctx);
 
 #ifdef __cplusplus
 }

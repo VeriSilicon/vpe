@@ -2406,10 +2406,9 @@ int vp9enc_updatesetting_fromframe(VpiEncVp9Ctx *ctx, VpiFrame *in,
         break;
     }
 
-#if 0
-    //for vf_hwupload_hantro's edma channel
+    //for vf_hwupload_vpe's edma channel
     if((pic_data->pic_compressed_status == 0) &&
-        (pic_info->format == AVHANTRO_FORMAT_YUV420_PLANAR_10BIT_P010) ){
+        (pic_info->format == VPI_YUV420_PLANAR_10BIT_P010) ){
         ecfg->input_format = ENC_YUV420_SEMIPLANAR_P010;
         ecfg->input_compress = 0;
         ecfg->input_bitdepth = 2;
@@ -2417,10 +2416,10 @@ int vp9enc_updatesetting_fromframe(VpiEncVp9Ctx *ctx, VpiFrame *in,
 
     if((pic_data->pic_compressed_status == 0) &&
         (pic_data->pic_pixformat == DEC_OUT_PIXEL_DEFAULT) &&
-        (pic_info->format == AVHANTRO_FORMAT_YUV420_SEMIPLANAR_VU) ){
+        (pic_info->format == VPI_YUV420_SEMIPLANAR_VU) ){
         ecfg->input_format = ENC_YUV420_SEMIPLANAR_VU;
     }
-#endif
+
     /* FIXME: to check how bitdepth need to be set */
     ecfg->bitdepth = (ecfg->input_bitdepth == 2) ? 1 : 0;
     if (ecfg->input_bitdepth == 2) {
@@ -2474,6 +2473,16 @@ void vp9enc_get_max_frame_delay(VpiEncVp9Ctx *ctx, VpiFrame *v_frame,
 
     if (max_frames_delay > v_frame->max_frames_delay) {
         v_frame->max_frames_delay = max_frames_delay;
+    }
+
+    if (((v_frame->flag & HWUPLOAD_FLAG) == 1) &&
+        ((v_frame->flag & PP_FLAG) == 0)) {
+        /* hwupload link to encoder directly, no pp filter */
+        if (max_frames_delay > v_frame->hwupload_max_frames_delay) {
+            v_frame->hwupload_max_frames_delay = max_frames_delay;
+        }
+        VPILOGD("vpeframe->hwupload_max_frames_delay = %d\n",
+            v_frame->hwupload_max_frames_delay);
     }
     VPILOGD("vpeframe->max_frames_delay = %d\n", v_frame->max_frames_delay);
 }

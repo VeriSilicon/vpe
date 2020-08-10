@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
---Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved --
+--       Copyright (c) 2015-2017, VeriSilicon Inc. All rights reserved        --
 --         Copyright (c) 2011-2014, Google Inc. All rights reserved.          --
 --         Copyright (c) 2007-2010, Hantro OY. All rights reserved.           --
 --                                                                            --
@@ -337,3 +337,4 @@ void MP4DecTrace(const char *string);
 #endif
 
 #endif /* __MP4DECAPI_H__ */
+

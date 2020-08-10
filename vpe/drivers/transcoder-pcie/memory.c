@@ -140,6 +140,8 @@ static void free_task_id(struct memory_t *tmem, int id)
 	int mem_leak_flag_0 = 0;
 	int mem_leak_flag_1 = 0;
 
+	mutex_lock(&tmem->mem_mutex_ep);
+
 	spin_lock(&tmem->taskid_lock);
 	tmem->id_st[id] = ID_FREE;
 	tmem->id_filp[id] = NULL;
@@ -184,6 +186,7 @@ static void free_task_id(struct memory_t *tmem, int id)
 		trans_dbg(tmem->tdev, TR_NOTICE, "mem: mem leak in slice_1\n");
 
 	spin_unlock(&tmem->taskid_lock);
+	mutex_unlock(&tmem->mem_mutex_ep);
 }
 
 void cb_mem_close(struct cb_tranx_t *tdev, struct file *filp)
@@ -579,24 +582,28 @@ static void mem_usage(struct cb_tranx_t *tdev,
 			 struct mem_used_info *info)
 {
 	int i;
+	u32 s0_used = 0, s1_used = 0;
 	struct memory_t *tmem = tdev->modules[TR_MODULE_MEMORY];
 
 	info->s0_blk_used = 0;
 	info->s1_blk_used = 0;
-
 	for (i = 0; i < S0_BLOCK_CNT; i++) {
-		if (tmem->mem_s0_bk[i].task_id)
+		if (tmem->mem_s0_bk[i].task_id) {
 			info->s0_blk_used++;
+			s0_used += tmem->mem_s0_bk[i].block_size;
+		}
 	}
 	for (i = 0; i < S1_BLOCK_CNT; i++) {
-		if (tmem->mem_s1_bk[i].task_id)
+		if (tmem->mem_s1_bk[i].task_id) {
 			info->s1_blk_used++;
+			s1_used += tmem->mem_s1_bk[i].block_size;
+		}
 	}
 
-	info->s0_used = tmem->s0_rev_size / 1024 / 1024;
-	info->s0_free = (s0_end - s0_start - tmem->s0_rev_size) / 1024 / 1024;
-	info->s1_used = tmem->s1_rev_size / 1024 / 1024;
-	info->s1_free = (s1_end - s1_start - tmem->s1_rev_size) / 1024 / 1024;
+	info->s0_used = s0_used / 1024 / 1024;
+	info->s0_free = (s0_end - s0_start - s0_used) / 1024 / 1024;
+	info->s1_used = s1_used / 1024 / 1024;
+	info->s1_free = (s1_end - s1_start - s1_used) / 1024 / 1024;
 }
 
 /* display  memory status */
@@ -608,31 +615,56 @@ static ssize_t mem_info_show(struct device *dev,
 	struct memory_t *tmem = tdev->modules[TR_MODULE_MEMORY];
 	struct mem_block *s0_bk = tmem->mem_s0_bk;
 	struct mem_block *s1_bk = tmem->mem_s1_bk;
+	u32 max_len = 16, i, j;
+	u32 cnt = S0_BLOCK_CNT/max_len, remainder = S0_BLOCK_CNT%max_len;
+	struct mem_used_info info;
+	u32 s0_total = (s0_end - s0_start)/1024/1024;
+	u32 s1_total = (s1_end - s1_start)/1024/1024;
 
-	pos += sprintf(buf + pos, "S0:  %d MB used   %ld MB free   %ld%% used\n",
-		tmem->s0_rev_size / 1024 / 1024,
-		(s0_end - s0_start - tmem->s0_rev_size) / 1024 / 1024,
-		tmem->s0_rev_size/((s0_end - s0_start)/100));
-	pos += sprintf(buf + pos, "S1:  %d MB used   %ld MB free   %ld%% used\n",
-		tmem->s1_rev_size / 1024 / 1024,
-		(s1_end - s1_start - tmem->s1_rev_size) / 1024 / 1024,
-		tmem->s1_rev_size/((s1_end - s1_start)/100));
+	mem_usage(tdev, &info);
+	pos += sprintf(buf + pos, "S0:  %d MB used   %d MB free   %d.%02d%% used\n",
+		info.s0_used, info.s0_free,
+		(info.s0_used*10000)/(s0_total)/100, (info.s0_used*10000)/(s0_total)%100);
+	pos += sprintf(buf + pos, "S1:  %d MB used   %d MB free   %d.%02d%% used\n",
+		info.s1_used, info.s1_free,
+		(info.s1_used*10000)/(s1_total)/100, (info.s1_used*10000)/(s1_total)%100);
 
-	pos += sprintf(buf + pos,
-		"block:  0   1   2   3   4   5   6   7\n");
-	pos += sprintf(buf + pos,
-		"   S0: %2d  %2d  %2d  %2d  %2d  %2d  %2d  %2d\n",
-		s0_bk[0].task_id, s0_bk[1].task_id, s0_bk[2].task_id,
-		s0_bk[3].task_id, s0_bk[4].task_id, s0_bk[5].task_id,
-		s0_bk[6].task_id, s0_bk[7].task_id);
-	pos += sprintf(buf + pos,
-		"   S1: %2d  %2d  %2d  %2d  %2d  %2d  %2d  %2d\n",
-		s1_bk[0].task_id, s1_bk[1].task_id, s1_bk[2].task_id,
-		s1_bk[3].task_id, s1_bk[4].task_id, s1_bk[5].task_id,
-		s1_bk[6].task_id, s1_bk[7].task_id);
+	for (j = 0; j < cnt; j++) {
+		pos += sprintf(buf + pos, "block:");
+		for (i = 0; i < max_len; i++)
+			pos += sprintf(buf + pos, "  %2d", i+j*max_len);
+		pos += sprintf(buf + pos, "\n");
+
+		pos += sprintf(buf + pos, "   S0:");
+		for (i = 0; i < max_len; i++)
+			pos += sprintf(buf + pos, "  %2d", s0_bk[i+j*max_len].task_id);
+		pos += sprintf(buf + pos, "\n");
+
+		pos += sprintf(buf + pos, "   S1:");
+		for (i = 0; i < max_len; i++)
+			pos += sprintf(buf + pos, "  %2d", s1_bk[i+j*max_len].task_id);
+		pos += sprintf(buf + pos, "\n");
+	}
+	if (remainder) {
+		pos += sprintf(buf + pos, "block:");
+		for (i = 0; i < remainder; i++)
+			pos += sprintf(buf + pos, "  %2d", i+j*max_len);
+		pos += sprintf(buf + pos, "\n");
+
+		pos += sprintf(buf + pos, "   S0:");
+		for (i = 0; i < remainder; i++)
+			pos += sprintf(buf + pos, "  %2d", s0_bk[i+j*max_len].task_id);
+		pos += sprintf(buf + pos, "\n");
+
+		pos += sprintf(buf + pos, "   S1:");
+		for (i = 0; i < remainder; i++)
+			pos += sprintf(buf + pos, "  %2d", s1_bk[i+j*max_len].task_id);
+		pos += sprintf(buf + pos, "\n");
+	}
 
 	return pos;
 }
+
 
 static DEVICE_ATTR_RO(mem_info);
 

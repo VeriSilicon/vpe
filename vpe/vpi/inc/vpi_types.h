@@ -62,11 +62,10 @@ typedef enum {
     VPI_CMD_VP9ENC_CONSUME_PIC,
 
     /*H26x encoder command*/
-    VPI_CMD_H26xENC_GET_NEXT_PIC,
-    VPI_CMD_H26xENC_SET_FINDPIC,
-    VPI_CMD_H26xENC_GET_FLUSHSTATE,
-    VPI_CMD_H26xENC_UPDATE_STATISTIC,
     VPI_CMD_H26xENC_SET_NO_INFRM,
+    VPI_CMD_H26xENC_SET_IDR_POC,
+    VPI_CMD_H26xENC_UPDATE_INJECTIONNUM,
+    VPI_CMD_H26xENC_ENQUEUE_VPIFRAME,
 
     /*pp command*/
     VPI_CMD_PP_CONFIG,
@@ -259,6 +258,12 @@ typedef enum VpiPlugin {
 /*
  * below definition is for H26xEnc
  */
+typedef struct VpiH26xFrmHead {
+    uint8_t *header_data;
+    int header_size;
+    int resend_header;
+} VpiH26xFrmHead;
+
 typedef enum VpiH26xCodecID {
     CODEC_ID_HEVC,
     CODEC_ID_H264,
@@ -348,6 +353,7 @@ typedef struct VpiH26xEncCfg {
     const char *codec_name;
     char *profile;
     char *level;
+    int force_idr;
     int bit_per_second;
     int input_rate_numer; /* Input frame rate numerator */
     int input_rate_denom; /* Input frame rate denominator */

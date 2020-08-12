@@ -17,14 +17,15 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef __VPI_VIDEO_H26XENC_CFG_H__
@@ -49,8 +50,10 @@
 #endif
 #include "vpi_types.h"
 #include "vpi_video_h26xenc_options.h"
+#include "fifo.h"
 
 #define MAX_FIFO_DEPTH 16
+#define MAX_WAIT_DEPTH 78 /*34*/
 #define MAX_ENC_NUM 4
 
 #define DEFAULT_VALUE -255
@@ -58,6 +61,9 @@
 #define DEFAULT -255
 #define MAX_CUTREE_DEPTH 64
 #define MAX_DELAY_NUM (MAX_CORE_NUM + MAX_CUTREE_DEPTH)
+#define MAX_IDR_ARRAY_DEPTH MAX_WAIT_DEPTH
+
+#define MAX_OUTPUT_FIFO_DEPTH 2
 
 typedef struct {
     u32 stream_pos;
@@ -136,6 +142,7 @@ struct VPIH26xEncCfg {
     FILE *roimap_cu_ctrl_info_bin_file;
     FILE *roimap_cu_ctrl_index_bin_file;
 
+    i32 outbuf_index;
     /* SW/HW shared memories for input/output buffers */
     EWLLinearMem_t *picture_mem;
     EWLLinearMem_t *picture_dsmem;
@@ -245,6 +252,41 @@ typedef struct VpiH26xEncInAddr {
     ptr_t bus_chroma_table_ds;
 } VpiH26xEncInAddr;
 
+typedef enum IDRCalcState_e {
+    FRAME_NORMAL,
+    FRAME_IDR,
+    FRAME_IDR2NORMAL,
+} IDRCalcState;
+
+typedef struct VpiH26xEncFrm {
+    /*Current Frm is filled or not*/
+    int state;
+
+    /*Current Frm is fed to encoder or not*/
+    int fed_to_enc;
+
+    /*In pass one queue or not*/
+    int in_pass_one_queue;
+
+    /*The index of the frame*/
+    int frame_index;
+
+    /*The pointer for input AVFrame*/
+    VpiFrame frame;
+} VpiH26xEncFrm;
+
+/*typedef struct VpiH26xFrmHead {
+    uint8_t *header_data;
+    int header_size;
+    bool resend_header;
+} VpiH26xFrmHead;*/
+
+typedef struct VpiH26xEncPkt {
+    VpiPacket vpi_packet;
+    VpiH26xFrmHead h26x_frm_head;
+    VpiEncRet enc_ret;
+} VpiH26xEncPkt;
+
 typedef struct VpiH26xEncCtx {
     VPIH26xEncOptions options; /*The first item of VpiH26xEncCtx structure*/
     VCEncInst hantro_encoder;
@@ -276,6 +318,31 @@ typedef struct VpiH26xEncCtx {
     VCEncGopPicSpecialConfig gop_pic_special_cfg[MAX_GOP_SPIC_CONFIG_NUM];
     struct VPIH26xEncCfg vpi_h26xe_cfg;
     VPIH26xParamsDef *h26x_enc_param_table;
+    VpiH26xEncFrm frame_queue_for_enc[MAX_WAIT_DEPTH];
+    int frame_index;
+
+    /*For encoding thread*/
+    pthread_t h26xe_thd_handle;
+    pthread_mutex_t h26xe_thd_mutex;
+    pthread_cond_t h26xe_thd_cond;
+    int h26xe_thd_end;
+    VpiH26xEncPkt enc_pkt[MAX_OUTPUT_FIFO_DEPTH];
+    void *emptyFifo;
+    void *outputFifo;
+
+    /* For idr passthrough */
+    int next_idr_poc;
+    int idr_poc_array[MAX_IDR_ARRAY_DEPTH];
+    int force_idr;
+    bool key_frame_flag;
+    IDRCalcState idr_flag;
+    int next_gop_start;
+    int inject_frm_cnt;
+    int gop_len; /* used to calc max gopSize for IDR */
+    int poc_store_idx;
+    int next_idr_poc_idx;
+    bool update_idr_poc;
+    int hold_buf_num;
 } VpiH26xEncCtx;
 
 enum {

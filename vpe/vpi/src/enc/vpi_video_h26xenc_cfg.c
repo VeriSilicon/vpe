@@ -17,14 +17,15 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <string.h>
@@ -1228,6 +1229,8 @@ int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
 
     options->crf = h26x_enc_cfg->crf;
 
+    vpi_h26xe_ctx->force_idr = h26x_enc_cfg->force_idr;
+
     vpi_h26xe_ctx->h26x_enc_param_table =
         (VPIH26xParamsDef *)&h26x_enc_param_table[0];
     h26x_enc_get_params(vpi_h26xe_ctx);
@@ -1746,17 +1749,10 @@ int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
              vpi_h26xe_cfg->picture_mem_factory[0].size / 16 :
              stream_buf_total_size);
     outbuf_size[0] = stream_buf_total_size;
-    if (vpi_h26xe_cfg->stream_buf_num > 1) {
-        /* set small stream buffer0 to test two stream buffers */
-        outbuf_size[0] = MAX(vpi_h26xe_cfg->picture_mem_factory[0].size >> 10,
-                             VCENC_STREAM_MIN_BUF0_SIZE);
-        outbuf_size[1] = (stream_buf_total_size - outbuf_size[0]) /
-                         (vpi_h26xe_cfg->stream_buf_num - 1);
-    }
     for (core_idx = 0; core_idx < vpi_h26xe_cfg->parallel_core_num;
          core_idx++) {
         for (i_buf = 0; i_buf < vpi_h26xe_cfg->stream_buf_num; i_buf++) {
-            i32 size = outbuf_size[i_buf ? 1 : 0];
+            i32 size = outbuf_size[0];
 
 #ifdef USE_OLD_DRV
             ret = EWLMallocLinear(((struct vcenc_instance *)enc)->asic.ewl,

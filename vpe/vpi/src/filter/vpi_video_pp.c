@@ -2774,6 +2774,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pp_inst = pp->pp_inst;
     pp_c    = (PPContainer *)pp_inst;
 
+    pp_c->b_disable_tcache = 0;
     /* read frame from VpeFrame to pp_in_buffer*/
     pp_send_packet(filter, &pp->pp_in_buffer, input);
     if (pp->pp_in_buffer == NULL) {

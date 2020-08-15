@@ -1275,13 +1275,7 @@ static int h26x_enc_enqueue_infrm(struct VpiH26xEncCtx *enc_ctx,
         }
     }
 
-    if (enc_ctx->force_idr) {
-        if (enc_ctx->frame_index - vpi_h26xe_cfg->input_pic_cnt >
-             enc_ctx->hold_buf_num +1) {
-            usleep(40000);
-        } /*TBD: need refine to prevent blocking at decoder side */
-    }
-
+    usleep(40000); /*TBD: need refine to prevent blocking at decoder side */
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (enc_ctx->frame_queue_for_enc[i].state == 0) {
             queue_member = (VpiH26xEncFrm *)&enc_ctx->frame_queue_for_enc[i];

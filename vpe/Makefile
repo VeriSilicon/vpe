@@ -18,6 +18,7 @@ DLL_PATH  := "/usr/lib/vpe"
 INC_PATH  := "/usr/local/include/vpe"
 PKG_PATH  := "/usr/share/pkgconfig"
 PWD  := $(shell pwd)
+DRV_PATH := "/lib/modules/$(shell uname -r)/kernel/drivers/pci/pcie/solios-x"
 
 .PHONY: all vpi drivers install clean help
 
@@ -55,8 +56,12 @@ install:
 	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
 	/sbin/ldconfig
 	cp $(PWD)/vpi/inc/*.h $(INC_PATH)
-	$(shell rmmod transcoder_pcie;)
-	$(shell insmod $(PWD)/drivers/transcoder-pcie/transcoder_pcie.ko;)
+	rmmod transcoder_pcie
+	insmod drivers/transcoder-pcie/transcoder_pcie.ko
+	rm $(DRV_PATH) -rf
+	mkdir -p $(DRV_PATH)
+	cp drivers/transcoder-pcie/transcoder_pcie.ko $(DRV_PATH)
+	depmod
 
 clean:
 	make -C vpi clean

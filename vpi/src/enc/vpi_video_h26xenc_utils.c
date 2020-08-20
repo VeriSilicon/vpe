@@ -17,14 +17,15 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <stdio.h>
@@ -61,6 +62,8 @@
 #include "vpi_log.h"
 #include "vpi_video_h26xenc_options.h"
 #include "vpi_video_h26xenc_utils.h"
+
+#include "fifo.h"
 
 #define MAX_LINE_LENGTH_BLOCK 512 * 8
 #define ENC_TB_INFO_PRINT(fmt, ...)                                            \
@@ -3155,21 +3158,21 @@ u32 setup_input_buffer(struct VPIH26xEncCfg *vpi_h26xe_cfg,
 
 void setup_output_buffer(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in)
 {
-    i32 i_buf;
-    for (i_buf = 0; i_buf < tb->stream_buf_num; i_buf++) {
-        /*find output buffer of multi-cores*/
-        tb->outbuf_mem[i_buf] =
-            &(tb->outbuf_mem_factory[tb->picture_enc_cnt %
-                                     tb->parallel_core_num][i_buf]);
+    u32 i_buf;
 
-        p_enc_in->busOutBuf[i_buf]  = tb->outbuf_mem[i_buf]->busAddress;
-        p_enc_in->outBufSize[i_buf] = tb->outbuf_mem[i_buf]->size;
+    tb->outbuf_index++;
+    i_buf = tb->outbuf_index = tb->outbuf_index % MAX_OUTPUT_FIFO_DEPTH;
+
+    tb->outbuf_mem[0] = &(tb->outbuf_mem_factory[tb->picture_enc_cnt %
+                                                 tb->parallel_core_num][i_buf]);
+
+    p_enc_in->busOutBuf[0]  = tb->outbuf_mem[i_buf]->busAddress;
+    p_enc_in->outBufSize[0] = tb->outbuf_mem[i_buf]->size;
 #ifdef USE_OLD_DRV
-        p_enc_in->pOutBuf[i_buf] = tb->outbuf_mem[i_buf]->virtualAddress;
+    p_enc_in->pOutBuf[0] = tb->outbuf_mem[i_buf]->virtualAddress;
 #else
-        p_enc_in->pOutBuf[i_buf] = tb->outbuf_mem[i_buf]->rc_virtualAddress;
+    p_enc_in->pOutBuf[0] = tb->outbuf_mem[i_buf]->rc_virtualAddress;
 #endif
-    }
 }
 
 static i32 setup_roi_map_ver3(struct VPIH26xEncCfg *tb,
@@ -3599,4 +3602,67 @@ unsigned int uTimeDiff(struct timeval end, struct timeval start)
 {
     return (end.tv_sec - start.tv_sec) * 1000000 +
            (end.tv_usec - start.tv_usec);
+}
+int h26x_enc_fifo_release(struct VpiH26xEncCtx *enc_ctx)
+{
+    int i                                       = 0;
+    const struct vcenc_instance *vcenc_instance = enc_ctx->hantro_encoder;
+
+    if (enc_ctx->outputFifo)
+        FifoRelease(enc_ctx->outputFifo);
+    if (enc_ctx->emptyFifo)
+        FifoRelease(enc_ctx->emptyFifo);
+
+    return 0;
+}
+
+int h26x_enc_fifo_init(struct VpiH26xEncCtx *enc_ctx)
+{
+    int ret = 0, i = 0;
+
+    ret = FifoInit(MAX_OUTPUT_FIFO_DEPTH, (FifoInst *)&enc_ctx->emptyFifo);
+    if (ret < 0) {
+        goto error;
+    }
+    ret = FifoInit(MAX_OUTPUT_FIFO_DEPTH, (FifoInst *)&enc_ctx->outputFifo);
+    if (ret < 0) {
+        goto error;
+    }
+    for (i = 0; i < MAX_OUTPUT_FIFO_DEPTH; i++) {
+        memset(&enc_ctx->enc_pkt[i], 0, sizeof(enc_ctx->enc_pkt[i]));
+        if (FifoPush(enc_ctx->emptyFifo, &enc_ctx->enc_pkt[i],
+                     FIFO_EXCEPTION_DISABLE)) {
+            VPILOGE("[%s L%d] FifoPush to emptryFifo fails\n", __FUNCTION__,
+                    __LINE__);
+            goto error;
+        }
+    }
+    return 0;
+error:
+    h26x_enc_fifo_release(enc_ctx);
+    return 0;
+}
+
+int h26x_enc_push_outfifo(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncPkt *enc_pkt)
+{
+    return FifoPush(enc_ctx->outputFifo, enc_pkt, FIFO_EXCEPTION_ENABLE);
+}
+
+int h26x_enc_pop_outfifo(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncPkt **enc_pkt)
+{
+    return FifoPop(enc_ctx->outputFifo, (FifoObject *)enc_pkt,
+                   FIFO_EXCEPTION_ENABLE);
+}
+
+int h26x_enc_push_emptyfifo(struct VpiH26xEncCtx *enc_ctx,
+                            VpiH26xEncPkt *enc_pkt)
+{
+    return FifoPush(enc_ctx->emptyFifo, enc_pkt, FIFO_EXCEPTION_DISABLE);
+}
+
+int h26x_enc_pop_emptyfifo(struct VpiH26xEncCtx *enc_ctx,
+                           VpiH26xEncPkt **enc_pkt)
+{
+    return FifoPop(enc_ctx->emptyFifo, (FifoObject *)enc_pkt,
+                   FIFO_EXCEPTION_ENABLE);
 }

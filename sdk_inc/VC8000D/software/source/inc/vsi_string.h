@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
---Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved --
+--       Copyright (c) 2015-2017, VeriSilicon Inc. All rights reserved        --
 --         Copyright (c) 2011-2014, Google Inc. All rights reserved.          --
 --         Copyright (c) 2007-2010, Hantro OY. All rights reserved.           --
 --                                                                            --
@@ -41,14 +41,14 @@
 /*#define _USE_VSI_STRING_*/
 
 #ifdef _USE_VSI_STRING_
-#define atoi    vsi_atoi
-#define strcat  vsi_strcat
-#define strcmp  vsi_strcmp
-#define strcpy  vsi_strcpy
-#define strlen  vsi_strlen
+#define atoi    vsi_atoi   
+#define strcat  vsi_strcat 
+#define strcmp  vsi_strcmp 
+#define strcpy  vsi_strcpy 
+#define strlen  vsi_strlen 
 #define strncmp vsi_strncmp
 #define strncpy vsi_strncpy
-#define strtok  vsi_strtok
+#define strtok  vsi_strtok 
 #define strtol  vsi_strtol
 /*#include <string.h>*/
 #else

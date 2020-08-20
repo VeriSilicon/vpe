@@ -31,6 +31,9 @@ VpiRet vpi_vprc_init(VpiPrcCtx *vpi_ctx, void *prc_cfg)
     case FILTER_HW_DOWNLOADER:
         ret = vpi_prc_hwdw_init(vpi_ctx, prc_cfg);
         break;
+    case FILTER_HW_UPLOAD:
+        ret = vpi_prc_hwul_init(vpi_ctx, prc_cfg);
+        break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
         ret = VPI_ERR_VALUE;
@@ -52,6 +55,9 @@ VpiRet vpi_vprc_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     case FILTER_HW_DOWNLOADER:
         ret = vpi_prc_hwdw_process(vpi_ctx, indata, outdata);
         break;
+    case FILTER_HW_UPLOAD:
+        ret = vpi_prc_hwul_process(vpi_ctx, indata, outdata);
+        break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
         break;
@@ -71,6 +77,9 @@ VpiRet vpi_vprc_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         break;
     case FILTER_HW_DOWNLOADER:
         vpi_prc_hwdw_control(vpi_ctx, indata, outdata);
+        break;
+    case FILTER_HW_UPLOAD:
+        vpi_prc_hwul_control(vpi_ctx, indata, outdata);
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
@@ -92,6 +101,9 @@ int vpi_vprc_close(VpiPrcCtx *vpi_ctx)
         break;
     case FILTER_HW_DOWNLOADER:
         ret = vpi_prc_hwdw_close(vpi_ctx);
+        break;
+    case FILTER_HW_UPLOAD:
+        ret = vpi_prc_hwul_close(vpi_ctx);
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);

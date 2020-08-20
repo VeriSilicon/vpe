@@ -204,6 +204,8 @@ typedef struct {
     const void *trans_handle;
     EDMA_HANDLE edma_handle;
     const void *tcache_handle;
+    int disable_tcache;
+    pthread_mutex_t pp_mutex;
 } PPClient;
 
 typedef struct ppResize {
@@ -244,6 +246,7 @@ typedef struct VpiPPFilter {
     int h;
     VpiPixsFmt format;
     VpiFrame *frame;
+    int b_disable_tcache;
 } VpiPPFilter;
 
 #endif

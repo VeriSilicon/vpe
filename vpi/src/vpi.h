@@ -33,6 +33,8 @@
 #include "time.h"
 #include "vpi_types.h"
 
+typedef struct VpiBufRef VpiBufRef;
+
 typedef struct VpeVpiCtx {
     uint32_t dummy;
     VpiPlugin plugin;

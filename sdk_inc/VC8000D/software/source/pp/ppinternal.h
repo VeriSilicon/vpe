@@ -59,6 +59,7 @@ typedef struct PPContainer_ {
   PpUnitIntConfig ppu_cfg[4];
   const void *dwl;
   i32 core_id;
+  u32 b_disable_tcache; //1:no tcache, read raw from ep  0:use tcache
 } PPContainer;
 
 void PPFlushRegs(PPContainer * pp_c);

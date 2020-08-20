@@ -31,6 +31,7 @@
 #include "cwl.h"
 #include "dectypes.h"
 #include "fb_performance.h"
+#include "hugepage_api.h"
 
 #include "vpi.h"
 #include "vpi_types.h"
@@ -71,6 +72,37 @@ static const char firstpass[] = "firstpass.out";
 #define KHW_PIC_MEM_TAIL_PADDING 16 * 1024
 #define STATOTAL PERFORMANCE_STATIC_GET_TOTAL
 
+/* macro to get smaller of two values */
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+#ifndef MAX
+/* macro to get greater of two values */
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef VPI_WL16
+#   define VPI_WL16(p, d) do {                  \
+        ((uint8_t*)(p))[0] = (d);               \
+        ((uint8_t*)(p))[1] = (d)>>8;            \
+    } while(0)
+#endif
+#ifndef VPI_WL24
+#   define VPI_WL24(p, d) do {                  \
+        ((uint8_t*)(p))[0] = (d);               \
+        ((uint8_t*)(p))[1] = (d)>>8;            \
+        ((uint8_t*)(p))[2] = (d)>>16;           \
+    } while(0)
+#endif
+#ifndef VPI_WL32
+#   define VPI_WL32(p, d) do {                 \
+        ((uint8_t*)(p))[0] = (d);               \
+        ((uint8_t*)(p))[1] = (d)>>8;            \
+        ((uint8_t*)(p))[2] = (d)>>16;           \
+        ((uint8_t*)(p))[3] = (d)>>24;           \
+    } while(0)
+#endif
+
 static int trans_default_bitrate[] = { 100000,  250000,  500000,  1000000,
                                        3000000, 5000000, 10000000 };
 
@@ -81,6 +113,64 @@ static u32 tempora_layer_tic_scale[4][4] = { { 1, 0, 0, 0 },
 
 u32 random_mz = 1;
 u32 random_mw = 1;
+
+
+static u32 log2u(u32 x)
+{
+  u32 tmp = 0;
+
+  while (x >> ++tmp);
+
+  return tmp - 1;
+}
+
+static u32 get_superframe_header(VpiEncVp9Ctx *ctx, u32 last_frame_size,
+                                 u32 current_frame_size)
+{
+    u32 max, sum, mag, sz, n_in, n;
+    u32 in[2];
+    u8 marker;
+    u8 *ptr;
+
+    max = MAX(last_frame_size, current_frame_size);
+    sum = last_frame_size + current_frame_size;
+
+    in[0] = last_frame_size;
+    in[1] = current_frame_size;
+    n_in = 2;
+    mag = log2u(max) >> 3;
+    marker = 0xC0 + (mag << 3) + (n_in - 1);
+    ctx->superframe_header_size = 2 + (mag + 1) * n_in;
+    sz = sum + ctx->superframe_header_size;
+    ptr = &ctx->superframe_header[0];
+    *ptr++ = marker;
+
+#define wloop(mag, wr) \
+    do { \
+        for (n = 0; n < n_in; n++) { \
+            wr; \
+            ptr += mag + 1; \
+        } \
+    } while (0)
+
+    switch (mag) {
+    case 0:
+        wloop(mag, *ptr = in[n]);
+        break;
+    case 1:
+        wloop(mag, VPI_WL16(ptr, in[n]));
+        break;
+    case 2:
+        wloop(mag, VPI_WL24(ptr, in[n]));
+        break;
+    case 3:
+        wloop(mag, VPI_WL32(ptr, in[n]));
+        break;
+    }
+
+    *ptr++ = marker;
+    return sz;
+}
 
 static u32 next_rand()
 {
@@ -107,6 +197,35 @@ static int get_res_index(int w, int h)
     return 0;
 }
 
+void vp9enc_buf_list_add(Vp9EncBufLink **head, Vp9EncBufLink *list)
+{
+    Vp9EncBufLink *temp;
+
+    if(NULL == *head) {
+        *head = list;
+        (*head)->next = NULL;
+    } else {
+        temp = *head;
+        while(temp) {
+            if(NULL == temp->next) {
+                temp->next = list;
+                list->next = NULL;
+                return;
+            }
+            temp = temp->next;
+        }
+    }
+}
+
+Vp9EncBufLink* vp9enc_buf_list_delete(Vp9EncBufLink *head)
+{
+    if (NULL == head || NULL == head->next) {
+        return NULL;
+    }
+
+    return head->next;
+}
+
 void vp9enc_test_segmentation(VpiEncVp9Ctx *ctx, int pic_width, int pic_height,
                               VP9EncInst encoder, VpiEncVp9Setting *ecfg)
 {
@@ -117,6 +236,10 @@ void vp9enc_test_segmentation(VpiEncVp9Ctx *ctx, int pic_width, int pic_height,
     int num_sbs = ((pic_width + 63) / 64) * ((pic_height + 63) / 64);
     bool update = false;
     u32 sw_mixed_segment_penalty = 0;
+
+    if (ecfg->segments == 0) {
+        return;
+    }
 
     if (ctx == NULL || encoder == 0) {
         VPILOGE("vp9enc_test_segmentation input error\n");
@@ -624,6 +747,197 @@ void vp9enc_print_frame(VpiEncVp9Ctx *ctx, VP9EncInst encoder, u32 frame_number,
     }
 }
 
+int vp9enc_get_empty_stream_buffer(VpiEncVp9Ctx *ctx)
+{
+    int i;
+
+    for (i = 0; i < MAX_STREAM_BUFFER_COUNT; i++) {
+        if (ctx->stream_buf_list[i]->used == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int vp9enc_get_used_pic_mem(VpiEncVp9Ctx *ctx, void *mem)
+{
+    VpiBufRef **ref;
+
+    pthread_mutex_lock(&ctx->enc_thread_mutex);
+    ref = (VpiBufRef **)mem;
+    if (ctx->rls_pic_head) {
+        *ref = (VpiBufRef *)ctx->rls_pic_head->item;
+        ctx->rls_pic_head->used = 0;
+        ctx->rls_pic_head =
+            vp9enc_buf_list_delete(ctx->rls_pic_head);
+    } else {
+        *ref = NULL;
+    }
+    pthread_mutex_unlock(&ctx->enc_thread_mutex);
+    return 0;
+}
+
+void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
+{
+    VpiEncVp9Pic * trans_pic = NULL;
+    int i;
+
+    //find the need_poc
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 1) {
+            trans_pic = &ctx->pic_wait_list[i];
+            if (trans_pic->poc == consume_poc) {
+                break;
+            }
+        }
+    }
+    if (i == MAX_WAIT_DEPTH) {
+        return;
+    }
+
+    trans_pic->poc = -1;
+    trans_pic->state = 0;
+    trans_pic->used  = 0;
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->rls_pic_list[i]->used == 0) {
+            ctx->rls_pic_list[i]->item = trans_pic->pic->opaque;
+            ctx->rls_pic_list[i]->used = 1;
+            break;
+        }
+    }
+    if (i == MAX_WAIT_DEPTH) {
+        return;
+    }
+
+    vp9enc_buf_list_add(&ctx->rls_pic_head, ctx->rls_pic_list[i]);
+}
+
+int vp9enc_get_enc_status(VpiEncVp9Ctx *ctx)
+{
+    int i;
+
+    // check whether all the input frame has been send to enoder
+    // because decoder's speed is faster than encoder
+    // If not control and hold here, the frame buffer in decoder will used off
+    // and come into deadlock status
+    pthread_mutex_lock(&ctx->enc_thread_mutex);
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 1) {
+            if (ctx->pic_wait_list[i].used == 0) {
+                VPILOGD("%d not used\n", i);
+                pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                return 1;
+            }
+        }
+    }
+    pthread_mutex_unlock(&ctx->enc_thread_mutex);
+    return 0;
+}
+
+int vp9enc_get_pic_buffer(VpiEncVp9Ctx *ctx, void *outdata)
+{
+    VpiFrame **frame;
+    VpiEncVp9Pic *trans_pic = NULL;
+    int status, i;
+
+
+    do {
+        status = vp9enc_get_enc_status(ctx);
+        if (status == 1) {
+            usleep(1000);
+            continue;
+        } else {
+            break;
+        }
+    } while(1);
+
+    pthread_mutex_lock(&ctx->enc_thread_mutex);
+    frame = (VpiFrame **)outdata;
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 0) {
+            trans_pic = &ctx->pic_wait_list[i];
+            break;
+        }
+    }
+    if (i == MAX_WAIT_DEPTH) {
+        *frame = NULL;
+        pthread_mutex_unlock(&ctx->enc_thread_mutex);
+        return -1;
+    }
+    if (trans_pic->pic == NULL) {
+        trans_pic->pic = malloc(sizeof(VpiFrame));
+    }
+    *frame = trans_pic->pic;
+    pthread_mutex_unlock(&ctx->enc_thread_mutex);
+    return 0;
+}
+
+int vp9enc_get_frame_packet(VpiEncVp9Ctx *ctx, void *outdata)
+{
+    Vp9EncBufLink *buf;
+    int not_show_size;
+    int found = 0;
+
+    pthread_mutex_lock(&ctx->enc_thread_mutex);
+    while (1) {
+        buf = ctx->stream_buf_head;
+        if (buf == NULL) {
+            if (ctx->encode_end == 1) {
+                pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                return 1;
+            } else {
+                if (ctx->eos_received == 0) {
+                    pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                    return -1;
+                } else {
+                    ctx->waiting_for_pkt = 1;
+                    pthread_cond_wait(&ctx->enc_thread_cond,
+                                      &ctx->enc_thread_mutex);
+                    continue;
+                }
+            }
+        }
+
+        if (buf->show) {
+            *(int *)outdata = buf->item_size;
+            pthread_mutex_unlock(&ctx->enc_thread_mutex);
+            return 0;
+        } else {
+            not_show_size = buf->item_size;
+            buf = buf->next;
+            if (buf == NULL) {
+                if (ctx->eos_received == 0) {
+                    pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                    return -1;
+                } else {
+                    ctx->waiting_for_pkt = 1;
+                    pthread_cond_wait(&ctx->enc_thread_cond,
+                                      &ctx->enc_thread_mutex);
+                    continue;
+                }
+            }
+            if (buf->show) {
+                *(int *)outdata = get_superframe_header(ctx, not_show_size, buf->item_size);
+                pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                return 0;
+            } else {
+                VPILOGE("continuous not show frame\n");
+                pthread_mutex_unlock(&ctx->enc_thread_mutex);
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+void vp9enc_superframe(VpiEncVp9Ctx *ctx, VpiPacket *pkt)
+{
+    u8 *ptr = pkt->data + pkt->size;
+
+    memcpy(ptr, &ctx->superframe_header[0], ctx->superframe_header_size);
+    pkt->size += ctx->superframe_header_size;
+}
+
 static int vp9_pre_encode(VpiEncVp9Ctx *ctx)
 {
     VpiEncVp9Setting *ecfg = &ctx->vp9_enc_cfg;
@@ -643,8 +957,9 @@ static int vp9_pre_encode(VpiEncVp9Ctx *ctx)
     else
         ctx->ma.length = MOVING_AVERAGE_FRAMES;
 
-    enc_instance->busOutBuf  = ctx->outbuff_mem.busAddress;
+    enc_instance->busOutBuf = ctx->outbuff_mem.busAddress;
     enc_instance->outBufSize = ctx->outbuff_mem.size;
+    //enc_instance->outBufSize = ctx->outstream_mem[0].size;
 
     /* Source Image Size */
     u32 lu_w = ecfg->lum_width_src;
@@ -714,7 +1029,7 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
     VP9EncInst encoder     = ctx->encoder;
     u32 pictureSize;
     u32 outbufSize;
-    int ret;
+    int ret, i;
     /* 64 multiple horizontal stride will fit all */
     const u32 w = (ecfg->lum_width_src + 4095) & (~4095);
     const u32 h = (ecfg->lum_height_src + 7) & (~7);
@@ -761,13 +1076,41 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
 
     /* round to 4k to avoid triggering model dram checker */
     outbufSize &= (~4095);
-
     void *cwl = VP9EncGetCWL(encoder);
     ret = CWLMallocEpLinear(cwl, outbufSize, &ctx->outbuff_mem);
     if (ret != CWL_OK) {
         VPILOGE("Failed to allocate output buffer!\n");
         return 1;
     }
+
+    ctx->outstream_mem_size = outbufSize;
+    for (i = 0; i < MAX_STREAM_BUFFER_COUNT; i++) {
+        ctx->outstream_mem[i] = fbtrans_get_huge_pages(outbufSize);
+        if (ctx->outstream_mem[i] == NULL) {
+            VPILOGE("Failed to allocate output buffer size %d!\n", outbufSize);
+            return 1;
+        }
+        ctx->stream_buf_list[i] = malloc(sizeof(Vp9EncBufLink));
+        if (NULL == ctx->stream_buf_list[i]) {
+            VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER LIST MEMORY\n");
+            return VPI_ERR_MALLOC;
+        }
+        ctx->stream_buf_list[i]->used = 0;
+        ctx->stream_buf_list[i]->show = 0;
+        ctx->stream_buf_list[i]->next = NULL;
+    }
+    ctx->stream_buf_head = NULL;
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        ctx->rls_pic_list[i] = malloc(sizeof(Vp9EncBufLink));
+        if (NULL == ctx->rls_pic_list[i]) {
+            VPILOGE("UNABLE TO ALLOCATE RELEASE PIC LIST MEMORY\n");
+            return VPI_ERR_MALLOC;
+        }
+        ctx->rls_pic_list[i]->next = NULL;
+        ctx->rls_pic_list[i]->used = 0;
+    }
+    ctx->rls_pic_head = NULL;
 
     pictureSize =
         ((ecfg->width + 63) & (~63)) * ((ecfg->height + 63) & (~63)) * 3 / 2;
@@ -803,6 +1146,7 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
                 outbufSize, ctx->outbuff_mem.size);
         return 1;
     }
+
     VPILOGD("Input buffer size: %d bytes\n", pictureSize);
     VPILOGD("Output buffer size: %d bytes\n", ctx->outbuff_mem.size);
 
@@ -813,10 +1157,34 @@ void vp9enc_free_resource(VpiEncVp9Ctx *ctx)
 {
     VpiEncVp9Setting *ecfg = &ctx->vp9_enc_cfg;
     VP9EncInst enc         = ctx->encoder;
+    VpiEncVp9Pic *trans_pic;
+    int i;
 
-    VPILOGD("start free resource!!\n");
     void *cwl = VP9EncGetCWL(enc);
     CWLFreeEpLinear(cwl, &ctx->outbuff_mem);
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        trans_pic = &ctx->pic_wait_list[i];
+        if (trans_pic->pic) {
+            free(trans_pic->pic);
+            trans_pic->pic = NULL;
+        }
+    }
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        free(ctx->rls_pic_list[i]);
+    }
+
+    for (i = 0; i < MAX_STREAM_BUFFER_COUNT; i++) {
+        free(ctx->stream_buf_list[i]);
+    }
+    VPILOGD("start free resource!!\n");
+
+    for (i = 0; i < MAX_STREAM_BUFFER_COUNT; i++) {
+        if(ctx->outstream_mem[i]) {
+            fbtrans_free_huge_pages(ctx->outstream_mem[i], ctx->outstream_mem_size);
+        }
+    }
 
     if (ecfg->pp_dump) {
         free_hw_pic_mem(enc, &ctx->scaled_pic_mem);
@@ -1067,6 +1435,7 @@ static int vp9_set_coding_control(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
     VPILOGD("ARF filter params: strength=%d length=%d\n",
             coding_cfg.arfTemporalFilterStrength,
             coding_cfg.arfTemporalFilterLength);
+
 
     coding_cfg.lossless = ecfg->lossless ? 1 : 0;
 
@@ -1655,6 +2024,7 @@ int vp9enc_open(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
     VP9EncConfig cfg;
     VP9ENCPERF *perf = &ctx->perf;
     EncPreProcessingCfg proccfg;
+    int i;
 
     if (ctx == NULL || ecfg == NULL) {
         VPILOGE("vp9enc_open input error.\n");
@@ -1730,6 +2100,11 @@ int vp9enc_open(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
         return -VP9ENC_ERROR;
     }
 
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        ctx->pic_wait_list[i].state = 0;
+        ctx->pic_wait_list[i].used  = 0;
+    }
+
     ctx->poc              = 0;
     ctx->next             = 0;
     ctx->code_frame_count = 0;
@@ -1739,6 +2114,7 @@ int vp9enc_open(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
     ctx->in_width         = 0;
     ctx->in_height        = 0;
     ctx->encoder_is_open  = true;
+    ctx->eos_received     = 0;
 
     return ret;
 }
@@ -1778,7 +2154,6 @@ int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiEncVp9Opition *cfg
 int vp9enc_setpreset(VpiEncVp9Setting *ecfg)
 {
     VP9Preset preset = VP9ENC_PRESET_NONE;
-    VPILOGD("VpeEnc Preset: %s\n", ecfg->preset);
 
     if (ecfg->preset) {
         if (strcmp(ecfg->preset, "superfast") == 0) {
@@ -1989,7 +2364,6 @@ int vp9enc_updatesetting_fromframe(VpiEncVp9Ctx *ctx, VpiFrame *in,
     }
 
     ecfg->input_bitdepth = pic_data->bit_depth_luma;
-    VPILOGD("pic_compressed_status = %d\n", pic_data->pic_compressed_status);
 
     if (pic_data->pic_compressed_status == 2) {
         ecfg->input_compress = 1;
@@ -2032,6 +2406,20 @@ int vp9enc_updatesetting_fromframe(VpiEncVp9Ctx *ctx, VpiFrame *in,
         break;
     }
 
+    //for vf_hwupload_vpe's edma channel
+    if((pic_data->pic_compressed_status == 0) &&
+        (pic_info->format == VPI_YUV420_PLANAR_10BIT_P010) ){
+        ecfg->input_format = ENC_YUV420_SEMIPLANAR_P010;
+        ecfg->input_compress = 0;
+        ecfg->input_bitdepth = 2;
+    }
+
+    if((pic_data->pic_compressed_status == 0) &&
+        (pic_data->pic_pixformat == DEC_OUT_PIXEL_DEFAULT) &&
+        (pic_info->format == VPI_YUV420_SEMIPLANAR_VU) ){
+        ecfg->input_format = ENC_YUV420_SEMIPLANAR_VU;
+    }
+
     /* FIXME: to check how bitdepth need to be set */
     ecfg->bitdepth = (ecfg->input_bitdepth == 2) ? 1 : 0;
     if (ecfg->input_bitdepth == 2) {
@@ -2047,7 +2435,6 @@ int vp9enc_updatesetting_fromframe(VpiEncVp9Ctx *ctx, VpiFrame *in,
     width = (ecfg->width == DEFAULT_VALUE) ? ecfg->lum_width_src : ecfg->width;
     height =
         (ecfg->height == DEFAULT_VALUE) ? ecfg->lum_height_src : ecfg->height;
-    VPILOGD("check bitrate by width %d height %d\n", width, height);
 
     if (ecfg->bit_per_second == DEFAULT_VALUE) {
         int res_index        = get_res_index(width, height);
@@ -2087,6 +2474,16 @@ void vp9enc_get_max_frame_delay(VpiEncVp9Ctx *ctx, VpiFrame *v_frame,
     if (max_frames_delay > v_frame->max_frames_delay) {
         v_frame->max_frames_delay = max_frames_delay;
     }
+
+    if (((v_frame->flag & HWUPLOAD_FLAG) == 1) &&
+        ((v_frame->flag & PP_FLAG) == 0)) {
+        /* hwupload link to encoder directly, no pp filter */
+        if (max_frames_delay > v_frame->hwupload_max_frames_delay) {
+            v_frame->hwupload_max_frames_delay = max_frames_delay;
+        }
+        VPILOGD("vpeframe->hwupload_max_frames_delay = %d\n",
+            v_frame->hwupload_max_frames_delay);
+    }
     VPILOGD("vpeframe->max_frames_delay = %d\n", v_frame->max_frames_delay);
 }
 
@@ -2096,23 +2493,44 @@ void vp9enc_get_max_frame_delay(VpiEncVp9Ctx *ctx, VpiFrame *v_frame,
 * output: enc_instance
 * return: o is good, others if input data is NULL or empty
 */
-int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance, int pp_index,
-                                  VpiFrame *input, VpiEncVp9Setting *ecfg)
+int vp9enc_send_buffer_to_encoder(VpiEncVp9Ctx *ctx, VP9EncIn *enc_instance,
+                                  VpiEncVp9Setting *ecfg)
 {
+    VpiEncVp9Pic *trans_pic     = NULL;
     struct DecPicture *enc_data = NULL;
     EncInAddr addrs             = { 0, 0, 0, 0 };
-    struct DecPicturePpu *pic = pic = (struct DecPicturePpu *)input->data[0];
+    struct DecPicturePpu *pic;
+    int need_poc, pp_index;
+    int i;
 
+    //find the need_poc
+    need_poc = ctx->next + 1;
+    pp_index = ctx->pp_index;
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 1) {
+            trans_pic = &ctx->pic_wait_list[i];
+            if (trans_pic->poc == need_poc) {
+                pic = (struct DecPicturePpu *)trans_pic->pic->data[0];
+                break;
+            }
+        }
+    }
+    if(i == MAX_WAIT_DEPTH)	{
+        VPILOGE("Can't found matched poc frame %d\n", need_poc);
+        goto error;
+    }
+
+    trans_pic->used = 1;
     if (pic) {
         enc_data = &pic->pictures[pp_index];
+        if (!enc_data) {
+            VPILOGE("Input picture is NULL, clean enc_instance buffer\n");
+            goto error;
+        }
         VPILOGD("Dump pic: %ld %ld %ld %ld\n", enc_data->luma.bus_address,
                 enc_data->chroma.bus_address, enc_data->luma_table.bus_address,
                 enc_data->chroma_table.bus_address);
-    }
-
-    if (!enc_data) {
-        VPILOGE("Input picture is NULL, clean enc_instance buffer\n");
-        goto error;
     }
 
     addrs.bus_luma         = enc_data->luma.bus_address;
@@ -2130,13 +2548,15 @@ int vp9enc_send_buffer_to_encoder(VP9EncIn *enc_instance, int pp_index,
         enc_instance->height         = ecfg->lum_height_src;
         enc_instance->encode_width   = ecfg->width;
         enc_instance->encode_height  = ecfg->height;
-        enc_instance->pts            = input->pts;
-        enc_instance->dts            = input->pkt_dts;
+        enc_instance->pts            = trans_pic->pic->pts;
+        enc_instance->dts            = trans_pic->pic->pkt_dts;
         VPILOGD(" busLuma[%p], busCU[%p], busLT[%p],"
-                "busCT[%p],compress=%d,width=%d,height=%d\n",
+                "busCT[%p],compress=%d,width=%d,height=%d,"
+                "pts=%lld,dts=%lld\n",
                 enc_instance->busLuma, enc_instance->busChromaU,
                 enc_instance->busLumaTable, enc_instance->busChromaTable,
-                enc_instance->compress, ecfg->width, ecfg->height);
+                enc_instance->compress, ecfg->width, ecfg->height,
+                enc_instance->pts, enc_instance->dts);
     } else {
         VPILOGE("Input data is zero, clean enc_instance buffer\n");
         goto error;
@@ -2148,7 +2568,7 @@ error:
     enc_instance->busChromaU      = 0;
     enc_instance->busLumaTable    = 0;
     enc_instance->busChromaTable  = 0;
-    enc_instance->end_of_sequence = 1;
+    //enc_instance->end_of_sequence = 1;
 
     return -1;
 }

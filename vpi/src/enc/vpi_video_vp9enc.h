@@ -39,11 +39,31 @@ typedef const void *VpiEncVp9Inst;
 
 #define MAX_BPS_ADJUST 20
 #define VP9ENC_MOVING_AVERAGE_FRAMES 30
+#define MAX_STREAM_BUFFER_COUNT 10
 
 #define FF_PROFILE_VP9_0 0
 #define FF_PROFILE_VP9_1 1
 #define FF_PROFILE_VP9_2 2
 #define FF_PROFILE_VP9_3 3
+
+#define SUPERFRAME_HEADER_SIZE 10     // 2 + 2 * frame_size(4bytes)
+
+typedef struct {
+    int state;
+    int used;
+    int poc;
+    VpiFrame *pic;
+} VpiEncVp9Pic;
+
+typedef struct Vp9EncBufLink{
+    void *item;
+    int item_size;
+    int used;
+    int show;
+    int64_t pts;
+    int64_t pkt_dts;
+    struct Vp9EncBufLink *next;
+} Vp9EncBufLink;
 
 typedef struct {
     int frame[VP9ENC_MOVING_AVERAGE_FRAMES];
@@ -223,6 +243,11 @@ typedef struct {
     CWLLinearMem_t picture_mem;
     CWLLinearMem_t outbuff_mem;
     CWLLinearMem_t scaled_pic_mem;
+    void* outstream_mem[MAX_STREAM_BUFFER_COUNT];
+    unsigned int outstream_mem_size;
+    //int outstream_usage[MAX_STREAM_BUFFER_COUNT];
+    Vp9EncBufLink* stream_buf_head;
+    Vp9EncBufLink* stream_buf_list[MAX_STREAM_BUFFER_COUNT];
 
     unsigned short *ref_desc_mem;
     void *rc_twopass_stats_in;
@@ -269,11 +294,31 @@ typedef struct {
 
     VpiEncVp9Setting vp9_enc_cfg;
 
+    // encode process
+    pthread_t enc_thread_handle;
+    pthread_mutex_t enc_thread_mutex;
+    pthread_cond_t enc_thread_cond;
+    int enc_thread_finish;
+    int encode_end;
+    int waiting_for_pkt;
+
+    /*Input VpiFrame queue*/
+    VpiEncVp9Pic pic_wait_list[MAX_WAIT_DEPTH];
+    int pic_wait_idx;
+    Vp9EncBufLink* rls_pic_head;
+    Vp9EncBufLink* rls_pic_list[MAX_WAIT_DEPTH];
+
+    unsigned char superframe_header[SUPERFRAME_HEADER_SIZE];
+    int superframe_header_size;
+
+    int eos_received;
 } VpiEncVp9Ctx;
 
 int vpi_venc_vp9_init(VpiEncVp9Ctx *vp9_ctx, void *cfg);
 int vpi_venc_vp9_encode(VpiEncVp9Ctx *vp9_ctx, void *indata, void *outdata);
 int vpi_venc_vp9_close(VpiEncVp9Ctx *vp9_ctx);
 int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata);
+int vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata);
+int vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata);
 
 #endif

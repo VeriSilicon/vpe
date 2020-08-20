@@ -117,6 +117,9 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         prc_ctx->filter_type       = FILTER_PP;
+        prc_ctx->ppfilter.params.device = device_name;
+        prc_ctx->ppfilter.params.mem_id = vpi_hw_ctx->task_id;
+        prc_ctx->ppfilter.params.priority = vpi_hw_ctx->priority;
         if (vpi_hw_ctx) {
             vpi_vprc_init(prc_ctx, &prc_ctx->ppfilter.params);
         }
@@ -137,6 +140,18 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         }
         break;
 
+    case HWUPLOAD_VPE:
+        prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
+        memset(prc_ctx, 0, sizeof(VpiPrcCtx));
+        VpiHWUploadCfg * hwul_cfg = (VpiHWUploadCfg *)cfg;
+        prc_ctx->filter_type      = FILTER_HW_UPLOAD;
+        hwul_cfg->task_id         = vpi_hw_ctx->task_id;
+        hwul_cfg->priority        = vpi_hw_ctx->priority;
+        hwul_cfg->device          = device_name;
+        if (vpi_hw_ctx) {
+            vpi_vprc_init(prc_ctx, cfg);
+        }
+        break;
     default:
         break;
     }
@@ -167,6 +182,7 @@ static int vpi_decode_put_packet(VpiCtx vpe_ctx, void *indata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         VPILOGE("decode_put_packet function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
         ret = VPI_ERR_WRONG_PLUGIN;
@@ -195,6 +211,7 @@ static int vpi_decode_get_frame(VpiCtx vpe_ctx, void *outdata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         VPILOGE("decode_get_frame function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
         ret = VPI_ERR_WRONG_PLUGIN;
@@ -224,6 +241,7 @@ static int vpi_decode(VpiCtx vpe_ctx, void *indata, void *outdata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         VPILOGE("decode funtion is not in current plugin %d",
                 vpe_vpi_ctx->plugin);
         ret = VPI_ERR_WRONG_PLUGIN;
@@ -238,6 +256,7 @@ static int vpi_decode(VpiCtx vpe_ctx, void *indata, void *outdata)
 static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
 {
     VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
+    VpiEncVp9Ctx *vp9_enc_ctx;
     VpiRet ret                = VPI_SUCCESS;
 
     switch (vpe_vpi_ctx->plugin) {
@@ -247,12 +266,16 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         VPILOGE("encode_put_frame function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
         ret = VPI_ERR_WRONG_PLUGIN;
         break;
     case H26XENC_VPE:
     case VP9ENC_VPE:
+        vp9_enc_ctx = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
+        ret = vpi_venc_vp9_put_frame(vp9_enc_ctx, indata);
+        break;
     default:
         break;
     }
@@ -262,8 +285,10 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
 
 static int vpi_encode_get_packet(VpiCtx vpe_ctx, void *outdata)
 {
-    VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
-    VpiRet ret                = VPI_SUCCESS;
+    VpeVpiCtx *vpe_vpi_ctx     = (VpeVpiCtx *)vpe_ctx;
+    VpiH26xEncCtx *h26xenc_ctx = NULL;
+    VpiEncVp9Ctx *vp9_enc_ctx;
+    VpiRet ret                 = VPI_SUCCESS;
 
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
@@ -272,15 +297,18 @@ static int vpi_encode_get_packet(VpiCtx vpe_ctx, void *outdata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         VPILOGE("encode_get_packet function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
         ret = VPI_ERR_WRONG_PLUGIN;
         break;
     case H26XENC_VPE:
-        //ret = vpi_venc_get_packet(enc_ctx, outdata);
+        h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
+        ret = vpi_h26xe_get_packet(h26xenc_ctx, outdata);
         return ret;
     case VP9ENC_VPE:
-        //ret = vpi_venc_vp9_get_packet(enc_ctx, outdata);
+        vp9_enc_ctx = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
+        ret = vpi_venc_vp9_get_packet(vp9_enc_ctx, outdata);
         return ret;
     default:
         break;
@@ -303,6 +331,7 @@ static int vpi_encode(VpiCtx vpe_ctx, void *indata, void *outdata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         VPILOGE("encode funtion is not in current plugin %d",
                 vpe_vpi_ctx->plugin);
         ret = VPI_ERR_WRONG_PLUGIN;
@@ -346,6 +375,7 @@ static int vpi_process(VpiCtx vpe_ctx, void *indata, void *outdata)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         ret = vpi_vprc_process(prc_ctx, indata, outdata);
         break;
     default:
@@ -425,12 +455,13 @@ static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
         break;
 
     case VP9ENC_VPE:
-        vpi_venc_vp9_control(vp9_enc_ctx, indata, outdata);
-        break;
+        ret = vpi_venc_vp9_control(vp9_enc_ctx, indata, outdata);
+        return ret;
 
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         vpi_vprc_control(prc_ctx, indata, outdata);
         break;
     default:
@@ -469,6 +500,7 @@ static int vpi_close(VpiCtx vpe_ctx)
     case PP_VPE:
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
+    case HWUPLOAD_VPE:
         if (vpi_hw_ctx) {
             vpi_vprc_close(prc_ctx);
         }
@@ -662,6 +694,13 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         vpe_vpi_ctx->ctx          = prc_ctx;
         vpi_codec_ctx->vpi_prc_hwdw_ctx = vpe_vpi_ctx;
+        vpi_codec_ctx->ref_cnt++;
+        break;
+    case HWUPLOAD_VPE:
+        prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
+        memset(prc_ctx, 0, sizeof(VpiPrcCtx));
+        vpe_vpi_ctx->ctx          = prc_ctx;
+        prc_ctx->filter_type      = FILTER_HW_UPLOAD;
         vpi_codec_ctx->ref_cnt++;
         break;
     default:

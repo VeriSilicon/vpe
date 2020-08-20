@@ -131,6 +131,8 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
     vpi_dec_parse_ppu_cfg(vpi_ctx, vpi_ctx->vpi_dec_config.ppu_cfg);
     vpi_dec_get_tb_cfg(vpi_ctx);
 
+    vpi_ctx->src_width       = dec_cfg->src_width;
+    vpi_ctx->src_height      = dec_cfg->src_height;
     vpi_ctx->frame           = dec_cfg->frame;
     vpi_ctx->dwl_init.mem_id = dec_cfg->task_id;
     vpi_ctx->dwl_inst        = DWLInit(&vpi_ctx->dwl_init);

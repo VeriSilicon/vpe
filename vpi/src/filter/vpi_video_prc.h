@@ -39,23 +39,28 @@ extern "C" {
 #include "vpi_error.h"
 #include "trans_edma_api.h"
 #include "vpi_video_pp.h"
+#include "vpi_video_hwulprc.h"
 
 typedef enum FilterType {
     FILTER_NULL,
     FILTER_PP,
     FILTER_SPLITER,
-    FILTER_HW_DOWNLOADER
+    FILTER_HW_DOWNLOADER,
+    FILTER_HW_UPLOAD
 } FilterType;
 
 typedef struct VpiPrcCtx {
     FilterType filter_type;
 
-    /*hwdownload*/
+    /*hwdownload/hwupload*/
     EDMA_HANDLE edma_handle;
     int pp_index;
 
     /*pp filter*/
     VpiPPFilter ppfilter;
+
+    /*hwupload*/
+    VpiPrcHwUlCtx hwul_ctx;
 } VpiPrcCtx;
 
 VpiRet vpi_vprc_init(VpiPrcCtx *vpi_ctx, void *prc_cfg);
@@ -67,6 +72,11 @@ VpiRet vpi_prc_pp_init(VpiPrcCtx *vpi_ctx, void *cfg);
 VpiRet vpi_prc_pp_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
 VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
 VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx);
+
+VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg);
+VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
+VpiRet vpi_prc_hwul_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata);
+VpiRet vpi_prc_hwul_close(VpiPrcCtx *vpi_ctx);
 
 #ifdef __cplusplus
 }

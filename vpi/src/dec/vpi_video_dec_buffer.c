@@ -340,8 +340,8 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     vpi_report_dec_pic_info(vpi_ctx, pic);
     vpi_ctx->cycle_count += pic->pictures[0].picture_info.cycles_per_mb;
 
-    vpi_frame->width       = pic->pictures[1].pic_width;
-    vpi_frame->height      = pic->pictures[1].pic_height;
+    vpi_frame->width       = vpi_ctx->src_width;
+    vpi_frame->height      = vpi_ctx->src_height;
     vpi_frame->linesize[0] = pic->pictures[1].pic_width;
     vpi_frame->linesize[1] = pic->pictures[1].pic_width / 2;
     vpi_frame->linesize[2] = pic->pictures[1].pic_width / 2;
@@ -450,6 +450,10 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
         vpi_frame->pic_info[i].enabled = pic->pictures[i].pp_enabled;
         vpi_frame->pic_info[i].pic_width = pic->pictures[i].pic_width;
         vpi_frame->pic_info[i].pic_height = pic->pictures[i].pic_height;
+        VPILOGD("scale enable %d, crop_enabled %d\n", pp->scale.enabled, pp->crop.enabled);
+        VPILOGD("scale_width %d, scale_height %d\n", pp->scale.width, pp->scale.height);
+        VPILOGD("crop_width %d, crop_height %d\n", pp->crop.width, pp->crop.height);
+        VPILOGD("avctx width %d, height %d\n", vpi_frame->width, vpi_frame->height);
         if (pp->scale.enabled) {
             vpi_frame->pic_info[i].width = pp->scale.width;
             vpi_frame->pic_info[i].height = pp->scale.height;

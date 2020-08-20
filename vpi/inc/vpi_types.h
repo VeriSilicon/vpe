@@ -37,6 +37,11 @@
 #define VPE_TASK_LIVE        0
 #define VPE_TASK_VOD         1
 
+#define MAX_WAIT_DEPTH       78
+
+#define HWUPLOAD_FLAG        1
+#define PP_FLAG              2
+
 typedef void *VpiCtx;
 
 typedef enum {
@@ -55,16 +60,15 @@ typedef enum {
     VPI_CMD_HWDW_SET_INDEX,
 
     /*vp9 encoder command*/
-    VPI_CMD_VP9ENC_SET_PENDDING_FRAMES_COUNT,
-    VPI_CMD_VP9ENC_GET_NEXT_PIC,
-    VPI_CMD_VP9ENC_GET_PIC_TOBE_FREE,
+    VPI_CMD_VP9ENC_GET_EMPTY_FRAME_SLOT,
+    VPI_CMD_VP9ENC_GET_FRAME_PACKET,
+    VPI_CMD_VP9ENC_CONSUME_PIC,
 
     /*H26x encoder command*/
-    VPI_CMD_H26xENC_GET_NEXT_PIC,
-    VPI_CMD_H26xENC_SET_FINDPIC,
-    VPI_CMD_H26xENC_GET_FLUSHSTATE,
-    VPI_CMD_H26xENC_UPDATE_STATISTIC,
     VPI_CMD_H26xENC_SET_NO_INFRM,
+    VPI_CMD_H26xENC_SET_IDR_POC,
+    VPI_CMD_H26xENC_UPDATE_INJECTIONNUM,
+    VPI_CMD_H26xENC_ENQUEUE_VPIFRAME,
 
     /*pp command*/
     VPI_CMD_PP_CONFIG,
@@ -77,9 +81,14 @@ typedef enum {
     /*common command*/
     VPI_CMD_GET_VPEFRAME_SIZE,
     VPI_CMD_GET_PICINFO_SIZE,
+
+    /*hw upload command*/
+    VPI_CMD_HWDL_INIT_OPTION,
+    VPI_CMD_HWUL_FREE_BUF,
 } VpiCmd;
 
 typedef enum VpiPixsFmt {
+    VPI_FMT_NULL,
     VPI_FMT_YUV420P,
     VPI_FMT_NV12,
     VPI_FMT_NV21,
@@ -97,6 +106,8 @@ typedef enum VpiPixsFmt {
     VPI_FMT_RGBA,
     VPI_FMT_ABGR,
     VPI_FMT_BGRA,
+    VPI_FMT_VPE,
+    VPI_FMT_OTHERS,
 } VpiPixsFmt;
 
 typedef struct VpiEncParamSet {
@@ -147,6 +158,7 @@ typedef struct VpiPPOpition {
     VpiPixsFmt format;
     /*low level hardware frame context, point to one VpiFrame pointer*/
     void *frame;
+    int b_disable_tcache;
 } VpiPPOpition;
 
 typedef struct VpiPacket {
@@ -226,7 +238,12 @@ typedef struct VpiFrame {
     int used_cnt;
     /* number of ext frame buffer for transcoding case */
     int max_frames_delay;
+    /* number of ext frame buffer when hwupload link to encoder directly */
+    int hwupload_max_frames_delay;
+    /* frame flow flag */
+    int flag;
     void *opaque;
+    VpiPixsFmt raw_format;
     void (*vpe_frame_free)(void *opaque, uint8_t *data);
 } VpiFrame;
 
@@ -251,12 +268,19 @@ typedef enum VpiPlugin {
     PP_VPE,
     SPLITER_VPE,
     HWDOWNLOAD_VPE,
+    HWUPLOAD_VPE,
     HWCONTEXT_VPE,
 } VpiPlugin;
 
 /*
  * below definition is for H26xEnc
  */
+typedef struct VpiH26xFrmHead {
+    uint8_t *header_data;
+    int header_size;
+    int resend_header;
+} VpiH26xFrmHead;
+
 typedef enum VpiH26xCodecID {
     CODEC_ID_HEVC,
     CODEC_ID_H264,
@@ -285,6 +309,7 @@ typedef enum VpiPixFmt{
     VPI_YUV420_SEMIPLANAR,
     VPI_YUV420_SEMIPLANAR_VU,
     VPI_YUV420_PLANAR_10BIT_P010,
+    VPI_YUV420_SEMIPLANAR_YUV420P,
 } VpiPixFmt;
 
 typedef enum VpiEncRet {
@@ -328,6 +353,10 @@ typedef struct VpiDecOption {
     int task_id;
     int priority;
     VpiFrame *frame;
+    int src_width;
+    int src_height;
+    int frmrate_n;
+    int frmrate_d;
 } VpiDecOption;
 
 typedef struct VpiH26xEncCfg {
@@ -342,6 +371,7 @@ typedef struct VpiH26xEncCfg {
     const char *codec_name;
     char *profile;
     char *level;
+    int force_idr;
     int bit_per_second;
     int input_rate_numer; /* Input frame rate numerator */
     int input_rate_denom; /* Input frame rate denominator */
@@ -356,6 +386,14 @@ typedef struct VpiH26xEncCfg {
     /*VPE H26x encoder public parameters with -enc_params*/
     VpiEncParamSet *param_list;
 } VpiH26xEncCfg;
+
+typedef struct VpiHWUploadCfg{
+    int task_id;
+    int priority;
+    char *device;
+    VpiFrame *frame;
+    VpiPixsFmt format;
+} VpiHWUploadCfg;
 
 typedef struct VpiApi {
     int (*init)(VpiCtx, void *);

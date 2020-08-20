@@ -1,5 +1,5 @@
 /*------------------------------------------------------------------------------
---Copyright (c) 2015-2017, VeriSilicon Holdings Co., Ltd. All rights reserved --
+--       Copyright (c) 2015-2017, VeriSilicon Inc. All rights reserved        --
 --         Copyright (c) 2011-2014, Google Inc. All rights reserved.          --
 --                                                                            --
 -- This software is confidential and proprietary and may be used only as      --
@@ -160,3 +160,4 @@
 
 
 #endif /* TB_SW_PERFORMANCE_H */
+

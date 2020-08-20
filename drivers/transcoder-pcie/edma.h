@@ -119,7 +119,6 @@ struct edma_t {
 	struct err_chk rc2ep_err_chk;
 	struct err_chk ep2rc_err_chk;
 	int err_flag;
-	int tc_err_test;
 };
 
 long edma_ioctl(struct file *filp,

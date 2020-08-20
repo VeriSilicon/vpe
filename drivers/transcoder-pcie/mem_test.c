@@ -17,14 +17,15 @@ typedef  unsigned int         	 			u32;
 
 #define EP_COUNT	11
 #define RC_COUNT	5
+#define MAX_SIZE	36   //block max size is ~36MB
 
 int main(int argc, char **argv) 
 {
 	int task_id;
     int memdev_fd = -1;
-    int i = 0,n=0, ret;
+    int i = 0,n=0, j = 0, ret;
 	int first,second;
-    struct mem_info ep_region[80],rc_region[80];
+    struct mem_info ep_region[200];
 	int mem_cnt=5;
 	
 	if(argc<2)
@@ -50,26 +51,21 @@ int main(int argc, char **argv)
 	ioctl(memdev_fd, CB_TRANX_MEM_GET_TASKID, &task_id);
 	printf("get task id = %d. \n",task_id);
 
-// get mem from ep(board)
-	first = mem_cnt/2;
-	second = mem_cnt-first;
-
-	for(i=1;i<=first;i++)
-	{
-		ep_region[i].size = 1024*1024*i;
-		ep_region[i].task_id = task_id;
-		rc_region[i].size = 1024*1024*i;
-		rc_region[i].task_id = task_id;
-		n=i;
-	}	
-	for(i=1;i<=second;i++)
-	{
-		ep_region[n+i].size = 1024*1024*i;
-		ep_region[n+i].task_id = task_id;
-		rc_region[n+i].size = 1024*1024*i;
-		rc_region[n+i].task_id = task_id;
-	}	
-#if 1	
+	for (j = 0; j < mem_cnt/MAX_SIZE; j++)
+		for(i=1;i<=MAX_SIZE;i++)
+		{
+			ep_region[n].size = 1024*1024*i;
+			ep_region[n].task_id = task_id;
+			n++;
+		}
+	if (n < mem_cnt)
+		for(i=1;i<=MAX_SIZE;i++)
+		{
+		    ep_region[n].size = 1024*1024*i;
+		    ep_region[n].task_id = task_id;
+		    n++;
+		}	    
+		
     for(i=1; i<=mem_cnt; i++)
 	{
 		ep_region[i].mem_location = EP_SIDE;
@@ -77,7 +73,7 @@ int main(int argc, char **argv)
 		if(ret)
 		{
 			printf("ioctl get ep mem failed.\n");
-			for(i=1;i<=n;i++)
+			for(i=0;i<=n;i++)
 			{
 				ioctl(memdev_fd, CB_TRANX_MEM_FREE, &ep_region[i]);	 // free	   
 			}
@@ -88,7 +84,7 @@ int main(int argc, char **argv)
 		usleep(10000);
 	}
 
-	getchar();	
+	getchar();
 
 	printf("\n");
 	
@@ -100,30 +96,7 @@ int main(int argc, char **argv)
 	printf("\n");
 	
 	ioctl(memdev_fd, CB_TRANX_MEM_FREE_TASKID, &task_id);
-#endif
 
-#if 0
-	for(i=1;i<=mem_cnt;i++)
-	{			
-		rc_region[i].mem_location = RC_SIDE;
-		if (ioctl(memdev_fd, CB_TRANX_MEM_ALLOC, &rc_region[i]) < 0) // get		   
-		{	  
-			printf("ioctl get rc cma mem failed.\n");
-			for(i=1;i<=n;i++)
-			{
-				ioctl(memdev_fd, CB_TRANX_MEM_FREE, &rc_region[i]); // free   
-			}
-			goto end;
-		}  
-		n = i;
-		printf("RC: %d phy_addr=0x%lx size=0x%x rc_kvirt=%p \n", i,rc_region[i].phy_addr,rc_region[i].size,rc_region[i].rc_kvirt);
-	}
-	
-	for(i=1;i<=mem_cnt;i++)
-	{
-		ioctl(memdev_fd, CB_TRANX_MEM_FREE, &rc_region[i]);		   
-	}
-#endif
 
 	
 end:

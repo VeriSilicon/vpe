@@ -472,13 +472,13 @@ static int parse_type_arg(VPIH26xParamsDef *p_param_line, void *p)
     if (p_param_line->type == TYPE_INT) {
         int value   = p_param_line->default_val.i64;
         *((int *)p) = value;
-        printf("%s set to %d\n", p_param_line->name, *((int *)p));
+        VPILOGD("%s set to %d\n", p_param_line->name, *((int *)p));
     } else if (p_param_line->type == TYPE_FLOAT) {
         float value   = p_param_line->default_val.dbl;
         *((float *)p) = value;
     } else if (p_param_line->type == TYPE_STRING) {
         *((const char **)p) = p_param_line->default_val.str;
-        printf("%s set to %s\n", p_param_line->name, *((char **)p));
+        VPILOGD("%s set to %s\n", p_param_line->name, *((char **)p));
     } else if (p_param_line->type == TYPE_COLON2) {
         *((int *)p) = p_param_line->default_val.colon2.min;
         *((int *)p+1) = p_param_line->default_val.colon2.max;
@@ -488,7 +488,7 @@ static int parse_type_arg(VPIH26xParamsDef *p_param_line, void *p)
     return 0;
 }
 
-int h26x_enc_get_params(struct VpiH26xEncCtx *vpi_h26xe_ctx)
+int h26x_enc_get_params(VpiH26xEncCtx *vpi_h26xe_ctx)
 {
     VPIH26xParamsDef *p_param_line;
     VPIH26xEncOptions *options = (VPIH26xEncOptions *)&vpi_h26xe_ctx->options;
@@ -500,7 +500,7 @@ int h26x_enc_get_params(struct VpiH26xEncCtx *vpi_h26xe_ctx)
 
         if (p_param_line->flag & OPT_FLAG_CTX) {
             /*p = (u8 *)ctx;*/
-            printf("%s,%d, parameter's flag is OPT_FLAG_CTX! IT SHOULDN'T HAPPEN now\n",
+            VPILOGE("%s,%d, parameter's flag is OPT_FLAG_CTX! IT SHOULDN'T HAPPEN now\n",
                    __FILE__, __LINE__); /*has been move to options*/
             return -1;
         } else {
@@ -530,7 +530,7 @@ static const VPIH26xParamsDef *find_option(const VPIH26xParamsDef *po,
     return ((flag == 1) ? po : NULL);
 }
 
-int h26x_enc_get_params_from_cmd(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
                                  const char *name, char *input_value)
 {
     VPIH26xEncOptions *options = (VPIH26xEncOptions *)&vpi_h26xe_ctx->options;

@@ -35,7 +35,7 @@
 #define MAX_SCENE_CHANGE 20
 #include "hevcencapi.h"
 
-typedef struct VPIH26xEncOptions {
+typedef struct {
     i32 output_rate_numer; /* Output frame rate numerator */
     i32 output_rate_denom; /* Output frame rate denominator */
     i32 input_rate_numer; /* Input frame rate numerator */
@@ -396,6 +396,8 @@ typedef struct VPIH26xEncOptions {
     int mem_id;
 #endif
 
+    /* for edma upload filter trans raw from rc to ep, no tcache, */
+    u32 b_close_dummy_regs;
 } VPIH26xEncOptions;
 
 #define NOCARE (-255)

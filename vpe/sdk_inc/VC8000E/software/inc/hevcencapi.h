@@ -90,7 +90,7 @@ extern "C"
   {
     VCENC_VIDEO_CODEC_HEVC=0,
     VCENC_VIDEO_CODEC_H264=1,
-    VCENC_VIDEO_CODEC_AV1=2        
+    VCENC_VIDEO_CODEC_AV1=2
   }VCEncVideoCodecFormat;
 
   /* Stream type for initialization */
@@ -139,7 +139,7 @@ extern "C"
     VCENC_H264_LEVEL_6_1 = 61,
     VCENC_H264_LEVEL_6_2 = 62
   } VCEncLevel;
-  
+
   /* Profile for initialization */
   typedef enum
   {
@@ -198,7 +198,7 @@ extern "C"
     VCENC_YUV420_10BIT_TILE_96_2 = 33,                  /* YYYY... UVUV... */
     VCENC_YUV420_VU_10BIT_TILE_96_2 = 34,               /* YYYY... VUVU... */
     VCENC_FORMAT_MAX,
-    
+
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
     INPUT_FORMAT_YUV420_SEMIPLANAR_8BIT_COMPRESSED_FB = VCENC_FORMAT_MAX+1, /*36*/
     INPUT_FORMAT_YUV420_SEMIPLANAR_VU_8BIT_COMPRESSED_FB, /*37*/
@@ -221,7 +221,8 @@ extern "C"
 #endif
     INPUT_FORMAT_PP_YUV420_SEMIPLANNAR = 54, /*54*/
     INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_VU, /*55*/
-    INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010, /*56*/	
+    INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010, /*56*/
+    INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P, /*57*/
   } VCEncPictureType;
 
   /* Picture rotation for pre-processing */
@@ -322,7 +323,7 @@ extern "C"
 	  VCEncHDRTransferType hdr10_transfer;
 	  u8 hdr10_matrix;
   }Hdr10ColorVui;
-  
+
   typedef struct
   {
     u8  cuLocationX; /* cu x coordinate relative to CTU */
@@ -367,22 +368,22 @@ extern "C"
     u32 refFrameAmount; /* Amount of reference frame buffers, [0..8]
                               * 0 = only I frames are encoded.
                                * 1 = gop size is 1 and interlacedFrame =0,
-                               * 2 = gop size is 1 and interlacedFrame =1, 
+                               * 2 = gop size is 1 and interlacedFrame =1,
                                * 2 = gop size is 2 or 3,
                                * 3 = gop size is 4,5,6, or 7,
                                * 4 = gop size is 8
-                               * 8 = gop size is 8 svct hirach 7B+1p 4 layer, only libva support this config*/       
+                               * 8 = gop size is 8 svct hirach 7B+1p 4 layer, only libva support this config*/
     u32 strongIntraSmoothing;       /* 0 = Normal smoothing,
                                          * 1 = Strong smoothing. */
 
-                      
+
     u32 compressor;       /*Enable/Disable Embedded Compression
                                               0 = Disable Compression
                                               1 = Only Enable Luma Compression
                                               2 = Only Enable Chroma Compression
                                               3 = Enable Both Luma and Chroma Compression*/
     u32 interlacedFrame;   /*0 = progressive frame; 1 = interlace frame  */
-    
+
     u32 bitDepthLuma;     /*luma sample bit depth of encoded bit stream, 8 = 8 bits, 9 = 9 bits, 10 = 10 bits  */
     u32 bitDepthChroma;  /*chroma sample bit depth of encoded bit stream,  8 = 8 bits, 9 = 9 bits, 10 = 10 bits */
     u32 enableOutputCuInfo;  /* 1 to enable CU information dumping */
@@ -415,10 +416,10 @@ extern "C"
 
     u32 parallelCoreNum;  /*Num of Core used by one encoder instance */
 
-    /* Multipass coding config, currently only for internal test purpose */    
+    /* Multipass coding config, currently only for internal test purpose */
     u32 pass;
     bool bPass1AdaptiveGop;
-	
+
     u8 lookaheadDepth;
     u32 extDSRatio; /* external downsample ratio for first pass. 0=1/1 (no downsample), 1=1/2 downsample */
 
@@ -597,7 +598,7 @@ extern "C"
     u32 noiseReductionEnable; /*0 = disable noise reduction; 1 = enable noise reduction */
     u32 noiseLow; /* valid value range :[1,30] , default: 10 */
     u32 firstFrameSigma; /* valid value range :[1,30] , default :11*/
-    
+
     u32 gdrDuration; /*how many pictures it will take to do GDR, if 0, not do GDR*/
 
     /* for low latency */
@@ -669,7 +670,7 @@ extern "C"
                               * needed if pictureRc, mbRc, pictureSkip or
                               * hrd is enabled [10000..60000000]
                               */
-                              
+
     u32 hrd;             /* Hypothetical Reference Decoder model, [0,1]
                               * restricts the instantaneous bitrate and
                               * total bit amount of every coded picture.
@@ -706,11 +707,11 @@ extern "C"
     i32 vbr; /* Variable Bit Rate Control by qpMin */
     float tolCtbRcInter; /*Tolerance of Ctb Rate Control for INTER frames*/
     float tolCtbRcIntra; /*Tolerance of Ctb Rate Control for INTRA frames*/
-    i32 ctbRcRowQpStep;  /* max accumulated QP adjustment step per CTB Row by Ctb Rate Control. 
+    i32 ctbRcRowQpStep;  /* max accumulated QP adjustment step per CTB Row by Ctb Rate Control.
                                             QP adjustment step per CTB is ctbRcRowQpStep/ctb_per_row. */
   } VCEncRateCtrl;
 
-	
+
 	/* add for two pass */
   typedef struct {
     ptr_t TSLumaMemBusAddress;
@@ -719,7 +720,7 @@ extern "C"
     ptr_t busLuma;
     ptr_t busChromaU;
     ptr_t busChromaV;
-		
+
     u32 lumaSize;
     u32 chromaSize;
     i32 inputFormat;
@@ -732,11 +733,11 @@ extern "C"
     u32 crop_y;
     u32 crop_w;
     u32 crop_h;
-		
+
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
     void * dec400f2_handle;
 #endif
-	
+
 #ifdef SUPPORT_L2CACHE
     void * vce_l2r_handle;
 #endif
@@ -747,7 +748,7 @@ extern "C"
     EWLLinearMem_t edma_link_buf;
     void * edma_handle;
 #endif
-	
+
   }Pass2HWParam;
 
 
@@ -844,19 +845,19 @@ extern "C"
     int64_t dts;
   } VCEncIn;
 
-  
+
 #define SHORT_TERM_REFERENCE	0x01
 #define LONG_TERM_REFERENCE	0x02
   /*all physical addresses related to recon frame*/
   typedef struct
   {
     /*recon buffer*/
-    
+
     i32 poc;                    /* pic order count*/
 
     i32 frame_num;
 
-    i32 frame_idx;          
+    i32 frame_idx;
 
     i32 flags;
 
@@ -868,8 +869,8 @@ extern "C"
     ptr_t busReconChromaUV;      /* Bus address for recon chrominance
                                                     * semiplanar format: both chrominance
                                                     */
-                                                    
-    
+
+
     /*private buffers with recon frame*/
     ptr_t reconLuma_4n;          /* Bus address for 4n
                                                      */
@@ -888,18 +889,18 @@ extern "C"
     //recon :    short or long term ref
     //ref list0 :    short or long term ref
     //ref list1 :    short or long term ref
-    
+
     /** \brief Is picture an IDR picture? */
-    unsigned int idr_pic_flag;                           
+    unsigned int idr_pic_flag;
     /** \brief Is picture a reference picture? */
-    unsigned int reference_pic_flag;    
+    unsigned int reference_pic_flag;
 
     /** \brief The picture identifier.
      *   Range: 0 to \f$2^{log2\_max\_frame\_num\_minus4 + 4} - 1\f$, inclusive.
      */
    // unsigned short  frame_num;
 
-    
+
 
     /** \brief Slice type.
      *  Range: 0..2, 5..7, i.e. no switching slices.
@@ -926,7 +927,7 @@ extern "C"
      */
     unsigned char   num_ref_idx_l1_active_minus1;
 
-    
+
     /** @name If pic_order_cnt_type == 0 */
     /**@{*/
     /** \brief The picture order count modulo MaxPicOrderCntLsb. */
@@ -935,24 +936,24 @@ extern "C"
 
   }VCEncH264Para;
 
-  
+
   typedef struct
   {
     //recon :    short or long term ref
     //ref list0 :    short or long term ref
     //ref list1 :    short or long term ref
-    
+
     /** \brief Is picture an IDR picture? */
-    unsigned int idr_pic_flag;                           
+    unsigned int idr_pic_flag;
     /** \brief Is picture a reference picture? */
-    unsigned int reference_pic_flag;                     
+    unsigned int reference_pic_flag;
 
      /** \brief The picture identifier.
      *   Range: 0 to \f$2^{log2\_max\_frame\_num\_minus4 + 4} - 1\f$, inclusive.
      */
     //unsigned short  frame_num;
 
-    
+
 
     /** \brief Slice type.
      *  Range: 0..2, 5..7, i.e. no switching slices.
@@ -972,7 +973,7 @@ extern "C"
      */
     unsigned char   num_ref_idx_l1_active_minus1;
 
-    
+
     /** @name If pic_order_cnt_type == 0 */
     /**@{*/
     /** \brief The picture order count modulo MaxPicOrderCntLsb. */
@@ -985,12 +986,12 @@ extern "C"
     unsigned char rps_used_by_cur[VCENC_MAX_REF_FRAMES];
 
 
-    
+
 
   }VCEncHevcPara;
-  
 
-  
+
+
   /* Encoder  libva private input structure */
   typedef struct
   {
@@ -1001,7 +1002,7 @@ extern "C"
         VCEncH264Para h264Para;
         VCEncHevcPara hevcPara;
     } params;
-                                  
+
   } VCEncExtParaIn;
 
 
@@ -1069,7 +1070,7 @@ extern "C"
     // for 1/4 resolution first pass, for disable rfc datapath, xOffset and yOffset should be 0, so not need ds params
     u32 origWidth_ds;
     u32 origHeight_ds;
-    
+
     u32 xOffset;                            /* Horizontal offset          */
     u32 yOffset;                            /* Vertical offset            */
     VCEncPictureType inputType;           /* Input picture color format */
@@ -1087,14 +1088,16 @@ extern "C"
     u32 inLoopDSRatio;
     u32 *virtualAddressScaledBuff;  /*virtual address of  allocated buffer in aplication for scaled picture.*/
     ptr_t busAddressScaledBuff; /*phyical address of  allocated buffer in aplication for scaled picture.*/
-    u32 sizeScaledBuff;         /*size of allocated buffer in aplication for scaled picture. 
+    u32 sizeScaledBuff;         /*size of allocated buffer in aplication for scaled picture.
                                                           the size is not less than scaledWidth*scaledOutput*2 bytes */
     /* constant chroma control */
     i32 constChromaEn;
     u32 constCb;
     u32 constCr;
-    
+
     u32 input_alignment;
+
+    i32 b_close_dummy_regs;  //for edma trans raw from rc to ep, it need to close the dummy regisiter.
   } VCEncPreProcessingCfg;
 
   typedef struct
@@ -1182,7 +1185,7 @@ extern "C"
 
   /* Helper for input format bit-depths */
   u32 VCEncGetBitsPerPixel(VCEncPictureType type);
-  
+
   u32 VCEncGetAlignedStride(int width, i32 input_format, u32 *luma_stride, u32 *chroma_stride,u32 input_alignment);
 
   /* Initialization & release */
@@ -1238,7 +1241,7 @@ i32 ReleasePass2InputHwTransformer(VCEncInst inst, Pass2HWParam *privPass2HwPara
                                VCEncOut *pEncOut,
                                VCEncSliceReadyCallBackFunc sliceReadyCbFunc,
                                void *pAppData,i32 useExtFlag);
-                               
+
 
   /* VCEncStrmEnd ends a stream with an EOS code. */
 
@@ -1270,6 +1273,9 @@ i32 ReleasePass2InputHwTransformer(VCEncInst inst, Pass2HWParam *privPass2HwPara
 
   /* Set error status for multi-pass */
   void VCEncSetError(VCEncInst inst);
+
+  /* Set output buffer bus addr */
+  void VCEncSetOutBusAddr(VCEncInst inst, EWLLinearMem_t *outbuf);
 
   /*------------------------------------------------------------------------------
        API Functions only valid for HEVC.

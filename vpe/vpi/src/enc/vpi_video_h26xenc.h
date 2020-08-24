@@ -38,10 +38,11 @@ extern VPIH26xParamsDef h26x_enc_param_table[];
 #define NEXT_MULTIPLE(value, n) (((value) + (n)-1) & ~((n)-1))
 #endif
 
-int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg);
-int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output);
-int vpi_h26xe_get_packet(struct VpiH26xEncCtx *enc_ctx, void *outdata);
-int vpi_h26xe_close(struct VpiH26xEncCtx *enc_ctx);
-int vpi_h26xe_ctrl(struct VpiH26xEncCtx *enc_ctx, void *vpi_ctrl_type,
+int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg);
+int vpi_h26xe_encode(VpiH26xEncCtx *enc_ctx, void *input, void *output);
+int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata);
+int vpi_h26xe_close(VpiH26xEncCtx *enc_ctx);
+int vpi_h26xe_ctrl(VpiH26xEncCtx *enc_ctx, void *vpi_ctrl_type,
                    void *vpi_value);
+int vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata);
 #endif /*__VPI_VIDEO_H26XENC_H__ */

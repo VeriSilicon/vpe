@@ -56,7 +56,7 @@
  *  @Return: 0 for success, -1 for error
  */
 static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
-                                 struct VPIH26xEncCfg *vpi_h26xe_cfg)
+                                 VPIH26xEncCfg *vpi_h26xe_cfg)
 {
     VCEncRet ret = -1;
     VCEncConfig cfg;
@@ -149,7 +149,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
 
     if ((options->interlaced_frame && options->gop_size != 1) ||
         IS_H264(options->codec_format)) {
-        VPILOGE(
+        VPILOGD(
             "OpenEncoder: treat interlace to progressive for gopSize!=1 case\n");
         options->interlaced_frame = 0;
     }
@@ -199,12 +199,12 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         cfg.maxTLayers = maxTemporalId + 1;
     }
     cfg.compressor = options->compressor;
-    VPILOGE("%s cfg.compressor = %d\n", __FUNCTION__, cfg.compressor);
+    VPILOGD("%s cfg.compressor = %d\n", __FUNCTION__, cfg.compressor);
 
     cfg.interlacedFrame    = options->interlaced_frame;
     cfg.enableOutputCuInfo = (options->enable_output_cu_info > 0) ? 1 : 0;
     cfg.rdoLevel           = CLIP3(1, 3, options->rdo_level) - 1;
-    VPILOGE("%s(%d)cfg.rdoLevel = %d\n", __FUNCTION__, __LINE__, cfg.rdoLevel);
+    VPILOGD("%s(%d)cfg.rdoLevel = %d\n", __FUNCTION__, __LINE__, cfg.rdoLevel);
     cfg.verbose                 = options->verbose;
     cfg.exp_of_input_alignment  = options->exp_of_input_alignment;
     cfg.exp_of_ref_alignment    = options->exp_of_ref_alignment;
@@ -234,11 +234,11 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
             cfg.height_ds = options->lum_heightsrc_ds;
         }
     }
-    VPILOGE("[%d] cfg.extDSRatio = %d, and ds res %dx%d\n",
+    VPILOGD("[%d] cfg.extDSRatio = %d, and ds res %dx%d\n",
             vpi_h26xe_cfg->enc_index, cfg.extDSRatio, cfg.width_ds,
             cfg.height_ds);
     if (options->parallel_core_num > 1 && cfg.width * cfg.height < 256 * 256) {
-        VPILOGE("Disable multicore for small resolution (< 255*255)\n");
+        VPILOGD("Disable multicore for small resolution (< 255*255)\n");
         cfg.parallelCoreNum = options->parallel_core_num = 1;
     }
 #ifdef FB_SYSLOG_ENABLE
@@ -247,7 +247,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
     cfg.device_id = vpi_h26xe_cfg->log_header.device_id;
 #endif
 #endif
-    VPILOGE("\n+++ cfg.w = %d, cfg.h = %d\n", cfg.width, cfg.height);
+    VPILOGD("\n+++ cfg.w = %d, cfg.h = %d\n", cfg.width, cfg.height);
 #ifdef CHECK_MEM_LEAK_TRANS
     cfg.perf = EWLcalloc(1, sizeof(ENCPERF));
 #else
@@ -256,7 +256,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
     if (cfg.perf) {
         ENCPERF *perf       = cfg.perf;
         vpi_h26xe_cfg->perf = perf;
-        VPILOGE("calloc perf = %p\n", perf);
+        VPILOGD("calloc perf = %p\n", perf);
         pthread_mutex_init(&perf->hwcycle_acc_mutex, NULL);
 #ifdef FB_PERFORMANCE_STATIC
         PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehw);
@@ -285,7 +285,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         VPILOGE("OpenEncoder: EWL Initialization failed!\n");
         goto error_exit;
     }
-    VPILOGE("ewl is outside initialized.\n");
+    VPILOGD("ewl is outside initialized.\n");
 
     /* this is for 2 pass */
     if (options->lookahead_depth != 0) {
@@ -294,7 +294,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
             VPILOGE("OpenEncoder: EWL for 2 pass Initialization failed!\n");
             goto error_exit;
         }
-        VPILOGE("2 pass ewl is outside initialized.\n");
+        VPILOGD("2 pass ewl is outside initialized.\n");
     }
 
     if ((ret = VCEncInit(&cfg, p_enc, vpi_h26xe_cfg->ewl,
@@ -305,7 +305,6 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
     }
 
     encoder = *p_enc;
-
     /* Encoder setup: coding control */
     if ((ret = VCEncGetCodingCtrl(encoder, &coding_cfg)) != VCENC_OK) {
         VPILOGE("VCEncGetCodingCtrl failed\n");
@@ -474,26 +473,26 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         coding_cfg.roi8Qp      = options->roi8_qp;
 
         if (coding_cfg.cirInterval)
-            VPILOGE("  CIR: %d %d\n", coding_cfg.cirStart,
+            VPILOGD("  CIR: %d %d\n", coding_cfg.cirStart,
                     coding_cfg.cirInterval);
 
         if (coding_cfg.intraArea.enable)
-            VPILOGE("  IntraArea: %dx%d-%dx%d\n", coding_cfg.intraArea.left,
+            VPILOGD("  IntraArea: %dx%d-%dx%d\n", coding_cfg.intraArea.left,
                     coding_cfg.intraArea.top, coding_cfg.intraArea.right,
                     coding_cfg.intraArea.bottom);
 
         if (coding_cfg.ipcm1Area.enable)
-            VPILOGE("  IPCM1Area: %dx%d-%dx%d\n", coding_cfg.ipcm1Area.left,
+            VPILOGD("  IPCM1Area: %dx%d-%dx%d\n", coding_cfg.ipcm1Area.left,
                     coding_cfg.ipcm1Area.top, coding_cfg.ipcm1Area.right,
                     coding_cfg.ipcm1Area.bottom);
 
         if (coding_cfg.ipcm2Area.enable)
-            VPILOGE("  IPCM2Area: %dx%d-%dx%d\n", coding_cfg.ipcm2Area.left,
+            VPILOGD("  IPCM2Area: %dx%d-%dx%d\n", coding_cfg.ipcm2Area.left,
                     coding_cfg.ipcm2Area.top, coding_cfg.ipcm2Area.right,
                     coding_cfg.ipcm2Area.bottom);
 
         if (coding_cfg.roi1Area.enable)
-            VPILOGE("  ROI 1: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 1: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi1Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi1Qp >=
                     0 ? coding_cfg.roi1Qp : coding_cfg.roi1DeltaQp,
@@ -501,7 +500,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi1Area.right, coding_cfg.roi1Area.bottom);
 
         if (coding_cfg.roi2Area.enable)
-            VPILOGE("  ROI 2: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 2: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi2Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi2Qp >=
                     0 ? coding_cfg.roi2Qp : coding_cfg.roi2DeltaQp,
@@ -509,7 +508,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi2Area.right, coding_cfg.roi2Area.bottom);
 
         if (coding_cfg.roi3Area.enable)
-            VPILOGE("  ROI 3: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 3: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi3Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi3Qp >=
                     0 ? coding_cfg.roi3Qp : coding_cfg.roi3DeltaQp,
@@ -517,7 +516,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi3Area.right, coding_cfg.roi3Area.bottom);
 
         if (coding_cfg.roi4Area.enable)
-            VPILOGE("  ROI 4: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 4: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi4Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi4Qp >=
                     0 ? coding_cfg.roi4Qp : coding_cfg.roi4DeltaQp,
@@ -525,7 +524,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi4Area.right, coding_cfg.roi4Area.bottom);
 
         if (coding_cfg.roi5Area.enable)
-            VPILOGE("  ROI 5: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 5: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi5Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi5Qp >=
                     0 ? coding_cfg.roi5Qp : coding_cfg.roi5DeltaQp,
@@ -533,7 +532,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi5Area.right, coding_cfg.roi5Area.bottom);
 
         if (coding_cfg.roi6Area.enable)
-            VPILOGE("  ROI 6: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 6: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi6Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi6Qp >=
                     0 ? coding_cfg.roi6Qp : coding_cfg.roi6DeltaQp,
@@ -541,7 +540,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi6Area.right, coding_cfg.roi6Area.bottom);
 
         if (coding_cfg.roi7Area.enable)
-            VPILOGE("  ROI 7: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 7: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi7Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi7Qp >=
                     0 ? coding_cfg.roi7Qp : coding_cfg.roi7DeltaQp,
@@ -549,7 +548,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                     coding_cfg.roi7Area.right, coding_cfg.roi7Area.bottom);
 
         if (coding_cfg.roi8Area.enable)
-            VPILOGE("  ROI 8: %s %d  %dx%d-%dx%d\n",
+            VPILOGD("  ROI 8: %s %d  %dx%d-%dx%d\n",
                     coding_cfg.roi8Qp >= 0 ? "QP" : "QP Delta",
                     coding_cfg.roi8Qp >=
                     0 ? coding_cfg.roi8Qp : coding_cfg.roi8DeltaQp,
@@ -695,7 +694,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         VPILOGE("VCEncGetRateCtrl failed\n");
         goto error_exit;
     } else {
-        VPILOGE("Get rate control: qp %2d qpRange I[%2d, %2d] PB[%2d, %2d] %8d bps  "
+        VPILOGD("Get rate control: qp %2d qpRange I[%2d, %2d] PB[%2d, %2d] %8d bps  "
                 "pic %d skip %d  hrd %d  cpbSize %d bitrateWindow %d "
                 "intraQpDelta %2d\n",
                 rc_cfg.qpHdr, rc_cfg.qpMinI, rc_cfg.qpMaxI, rc_cfg.qpMinPB,
@@ -808,7 +807,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         rc_cfg.u32StaticSceneIbitPercent =
             options->u32_static_scene_ibit_percent;
 
-        VPILOGE("Set rate control: qp %2d qpRange I[%2d, %2d] PB[%2d, %2d] %9d bps  "
+        VPILOGD("Set rate control: qp %2d qpRange I[%2d, %2d] PB[%2d, %2d] %9d bps  "
                 "pic %d skip %d  hrd %d"
                 "  cpbSize %d bitrateWindow %d intraQpDelta %2d "
                 "fixedIntraQp %2d\n",
@@ -854,7 +853,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         goto error_exit;
     }
 
-    VPILOGE("Get PreP: input %4dx%d : offset %4dx%d : format %d : rotation %d"
+    VPILOGD("Get PreP: input %4dx%d : offset %4dx%d : format %d : rotation %d"
             "cc %d : scaling %d\n",
             pre_proc_cfg.origWidth, pre_proc_cfg.origHeight,
             pre_proc_cfg.xOffset, pre_proc_cfg.yOffset, pre_proc_cfg.inputType,
@@ -888,47 +887,48 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
                 1;
         i32 aw = (((w * b + 31) / 32) * 32) / b;
         i32 ah = (((y + h) + 7) / 8) * 8 - y;
-        VPILOGE("options->lum_width_src = %d, x = %d, w = %d, b = %d, aw = %d\n",
+        VPILOGD("options->lum_width_src = %d, x = %d, w = %d, b = %d, aw = %d\n",
                 options->lum_width_src, x, w, b, aw);
         if (w) {
             pre_proc_cfg.xOffset   = 0;
             pre_proc_cfg.origWidth = MIN(aw, options->lum_width_src - x);
         }
-        VPILOGE("pre_proc_cfg.xOffset = %d, pre_proc_cfg.origWidth = %d\n",
+        VPILOGD("pre_proc_cfg.xOffset = %d, pre_proc_cfg.origWidth = %d\n",
                 pre_proc_cfg.xOffset, pre_proc_cfg.origWidth);
         if (ah) {
             pre_proc_cfg.yOffset    = 0;
             pre_proc_cfg.origHeight = ah;
         }
-        VPILOGE("pre_proc_cfg.yOffset = %d, pre_proc_cfg.origHeight = %d\n",
+        VPILOGD("pre_proc_cfg.yOffset = %d, pre_proc_cfg.origHeight = %d\n",
                 pre_proc_cfg.yOffset, pre_proc_cfg.origHeight);
     }
 #endif
     if (options->input_format == INPUT_FORMAT_PP_YUV420_SEMIPLANNAR ||
         options->input_format == INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_VU ||
-        options->input_format == INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010) {
+        options->input_format == INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010 ||
+        options->input_format == INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P) {
         i32 x =
             (options->hor_offset_src == DEFAULT) ? 0 : options->hor_offset_src;
         i32 y =
             (options->ver_offset_src == DEFAULT) ? 0 : options->ver_offset_src;
         i32 w = (options->width == DEFAULT) ? 0 : options->width;
-        /*i32 h = (options->height == DEFAULT) ? 0 : options->height;*/
+        i32 h = (options->height == DEFAULT) ? 0 : options->height;
         i32 b = (options->input_format ==
                  INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010) ?
                     2 :
                     1;
         i32 aw = (((w * b + 31) / 32) * 32) / b;
-        VPILOGE("options->lum_width_src = %d, x = %d, w = %d, b = %d, aw = %d\n",
+        VPILOGD("options->lum_width_src = %d, x = %d, w = %d, b = %d, aw = %d\n",
                 options->lum_width_src, x, w, b, aw);
         if (x) {
             pre_proc_cfg.xOffset = x;
         }
-        VPILOGE("pre_proc_cfg.xOffset = %d, pre_proc_cfg.origWidth = %d\n",
+        VPILOGD("pre_proc_cfg.xOffset = %d, pre_proc_cfg.origWidth = %d\n",
                 pre_proc_cfg.xOffset, pre_proc_cfg.origWidth);
         if (y) {
             pre_proc_cfg.yOffset = y;
         }
-        VPILOGE("pre_proc_cfg.yOffset = %d, pre_proc_cfg.origHeight = %d\n",
+        VPILOGD("pre_proc_cfg.yOffset = %d, pre_proc_cfg.origHeight = %d\n",
                 pre_proc_cfg.yOffset, pre_proc_cfg.origHeight);
     }
     /*add for crop end*/
@@ -969,7 +969,7 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
     pre_proc_cfg.input_alignment    = 1 << options->exp_of_input_alignment;
     pre_proc_cfg.scaledOutputFormat = options->scaled_output_format;
 
-    VPILOGE("Set PreP: input %4dx%d : offset %4dx%d : format %d : rotation %d"
+    VPILOGD("Set PreP: input %4dx%d : offset %4dx%d : format %d : rotation %d"
             "cc %d : scaling %d\n",
             pre_proc_cfg.origWidth, pre_proc_cfg.origHeight,
             pre_proc_cfg.xOffset, pre_proc_cfg.yOffset, pre_proc_cfg.inputType,
@@ -995,6 +995,9 @@ static int h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
         pre_proc_cfg.origHeight_ds = options->lum_heightsrc_ds;
     }
 
+    /* for edma trans raw from rc to ep, need to close the dummy regisiter.*/
+    pre_proc_cfg.b_close_dummy_regs = options->b_close_dummy_regs;
+
     if ((ret = VCEncSetPreProcessing(encoder, &pre_proc_cfg)) != VCENC_OK) {
         VPILOGE("VCEncSetPreProcessing failed\n");
         goto error_exit;
@@ -1012,7 +1015,7 @@ error_exit:
  *  @Params: encoder the instance to be released
  */
 static void h26x_enc_close_encoder(VCEncInst encoder,
-                                   struct VPIH26xEncCfg *vpi_h26xe_cfg)
+                                   VPIH26xEncCfg *vpi_h26xe_cfg)
 {
     VCEncRet ret;
 
@@ -1091,7 +1094,7 @@ static void h26x_enc_slice_ready(VCEncSliceReady *slice)
 }
 
 /* add for IDR */
-static int idr_poc_array_init(struct VpiH26xEncCtx *ctx)
+static int idr_poc_array_init(VpiH26xEncCtx *ctx)
 {
     int i = 0;
     for (i = 0; i < MAX_IDR_ARRAY_DEPTH; i++) {
@@ -1105,7 +1108,7 @@ static int idr_poc_array_init(struct VpiH26xEncCtx *ctx)
     return 0;
 }
 
-static int store_idr_poc(struct VpiH26xEncCtx *ctx, int idr_poc)
+static int store_idr_poc(VpiH26xEncCtx *ctx, int idr_poc)
 {
     if (ctx->idr_poc_array[ctx->poc_store_idx % MAX_IDR_ARRAY_DEPTH] != -1) {
         return -1;
@@ -1117,7 +1120,7 @@ static int store_idr_poc(struct VpiH26xEncCtx *ctx, int idr_poc)
     return 0;
 }
 
-static int clear_idr_poc(struct VpiH26xEncCtx *ctx)
+static int clear_idr_poc(VpiH26xEncCtx *ctx)
 {
     ctx->idr_poc_array[(ctx->next_idr_poc_idx + MAX_IDR_ARRAY_DEPTH - 1) %
                        MAX_IDR_ARRAY_DEPTH] = -1;
@@ -1125,7 +1128,7 @@ static int clear_idr_poc(struct VpiH26xEncCtx *ctx)
     return 0;
 }
 
-static int update_next_idr_poc(struct VpiH26xEncCtx *ctx, int *idr_poc)
+static int update_next_idr_poc(VpiH26xEncCtx *ctx, int *idr_poc)
 {
     if (ctx->idr_poc_array[ctx->next_idr_poc_idx % MAX_IDR_ARRAY_DEPTH] == -1) {
         return -1;
@@ -1137,11 +1140,11 @@ static int update_next_idr_poc(struct VpiH26xEncCtx *ctx, int *idr_poc)
     return 0;
 }
 
-static int calc_flush_data_coding_type(struct VpiH26xEncCtx *ctx)
+static int calc_flush_data_coding_type(VpiH26xEncCtx *ctx)
 {
-    VPIH26xEncOptions *options          = &ctx->options;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg = &ctx->vpi_h26xe_cfg;
-    VCEncIn *pEncIn                     = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
+    VPIH26xEncOptions *options   = &ctx->options;
+    VPIH26xEncCfg *vpi_h26xe_cfg = &ctx->vpi_h26xe_cfg;
+    VCEncIn *pEncIn              = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
 
     if (ctx->key_frame_flag == HANTRO_TRUE) {
         if (pEncIn->gopPicIdx == pEncIn->gopSize - 1) {
@@ -1183,18 +1186,18 @@ static int calc_flush_data_coding_type(struct VpiH26xEncCtx *ctx)
     return 0;
 }
 
-static int calc_next_coding_type(struct VpiH26xEncCtx *ctx)
+static int calc_next_coding_type(VpiH26xEncCtx *ctx)
 {
-    VPIH26xEncOptions *options          = &ctx->options;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg = &ctx->vpi_h26xe_cfg;
-    VCEncIn *pEncIn                     = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
+    VPIH26xEncOptions *options   = &ctx->options;
+    VPIH26xEncCfg *vpi_h26xe_cfg = &ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in              = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
 
     if (ctx->key_frame_flag == HANTRO_TRUE) {
         if (ctx->next_poc == 0) {
-            pEncIn->gopSize = 1;
+            p_enc_in->gopSize = 1;
         }
 
-        if (pEncIn->gopPicIdx == pEncIn->gopSize - 1) {
+        if (p_enc_in->gopPicIdx == p_enc_in->gopSize - 1) {
             ctx->next_gop_start = vpi_h26xe_cfg->input_pic_cnt;
             int length          = ctx->next_idr_poc - ctx->next_gop_start;
 
@@ -1213,39 +1216,39 @@ static int calc_next_coding_type(struct VpiH26xEncCtx *ctx)
         }
     }
 
-    pEncIn->forceIDR =
+    p_enc_in->forceIDR =
         ((ctx->idr_flag == FRAME_IDR) ? HANTRO_TRUE :
                                         HANTRO_FALSE);
-    pEncIn->resendPPS = pEncIn->resendSPS = pEncIn->resendVPS =
+    p_enc_in->resendPPS = p_enc_in->resendSPS = p_enc_in->resendVPS =
         ((ctx->idr_flag == FRAME_IDR) ? 1 : 0);
 
     if (ctx->idr_flag == FRAME_IDR) {
         ctx->next_coding_type =
-            VCEncFindNextPic(ctx->hantro_encoder, pEncIn, ctx->next_gop_size,
-                             pEncIn->gopConfig.gopCfgOffset, true);
+            VCEncFindNextPic(ctx->hantro_encoder, p_enc_in, ctx->next_gop_size,
+                             p_enc_in->gopConfig.gopCfgOffset, true);
         clear_idr_poc(ctx);
         ctx->update_idr_poc = HANTRO_TRUE;
 
-  } else if (ctx->idr_flag == FRAME_IDR2NORMAL) {
-    pEncIn->gopSize = ctx->next_gop_size = (ctx->adaptive_gop ? (options->lookahead_depth ? 4 : 1) : vpi_h26xe_cfg->gop_size);
+    } else if (ctx->idr_flag == FRAME_IDR2NORMAL) {
+        p_enc_in->gopSize = ctx->next_gop_size = (ctx->adaptive_gop ? (options->lookahead_depth ? 4 : 1) : vpi_h26xe_cfg->gop_size);
 
         ctx->next_gop_start = vpi_h26xe_cfg->input_pic_cnt;
         int length_predict  = ctx->next_idr_poc - ctx->next_gop_start;
 
         if ((length_predict > 0) && (length_predict < ctx->next_gop_size)) {
-            pEncIn->gopSize = ctx->next_gop_size = length_predict;
+            p_enc_in->gopSize = ctx->next_gop_size = length_predict;
         }
 
         ctx->next_coding_type =
-            VCEncFindNextPic(ctx->hantro_encoder, pEncIn, ctx->next_gop_size,
-                             pEncIn->gopConfig.gopCfgOffset, false);
+            VCEncFindNextPic(ctx->hantro_encoder, p_enc_in, ctx->next_gop_size,
+                             p_enc_in->gopConfig.gopCfgOffset, false);
     } else {
         ctx->next_coding_type =
-            VCEncFindNextPic(ctx->hantro_encoder, pEncIn, ctx->next_gop_size,
-                             pEncIn->gopConfig.gopCfgOffset, false);
+            VCEncFindNextPic(ctx->hantro_encoder, p_enc_in, ctx->next_gop_size,
+                             p_enc_in->gopConfig.gopCfgOffset, false);
     }
 
-    if (pEncIn->bIsIDR == HANTRO_TRUE) {
+    if (p_enc_in->bIsIDR == HANTRO_TRUE) {
         ctx->idr_flag = ctx->force_idr ? FRAME_IDR2NORMAL : FRAME_NORMAL;
     } else {
         ctx->idr_flag = FRAME_NORMAL;
@@ -1255,212 +1258,34 @@ static int calc_next_coding_type(struct VpiH26xEncCtx *ctx)
 }
 
 /**
- * h26x_enc_enqueue_infrm
- * Enqueue the input VpiFrame to frame_queue_for_enc[]
- */
-static int h26x_enc_enqueue_infrm(struct VpiH26xEncCtx *enc_ctx,
-                                  VpiFrame *input_frame)
-{
-    int i                       = 0;
-    int ret                     = 0;
-    int frm_num_in_queue        = 0;
-    VpiH26xEncFrm *queue_member = NULL;
-    VpiFrame *cur_vpi_frame, *temp_vpi_frame, queued_vpi_frame;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-
-    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-        if (enc_ctx->frame_queue_for_enc[i].state == 1) {
-            frm_num_in_queue++;
-        }
-    }
-
-    usleep(40000); /*TBD: need refine to prevent blocking at decoder side */
-    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-        if (enc_ctx->frame_queue_for_enc[i].state == 0) {
-            queue_member = (VpiH26xEncFrm *)&enc_ctx->frame_queue_for_enc[i];
-
-            /*Fill the queue member with input_frame*/
-            queue_member->state             = 1;
-            queue_member->fed_to_enc        = 0;
-            queue_member->frame_index       = enc_ctx->frame_index;
-            queue_member->in_pass_one_queue = 0;
-            memcpy(&queue_member->frame, input_frame, sizeof(VpiFrame));
-
-            /*store the IDR position in force IDR case */
-            if (input_frame->key_frame && enc_ctx->force_idr) {
-                if (enc_ctx->frame_index > 0) {
-                    enc_ctx->key_frame_flag = HANTRO_TRUE;
-                    store_idr_poc(enc_ctx, enc_ctx->frame_index);
-                }
-            }
-
-            enc_ctx->frame_index++;
-            break;
-        }
-    }
-    if (i == MAX_WAIT_DEPTH) {
-        VPILOGE("%s,%s,%d, queue overflow error", __FILE__, __FUNCTION__,
-                __LINE__);
-        ret = -1;
-    }
-
-    return ret;
-}
-
-/**
- * h26x_enc_find_frame_for_enc
- *
- */
-static int h26x_enc_find_frame_for_enc(VpiH26xEncCtx *enc_ctx,
-                                       VpiFrame *vpi_frame)
-{
-    VpiH26xEncFrm *queue_member = NULL;
-    VpiFlushState flush_state;
-    int frame_index_need = 0;
-    int i                = 0;
-    int ret              = 0;
-    VpiCtrlCmdParam cmd;
-    VpiFrame *in_vpi_frame;
-
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-    frame_index_need =
-        h26x_enc_next_picture(vpi_h26xe_cfg, vpi_h26xe_cfg->picture_cnt) +
-        vpi_h26xe_cfg->first_pic;
-    p_enc_in->indexTobeEncode = frame_index_need;
-
-    /*Find the frame according to frame index */
-    if (enc_ctx->flush_state == VPIH26X_FLUSH_IDLE) { /*Normal encoding stage*/
-        for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-            if (enc_ctx->frame_queue_for_enc[i].state == 1) {
-                queue_member = &enc_ctx->frame_queue_for_enc[i];
-                if (queue_member->frame_index == frame_index_need) {
-                    queue_member->in_pass_one_queue = 1;
-                    goto find_pic;
-                }
-            }
-        }
-        if (i == MAX_WAIT_DEPTH) {
-            if (!enc_ctx->no_input_pict) {
-                /*No frame available, request new frames by returning EAGAIN.*/
-                return -1;
-            }
-            /*No frame availbale and no frame input, return 0 for encoder to
-             *start internal flushing operation*/
-            return 0;
-        }
-    } else if (enc_ctx->flush_state ==
-               VPIH26X_FLUSH_TRANSPIC) { /*flush_transpic
-                                            stage*/
-        /*Find the frame in the queue at flush_transpic stage
-         *There is no frame inputs at this stage*/
-        for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-            if ((enc_ctx->frame_queue_for_enc[i].state == 1) &&
-                (enc_ctx->frame_queue_for_enc[i].in_pass_one_queue != 1)) {
-                queue_member = &enc_ctx->frame_queue_for_enc[i];
-                if (queue_member->frame_index == frame_index_need) {
-                    queue_member->in_pass_one_queue = 1;
-                    goto find_pic;
-                }
-            }
-        }
-
-        if (i == MAX_WAIT_DEPTH) {
-            /*No frame available for this stage, return 0 for encoder to
-             *continue internal flushing operation*/
-            return 0;
-        }
-    } else { /*Internal flushing stage*/
-        /*Return 0 for encoder's internal flushing operation*/
-        return 0;
-    }
-
-find_pic:
-    enc_ctx->find_pict       = 1;
-    queue_member->fed_to_enc = 1;
-
-    /*Fill vpi_frame with the frame info*/
-    memcpy(vpi_frame, &queue_member->frame, sizeof(VpiFrame));
-
-    return 0;
-}
-
-/**
- * av_frame_unref the consumed AVFrame in the AVFrame input queue
- */
-static void h26x_enc_consume_frm(struct VpiH26xEncCtx *enc_ctx,
-                                 int consumed_frame_index)
-{
-    VpiH26xEncFrm *queue_member = NULL;
-    VpiCtrlCmdParam cmd;
-    int i;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-
-    /*find the need_frame_index */
-    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-        if ((enc_ctx->frame_queue_for_enc[i].state == 1) &&
-            (enc_ctx->frame_queue_for_enc[i].in_pass_one_queue == 1)) {
-            queue_member = &enc_ctx->frame_queue_for_enc[i];
-            if (queue_member->frame_index == consumed_frame_index) {
-                goto find_pic;
-            }
-        }
-    }
-
-    if (i == MAX_WAIT_DEPTH)
-        return;
-
-find_pic:
-    queue_member->frame_index       = -1;
-    queue_member->state             = 0;
-    queue_member->fed_to_enc        = 0;
-    queue_member->in_pass_one_queue = 0;
-}
-
-/**
  *  h26x_enc_call_vcstart
  *  Call vc8000e sdk's VCEncStrmStart() function
  */
-static int h26x_enc_call_vcstart(struct VpiH26xEncCtx *enc_ctx,
+static int h26x_enc_call_vcstart(VpiH26xEncCtx *enc_ctx,
                                  VCEncOut *enc_out)
 {
-    VPIH26xEncOptions *options          = &enc_ctx->options;
-    i32 ret                             = OK;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in                   = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-    int *stream_size                    = &enc_ctx->stream_size;
-    *stream_size                        = 0;
+    VPIH26xEncOptions *options   = &enc_ctx->options;
+    i32 ret                      = OK;
+    VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in            = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
+    int *stream_size             = &enc_ctx->stream_size;
+    VpiEncOutData *out_buffer    = NULL;
 
     i32 p   = 0;
     int cnt = 1;
 
-    u32 gop_size          = vpi_h26xe_cfg->gop_size;
-    enc_ctx->adaptive_gop = (gop_size == 0);
-
+    enc_ctx->adaptive_gop = (vpi_h26xe_cfg->gop_size == 0);
     memset(&enc_ctx->agop, 0, sizeof(enc_ctx->agop));
-    enc_ctx->agop.last_gopsize = MAX_ADAPTIVE_GOP_SIZE;
 
-    p_enc_in->gopSize = gop_size;
+    /* The first output buffer */
+    ret = h26x_enc_pop_emptyfifo(enc_ctx, &out_buffer);
+    if (ret != FIFO_OK) {
+        VPILOGE("pop empty fifo failed, ret %d\n", ret);
+        goto error;
+    }
+    setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
 
-    enc_ctx->ma.pos = enc_ctx->ma.count = 0;
-    enc_ctx->ma.frame_rate_numer        = options->output_rate_numer;
-    enc_ctx->ma.frame_rate_denom        = options->output_rate_denom;
-    if (options->output_rate_denom)
-        enc_ctx->ma.length =
-            MAX(LEAST_MONITOR_FRAME,
-                MIN(options->monitor_frames, MOVING_AVERAGE_FRAMES));
-    else
-        enc_ctx->ma.length = MOVING_AVERAGE_FRAMES;
-
-    p_enc_in->timeIncrement          = 0;
-    p_enc_in->vui_timing_info_enable = options->vui_timing_info_enable;
-
-    setup_output_buffer(vpi_h26xe_cfg, p_enc_in);
-
-    p_enc_in->hashType = options->hashtype;
+    //p_enc_in->hashType = options->hashtype;
     init_slice_ctl(vpi_h26xe_cfg, options);
     init_stream_segment_crl(vpi_h26xe_cfg, options);
 
@@ -1469,22 +1294,125 @@ static int h26x_enc_call_vcstart(struct VpiH26xEncCtx *enc_ctx,
                                             options, p_enc_in,
                                             enc_ctx->hantro_encoder,
                                             vpi_h26xe_cfg)) {
+            VPILOGE("init input line buffer failed\n");
             goto error;
         }
     }
 
     /* before VCEncStrmStart called */
-    h26x_enc_init_pic_config(p_enc_in);
+    h26x_cfg_init_pic(vpi_h26xe_cfg, options, &enc_ctx->ma, &enc_ctx->agop);
+    h26x_enc_init_pic_config(p_enc_in, vpi_h26xe_cfg, options);
+    enc_ctx->next_gop_size = p_enc_in->gopSize;
 
     /* Video, sequence and picture parameter sets */
+    *stream_size = 0;
     for (p = 0; p < cnt; p++) {
-        if (VCEncStrmStart(enc_ctx->hantro_encoder, p_enc_in, enc_out)) {
+        ret = VCEncStrmStart(enc_ctx->hantro_encoder, p_enc_in, enc_out);
+        if (ret) {
+            VPILOGE("VCEncStrmStart failed, ret %d\n", ret);
             goto error;
         }
 
         enc_ctx->total_bits += enc_out->streamSize * 8;
         *stream_size += enc_out->streamSize;
     }
+    enc_ctx->header_size = *stream_size;
+    if (enc_ctx->header_size) {
+        enc_ctx->header_data = malloc(enc_ctx->header_size);
+        if (!enc_ctx->header_data) {
+            VPILOGE("fail to malloc for header\n");
+            goto error;
+        }
+        memcpy(enc_ctx->header_data,
+               out_buffer->outbuf_mem->rc_virtualAddress,
+               enc_ctx->header_size);
+    }
+    h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
+    return 0;
+
+error:
+    VPILOGE("%s error\n", __FUNCTION__);
+    return -1;
+}
+
+static int h26x_encode_end(VpiH26xEncCtx *enc_ctx)
+{
+    VPIH26xEncCfg *cfg         = &enc_ctx->vpi_h26xe_cfg;
+    VPIH26xEncOptions *options = &enc_ctx->options;
+    i32 ret                    = OK;
+    VCEncIn *p_enc_in          = (VCEncIn *)&(cfg->enc_in);
+    VCEncOut *p_enc_out        = (VCEncOut *)&enc_ctx->enc_out;
+    VpiEncOutData *out_buffer  = NULL;
+
+    if (enc_ctx->encoder_is_end == HANTRO_TRUE) return 0;
+
+#ifdef VCE_MEM_ERR_TEST
+    if (VceMemoryCheck(options) != 0){
+        VPILOGE("vce force memory error in function\n");
+        goto error;
+    }
+#endif
+
+    if (h26x_enc_get_out_buffer(enc_ctx, &out_buffer) == -1) {
+        enc_ctx->flush_state = VPIH26X_FLUSH_ENCEND;
+        return 0;
+    }
+    setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
+    ret = VCEncStrmEnd(enc_ctx->hantro_encoder, p_enc_in, p_enc_out);
+
+#ifdef VCE_MEM_ERR_TEST
+    if (VceMemoryCheck(options) != 0){
+       VPILOGE("vce force VCEncStrmEnd return error\n");
+       ret = VCENC_ERROR;
+    }
+#endif
+
+    if (ret == VCENC_OK) {
+        out_buffer->header_size = p_enc_out->streamSize;
+        out_buffer->header_data = enc_ctx->header_data;
+        out_buffer->end_data    = HANTRO_TRUE;
+        h26x_enc_push_outfifo(enc_ctx, out_buffer);
+    } else {
+        h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
+        VPILOGE("VCEncStrmEnd ret is %d\n", ret);
+        goto error;
+    }
+
+    enc_ctx->encoder_is_end = HANTRO_TRUE;
+    return 0;
+
+error:
+    return -1;
+}
+
+/**
+ *  h26x_enc_start
+ *  Start h26x(h264/hevc) encoding
+ */
+static int h26x_enc_start(VpiH26xEncCtx *enc_ctx, VCEncOut *enc_out)
+{
+    VPIH26xEncOptions *options   = &enc_ctx->options;
+    i32 ret                      = OK;
+    VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
+
+    ret = h26x_enc_call_vcstart(enc_ctx, enc_out);
+    if (ret == -1) {
+        VPILOGE("h26x_enc_call_vcstart failure!\n");
+        goto error;
+    }
+
+    VCEncGetRateCtrl(enc_ctx->hantro_encoder,
+                     (VCEncRateCtrl *)&vpi_h26xe_cfg->rc);
+
+    /* Allocate a buffer for user data and read data from file */
+    enc_ctx->p_user_data =
+        read_userdata(enc_ctx->hantro_encoder, options->user_data);
+
+    /* Read configuration files for ROI/CuTree/IPCM/GMV ... */
+    if (read_config_files(vpi_h26xe_cfg, options))
+        goto error;
+
     return ret;
 
 error:
@@ -1493,39 +1421,260 @@ error:
 }
 
 /**
- *  h26x_enc_call_vcencoding
- *  Call vc8000e sdk's VCEncStrmEncode() function
+ *  h26x_enc_flush_set
+ *  Set the flush state to FLUSH_TRANSPIC for h26x(h264/hevc) encoder
  */
-static int h26x_enc_call_vcencoding(struct VpiH26xEncCtx *enc_ctx,
-                                    VpiH26xEncInAddr *p_addrs, void *indata,
-                                    void *outdata)
+static int h26x_enc_flush_set(VpiH26xEncCtx *enc_ctx)
+{
+    VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in            = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
+
+    VPILOGD("get EOS, begin to flush trans pic\n");
+    enc_ctx->flush_state = VPIH26X_FLUSH_TRANSPIC;
+
+    *p_enc_in                  = enc_ctx->enc_in_bk;
+    vpi_h26xe_cfg->picture_cnt = enc_ctx->picture_cnt_bk;
+    calc_flush_data_coding_type(enc_ctx);
+    p_enc_in->gopSize          = 1;
+    p_enc_in->timeIncrement    = vpi_h26xe_cfg->output_rate_denom;
+
+    return 0;
+}
+
+static int h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
+                             VpiH26xEncInAddr *p_addrs, int64_t *pts)
 {
     VPIH26xEncOptions *options = &enc_ctx->options;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-    int *stream_size       = &enc_ctx->stream_size;
-    VpiH26xEncInAddr addrs = *p_addrs;
-    VCEncIn *p_enc_in      = (VCEncIn *)indata;
-    VCEncOut *enc_out      = (VCEncOut *)outdata;
+    VPIH26xEncCfg *cfg         = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    VpiEncH26xPic *p_trans     = NULL;
+    VCEncIn *p_enc_in          = (VCEncIn *)&cfg->enc_in;
+    int i;
 
+    struct DecPicturePpu *pic_ppu = NULL;
+    struct DecPicture *pic_data = NULL;
+
+    memset(p_addrs, 0, sizeof(VpiH26xEncInAddr));
+
+    //find the need_poc
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (enc_ctx->pic_wait_list[i].state == 1) {
+            p_trans = &enc_ctx->pic_wait_list[i];
+            if (p_trans->poc == poc_need) {
+                pic_ppu = (struct DecPicturePpu *)p_trans->pic->data[0];
+                if (pic_ppu == NULL) {
+                    VPILOGE("enc get frame[%d] error\n", poc_need);
+                    return VCENC_NULL_ARGUMENT;
+                }
+                pic_data =
+                    (struct DecPicture *)&pic_ppu->pictures[enc_ctx->pp_index];
+                p_trans->in_pass_one_queue = 1;
+                goto find_pic;
+            }
+        }
+    }
+
+    if (i == MAX_WAIT_DEPTH) {
+        VPILOGE("No needed pict, waitting for the next.\n");
+        return -1;
+    }
+
+find_pic:
+    p_addrs->bus_luma         = pic_data->luma.bus_address;
+    p_addrs->bus_chroma       = pic_data->chroma.bus_address;
+    p_addrs->bus_luma_table   = pic_data->luma_table.bus_address;
+    p_addrs->bus_chroma_table = pic_data->chroma_table.bus_address;
+
+    VPILOGD("[%d] busLuma[%p], busCU[%p], busLT[%p], busCT[%p]\n",
+            options->enc_index, p_addrs->bus_luma, p_addrs->bus_chroma,
+            p_addrs->bus_luma_table, p_addrs->bus_chroma_table);
+
+    if (options->enc_index == 0
+        && options->lookahead_depth
+        && options->cutree_blkratio) {
+        VPILOGD("[%d] enter downSample 1pass\n", options->enc_index);
+
+        pic_data = &pic_ppu->pictures[2];
+        if (!pic_data->pp_enabled) {
+            VPILOGE("when need 1/4 1pass input, pp1 should be enabled!\n");
+            return -1;
+        }
+
+        p_addrs->bus_luma_ds         = pic_data->luma.bus_address;
+        p_addrs->bus_chroma_ds       = pic_data->chroma.bus_address;
+        p_addrs->bus_luma_table_ds   = pic_data->luma_table.bus_address;
+        p_addrs->bus_chroma_table_ds = pic_data->chroma_table.bus_address;
+
+        VPILOGD("[%d] busLumaDs[%p], busCUDs[%p], busLTDs[%p], busCTDs[%p]\n",
+                options->enc_index, p_addrs->bus_luma_ds,
+                p_addrs->bus_chroma_ds,
+                p_addrs->bus_luma_table_ds, p_addrs->bus_chroma_table_ds);
+    }
+
+    *pts          = p_trans->pic->pts;
+    p_enc_in->pts = p_trans->pic->pts;
+
+    return 0;
+}
+
+static int h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
+                                  VpiEncOutData *out_buffer)
+{
+    VPIH26xEncOptions *options = &enc_ctx->options;
+    VPIH26xEncCfg *cfg         = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in          = (VCEncIn *)&(cfg->enc_in);
+    VCEncOut *p_enc_out        = (VCEncOut *)&enc_ctx->enc_out;
     i32 ret = OK;
 
+    SliceCtl *ctl   = cfg->slice_ctl_out;
+    int stream_size = p_enc_out->streamSize;
+
+    if (out_buffer == NULL) {
+        VPILOGE("out_buffer is NULL.\n");
+        return -1;
+    }
+
+    if(options->lookahead_depth && p_enc_out->codingType == VCENC_INTRA_FRAME)
+        enc_ctx->frame_cnt_output = 0;
+
+    VCEncGetRateCtrl(enc_ctx->hantro_encoder, (VCEncRateCtrl *)&cfg->rc);
+    /* Write scaled encoder picture to file, packed yuyv 4:2:2 format */
+    //WriteScaled((u32 *)p_enc_out->scaledPicture, enc_ctx->hantro_encoder);
+    /* write cu encoding information to file <cuInfo.txt> */
+    //WriteCuInformation(cfg, enc_ctx->hantro_encoder, p_enc_out, options, cfg->picture_enc_cnt-1, p_enc_in->poc);
+
+    p_enc_in->timeIncrement = cfg->output_rate_denom;
+
+    if (stream_size != 0) {
+        if (cfg->picture_enc_cnt == 1) {
+            out_buffer->header_data    = enc_ctx->header_data; //ctx->outPkt->data;
+            out_buffer->header_size    = enc_ctx->header_size; //ctx->outPkt->size;
+        } else {
+            if (p_enc_out->resendSPS) {
+                VPILOGD("has sps header size = %d\n", p_enc_out->header_size);
+                out_buffer->header_data = p_enc_out->header_buffer;
+                out_buffer->header_size = p_enc_out->header_size;
+            } else {
+                out_buffer->header_data = NULL;
+                out_buffer->header_size = 0;
+            }
+        }
+
+        out_buffer->resend_header = p_enc_out->resendSPS;
+        out_buffer->stream_size   = p_enc_out->streamSize; //streamSize; //pEncOut->streamSize;
+        out_buffer->pts           = p_enc_out->pts; //tb->input_pic_cnt; //pEncOut->pts;
+        out_buffer->dts           = cfg->picture_enc_cnt - 1 - 8; //tb->picture_enc_cnt; //pEncOut->dts;
+        if (enc_ctx->first_pts_flag) {
+            out_buffer->dts += enc_ctx->first_pts;
+        }
+
+        for (int i = 0; i < 3; i++) {
+            out_buffer->ssim[i] = p_enc_out->ssim[i];
+        }
+        out_buffer->max_slice_stream_size = p_enc_out->maxSliceStreamSize;
+        out_buffer->index_encoded         = p_enc_out->indexEncoded;
+        h26x_enc_push_outfifo(enc_ctx, out_buffer);
+    }
+
+    return 0;
+}
+
+/**
+ *  h26x_enc_call_vcflush
+ *  Call vc8000e sdk's VCEncFlush() function
+ */
+static int h26x_enc_call_vcflush(VpiH26xEncCtx *enc_ctx,
+                                 VCEncOut *enc_out)
+{
+    i32 ret                      = OK;
+    VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in            = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
+    VpiEncOutData *out_buffer    = NULL;
+    int ret_value;
+
+    if (h26x_enc_get_out_buffer(enc_ctx, &out_buffer) == -1) {
+        enc_ctx->flush_state = VPIH26X_FLUSH_FINISH;
+        return 0;
+    }
+
+    setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
+    ret = VCEncFlush(enc_ctx->hantro_encoder, p_enc_in, enc_out,
+                     &h26x_enc_slice_ready);
+    if (ret != VCENC_FRAME_READY) {
+        h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
+    }
+
+    switch (ret) {
+       case VCENC_FRAME_READY:
+            setup_slice_ctl(vpi_h26xe_cfg);
+            vpi_h26xe_cfg->picture_enc_cnt++;
+            if (enc_out->streamSize == 0) {
+                vpi_h26xe_cfg->picture_cnt++;
+                vpi_h26xe_cfg->enc_in.picture_cnt ++;
+                break;
+            }
+            ret_value = h26x_enc_process_frame(enc_ctx, out_buffer);
+            if (ret_value < 0) {
+                goto error;
+            }
+            if (enc_ctx->waiting_for_pkt == 1) {
+                pthread_cond_signal(&enc_ctx->h26xe_thd_cond);
+                enc_ctx->waiting_for_pkt = 0;
+            }
+            h26x_enc_consume_pic(enc_ctx, enc_out->indexEncoded);
+            break;
+        case VCENC_FRAME_ENQUEUE:
+            break;
+        case VCENC_OUTPUT_BUFFER_OVERFLOW:
+            vpi_h26xe_cfg->enc_in.picture_cnt ++;
+            break;
+        case VCENC_OK:
+            enc_ctx->flush_state = VPIH26X_FLUSH_FINISH;
+            break;
+        default:
+            goto error;
+    }
+
+    return ret;
+
+error:
+    enc_ctx->flush_state = VPIH26X_FLUSH_FINISH;
+    return -1;
+}
+
+int h26x_enc_frame(VpiH26xEncCtx *ctx)
+{
+    VPIH26xEncOptions *options = &ctx->options;
+    VPIH26xEncCfg *cfg         = (VPIH26xEncCfg *)&ctx->vpi_h26xe_cfg;
+    i32 ret = OK;
+    VCEncIn *p_enc_in   = (VCEncIn *)&cfg->enc_in;
+    VCEncOut *p_enc_out = (VCEncOut *)&ctx->enc_out;
+
+    VpiEncOutData *out_buffer = NULL;
+    VpiH26xEncInAddr addrs = {0};
+    int64_t pict_pts = 0;
+    u32 src_img_size;
+
+    u32 i, tmp;
+    int retValue = 0;
+    int width_chroma_align32 = 0;
+    int out_buf_index = -1;
+    int startHeaderSize = 0;
+
     /* IO buffer */
-    get_free_iobuffer(vpi_h26xe_cfg);
-    setup_slice_ctl(vpi_h26xe_cfg);
+    get_free_iobuffer(cfg);
+    setup_slice_ctl(cfg);
 
     /* Setup encoder input */
-    setup_input_buffer(vpi_h26xe_cfg, options, p_enc_in);
-
-    setup_output_buffer(vpi_h26xe_cfg, p_enc_in);
+    src_img_size = setup_input_buffer(cfg, options, p_enc_in);
 
 #ifdef SUPPORT_TCACHE
-    if ((options->input_format >= INPUT_FORMAT_ARGB_FB &&
-         options->input_format <= INPUT_FORMAT_YUV444P) ||
-        options->input_format == VCENC_YUV420_PLANAR ||
-        options->input_format == VCENC_YUV420_SEMIPLANAR ||
-        options->input_format == VCENC_YUV420_SEMIPLANAR_VU ||
-        options->input_format == VCENC_YUV420_PLANAR_10BIT_P010) {
+    if ((options->input_format >= INPUT_FORMAT_ARGB_FB
+        && options->input_format <= INPUT_FORMAT_YUV444P)
+        || options->input_format == VCENC_YUV420_PLANAR
+        || options->input_format == VCENC_YUV420_SEMIPLANAR
+        || options->input_format == VCENC_YUV420_SEMIPLANAR_VU
+        || options->input_format == VCENC_YUV420_PLANAR_10BIT_P010) {
+        VPILOGD("raw input through TCache\n");
     } else
 #endif
     {
@@ -1533,61 +1682,124 @@ static int h26x_enc_call_vcencoding(struct VpiH26xEncCtx *enc_ctx,
 #endif
     }
 
-    if (*stream_size) {
-        p_enc_in->busOutBuf[0] += *stream_size;
-        p_enc_in->pOutBuf[0] = (u32 *)p_enc_in->pOutBuf + *stream_size;
-        p_enc_in->outBufSize[0] -= *stream_size;
+    VPILOGD("picture_cnt = %d. \n", p_enc_in->picture_cnt);
+
+    if (ctx->update_idr_poc == HANTRO_TRUE) {
+        update_next_idr_poc(ctx, (int *)&ctx->next_idr_poc);
     }
 
-    if (vpi_h26xe_cfg->enc_index == 0 && options->lookahead_depth &&
-        options->cutree_blkratio) {
+    ctx->next_poc = h26x_enc_next_picture(cfg, p_enc_in->picture_cnt)
+                        + cfg->first_pic;
+
+    p_enc_in->indexTobeEncode = ctx->next_poc;
+    VPILOGD("ctx->next_poc = %d\n", ctx->next_poc);
+
+    if (ctx->flush_state == VPIH26X_FLUSH_IDLE) {
+        ret = h26x_enc_send_pic(ctx, ctx->next_poc, &addrs, &pict_pts);
+        if (ret < 0) {
+            if (ret == VCENC_NULL_ARGUMENT) {
+                VPILOGE("There is some error internal.\n");
+                return -1;
+            }
+            VPILOGD("[%d]ctx->next_poc = %d. wait next pict\n",
+                     cfg->enc_index, ctx->next_poc);
+            ctx->trans_flush_pic = HANTRO_TRUE;
+            return 0;
+        }
+    } else if (ctx->flush_state == VPIH26X_FLUSH_TRANSPIC) {
+        VPILOGI("Begin to flush trans DATA\n");
+
+        if(h26x_enc_send_pic(ctx, ctx->next_poc, &addrs, &pict_pts) < 0) {
+            ctx->flush_state = VPIH26X_FLUSH_ENCDATA;
+            VPILOGD("No Data Trans, begin to enter VCE Flush\n");
+            return 0;
+        }
+    } else {
+        /* not should be here */
+        VPILOGE("There is some error internal.\n");
+        return -1;
+    }
+  //p_enc_in->pts = pict_pts; //??? need or not
+
+    if (cfg->last_pic > 0 && ctx->next_poc > cfg->last_pic) {
+        VPILOGE("next_poc = %d, exceed lastPic %d\n",
+                 ctx->next_poc, cfg->last_pic);
+        return -1;
+    }
+
+    if (!addrs.bus_luma || !addrs.bus_chroma) {
+        VPILOGD("get EOS\n");
+        return 0;
+    }
+
+    if (cfg->enc_index == 0
+        && options->lookahead_depth
+        && options->cutree_blkratio) {
+        VPILOGD("set 1pass ds addr\n");
+
         if (addrs.bus_luma_ds == 0 || addrs.bus_chroma_ds == 0) {
+            VPILOGE("1pass ds addr should not be zero!\n");
             return -1;
         }
+
         p_enc_in->busLuma    = addrs.bus_luma_ds;
         p_enc_in->busChromaU = addrs.bus_chroma_ds;
         p_enc_in->busChromaV = 0;
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-        vpi_h26xe_cfg->ts_lumamem->busAddress   = addrs.bus_luma_table_ds;
-        vpi_h26xe_cfg->ts_chromamem->busAddress = addrs.bus_chroma_table_ds;
+        cfg->ts_lumamem->busAddress   = addrs.bus_luma_ds;
+        cfg->ts_chromamem->busAddress = addrs.bus_chroma_ds;
 #endif
 
         p_enc_in->busLumaOrig    = addrs.bus_luma;
         p_enc_in->busChromaUOrig = addrs.bus_chroma;
-        p_enc_in->busChromaVOrig = 0;
-
+        if (INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P
+                == options->input_format) {
+            width_chroma_align32     = ((options->width / 2 + 31) / 32) * 32;
+            p_enc_in->busChromaVOrig = addrs.bus_luma +
+                                    width_chroma_align32 * options->height / 2;
+        } else {
+            p_enc_in->busChromaVOrig = 0;
+        }
     } else {
         p_enc_in->busLuma    = addrs.bus_luma;
         p_enc_in->busChromaU = addrs.bus_chroma;
-        p_enc_in->busChromaV = 0;
+        if (INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P
+                == options->input_format) {
+            width_chroma_align32 = ((options->width / 2 + 31) / 32) * 32;
+            p_enc_in->busChromaV = addrs.bus_chroma +
+                                width_chroma_align32 * options->height / 2;
+        } else {
+            p_enc_in->busChromaV = 0;
+        }
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-        vpi_h26xe_cfg->ts_lumamem->busAddress   = addrs.bus_luma_table;
-        vpi_h26xe_cfg->ts_chromamem->busAddress = addrs.bus_chroma_table;
+        cfg->ts_lumamem->busAddress   = addrs.bus_luma_table;
+        cfg->ts_chromamem->busAddress = addrs.bus_chroma_table;
 #endif
     }
+
     VPILOGD("p_enc_in->busLuma    = %p\n", p_enc_in->busLuma);
     VPILOGD("p_enc_in->busChromaU = %p\n", p_enc_in->busChromaU);
+
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-    VPILOGD("TSLumaMem->busAddr = %p\n", vpi_h26xe_cfg->ts_lumamem->busAddress);
-    VPILOGD("ts_chromamem->busAd = %p\n",
-            vpi_h26xe_cfg->ts_chromamem->busAddress);
+    VPILOGD("TSLumaMem->busAddr = %p\n", cfg->ts_lumamem->busAddress);
+    VPILOGD("TSChromaMem->busAd = %p\n", cfg->ts_chromamem->busAddress);
 #endif
 
-    enc_ctx->frame_cnt_total++;
+    ctx->frame_cnt_total++;
 
-    format_customized_yuv(vpi_h26xe_cfg, options, &ret);
+    format_customized_yuv(cfg, options, &ret);
     if (ret) {
+        VPILOGE("Format customized yuv failed\n");
         goto error;
     }
+
     /*
-     *   per-frame test functions
-     *
+     * per-frame test functions
      */
 
-    /* 1. scene changed frames from usr */
+    /* 1. scene changed frames from usr*/
     p_enc_in->sceneChange = 0;
-    u32 tmp = h26x_enc_next_picture(vpi_h26xe_cfg, vpi_h26xe_cfg->picture_cnt) +
-              vpi_h26xe_cfg->first_pic;
+    tmp = h26x_enc_next_picture(cfg, p_enc_in->picture_cnt) + cfg->first_pic;
     for (int i = 0; i < MAX_SCENE_CHANGE; i++) {
         if (options->scene_change[i] == 0) {
             break;
@@ -1597,58 +1809,54 @@ static int h26x_enc_call_vcencoding(struct VpiH26xEncCtx *enc_ctx,
             break;
         }
     }
-    /* 2. GMV setting from user */
-    read_gmv(vpi_h26xe_cfg, p_enc_in, options);
+
+    /* 2. GMV setting from user*/
+    read_gmv(cfg, p_enc_in, options);
 
     p_enc_in->codingType =
-        (p_enc_in->poc == 0) ? VCENC_INTRA_FRAME : enc_ctx->next_coding_type;
-    vpi_h26xe_cfg->input_pic_cnt++;
-
-    if (p_enc_in->sceneChange) {
-    }
+        (p_enc_in->poc == 0) ? VCENC_INTRA_FRAME : ctx->next_coding_type;
+    cfg->input_pic_cnt++;
 
     if (p_enc_in->codingType == VCENC_INTRA_FRAME &&
         options->gdr_duration == 0 &&
         ((p_enc_in->poc == 0) || (p_enc_in->bIsIDR))) {
         if (!options->lookahead_depth)
-            enc_ctx->frame_cnt_output = 0;
+            ctx->frame_cnt_output = 0;
     }
+
     /* 3. On-fly bitrate setting */
     for (int i = 0; i < MAX_BPS_ADJUST; i++)
         if (options->bps_adjust_frame[i] &&
-            (vpi_h26xe_cfg->picture_cnt == options->bps_adjust_frame[i])) {
-            enc_ctx->vpi_h26xe_cfg.rc.bitPerSecond =
-                options->bps_adjust_bitrate[i];
-            if ((ret = VCEncSetRateCtrl(enc_ctx->hantro_encoder,
-                                        (VCEncRateCtrl *)&enc_ctx->vpi_h26xe_cfg
-                                            .rc)) != VCENC_OK) {
+            (p_enc_in->picture_cnt == options->bps_adjust_frame[i])) {
+            cfg->rc.bitPerSecond = options->bps_adjust_bitrate[i];
+            VPILOGI("Adjusting bitrate target: %d\n", cfg->rc.bitPerSecond);
+            if ((ret = VCEncSetRateCtrl(ctx->hantro_encoder,
+                                    (VCEncRateCtrl *)&cfg->rc)) != VCENC_OK) {
+                VPILOGE("VCEncSetRateCtrl() failed. ret is %d\n", ret);
             }
         }
     /* 4. SetupROI-Map */
-    if (setup_roi_map_buffer(vpi_h26xe_cfg, options, p_enc_in,
-                             enc_ctx->hantro_encoder)) {
+    if (setup_roi_map_buffer(cfg, options, p_enc_in, ctx->hantro_encoder)) {
+        VPILOGE("Failed to setup ROI map buffer\n");
         goto error;
     }
-
-    /* 5. encoding specific frame from user: all CU/MB are SKIP */
+    /* 5. encoding specific frame from user: all CU/MB are SKIP*/
     p_enc_in->bSkipFrame = options->skip_frame_enabled_flag &&
                            (p_enc_in->poc == options->skip_frame_poc);
-
     /* 6. low latency */
     if (options->input_line_buf_mode) {
         p_enc_in->lineBufWrCnt =
-            VCEncStartInputLineBuffer(&(vpi_h26xe_cfg->input_ctb_linebuf));
+            VCEncStartInputLineBuffer(&(cfg->input_ctb_linebuf));
     }
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-    p_enc_in->PrivData.PicMemRcBusAddr =
-        vpi_h26xe_cfg->picture_mem->rc_busAddress;
+    p_enc_in->PrivData.PicMemRcBusAddr = cfg->picture_mem->rc_busAddress;
 
     p_enc_in->PrivData.bitDepthLuma    = options->bit_depth_luma;
-    p_enc_in->PrivData.input_alignment = vpi_h26xe_cfg->input_alignment;
+    p_enc_in->PrivData.input_alignment = cfg->input_alignment;
 
     if (addrs.bus_luma_ds) {
-        p_enc_in->PrivData.lumaSize     = vpi_h26xe_cfg->luma_size_ds;
-        p_enc_in->PrivData.chromaSize   = vpi_h26xe_cfg->chroma_size_ds;
+        p_enc_in->PrivData.lumaSize     = cfg->luma_size_ds;
+        p_enc_in->PrivData.chromaSize   = cfg->chroma_size_ds;
         p_enc_in->PrivData.lumWidthSrc  = options->lum_width_src / 2;
         p_enc_in->PrivData.lumHeightSrc = options->lum_height_src / 2;
         p_enc_in->PrivData.inputFormat  = options->input_format_ds;
@@ -1657,10 +1865,9 @@ static int h26x_enc_call_vcencoding(struct VpiH26xEncCtx *enc_ctx,
         p_enc_in->PrivData.TSChromaMemBusAddress = addrs.bus_chroma_table_ds;
         p_enc_in->PrivData.busLuma               = addrs.bus_luma_ds;
         p_enc_in->PrivData.busChromaU            = addrs.bus_chroma_ds;
-
     } else {
-        p_enc_in->PrivData.lumaSize     = vpi_h26xe_cfg->luma_size;
-        p_enc_in->PrivData.chromaSize   = vpi_h26xe_cfg->chroma_size;
+        p_enc_in->PrivData.lumaSize     = cfg->luma_size;
+        p_enc_in->PrivData.chromaSize   = cfg->chroma_size;
         p_enc_in->PrivData.lumWidthSrc  = options->lum_width_src;
         p_enc_in->PrivData.lumHeightSrc = options->lum_height_src;
         p_enc_in->PrivData.inputFormat  = options->input_format;
@@ -1673,25 +1880,39 @@ static int h26x_enc_call_vcencoding(struct VpiH26xEncCtx *enc_ctx,
         /*pic_data->luma.bus_address; */ /*p_enc_in->busLuma;*/
         p_enc_in->PrivData.busChromaU = addrs.bus_chroma;
         /*pic_data->chroma.bus_address; */ /*p_enc_in->busChromaU;*/
+        width_chroma_align32 = ((options->width / 2 + 31) / 32) * 32;
+        p_enc_in->PrivData.busChromaV =
+            addrs.bus_chroma + width_chroma_align32 * options->height / 2;
+        VPILOGD("Priv busLuma %p, busChromaU %p, busChromaV %p \n",
+            p_enc_in->PrivData.busLuma, p_enc_in->PrivData.busChromaU,
+            p_enc_in->PrivData.busChromaV);
     }
     /* for pass two encoder hardware set */
     p_enc_in->PassTwoHWData.bitDepthLuma    = options->bit_depth_luma;
     p_enc_in->PassTwoHWData.inputFormat     = options->input_format;
-    p_enc_in->PassTwoHWData.lumaSize        = vpi_h26xe_cfg->luma_size;
-    p_enc_in->PassTwoHWData.chromaSize      = vpi_h26xe_cfg->chroma_size;
+    p_enc_in->PassTwoHWData.lumaSize        = cfg->luma_size;
+    p_enc_in->PassTwoHWData.chromaSize      = cfg->chroma_size;
     p_enc_in->PassTwoHWData.lumWidthSrc     = options->lum_width_src;
     p_enc_in->PassTwoHWData.lumHeightSrc    = options->lum_height_src;
-    p_enc_in->PassTwoHWData.input_alignment = vpi_h26xe_cfg->input_alignment;
+    p_enc_in->PassTwoHWData.input_alignment = cfg->input_alignment;
     p_enc_in->PassTwoHWData.TSLumaMemBusAddress = addrs.bus_luma_table;
     /*pic_data->luma_table.bus_address; */ /*vpi_h26xe_cfg->ts_lumamem->busAddress;*/
     p_enc_in->PassTwoHWData.TSChromaMemBusAddress = addrs.bus_chroma_table;
     /*pic_data->chroma_table.bus_address; */ /*vpi_h26xe_cfg->ts_chromamem->busAddress;*/
     p_enc_in->PassTwoHWData.PicMemRcBusAddr =
-        vpi_h26xe_cfg->picture_mem->rc_busAddress;
+        cfg->picture_mem->rc_busAddress;
     p_enc_in->PassTwoHWData.busLuma = addrs.bus_luma;
     /*pic_data->luma.bus_address; */ /*p_enc_in->busLuma;*/
     p_enc_in->PassTwoHWData.busChromaU =
         addrs.bus_chroma; /*pic_data->chroma.bus_address; p_enc_in->busChromaU;*/
+    if (INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P == options->input_format) {
+        width_chroma_align32 = ((options->width / 2 + 31) / 32) * 32;
+        p_enc_in->PassTwoHWData.busChromaV =
+            addrs.bus_chroma + width_chroma_align32 * options->height / 2;
+    }
+    VPILOGD("Pass2 busLuma %p, busChromaU %p, busChromaV %p \n",
+        p_enc_in->PassTwoHWData.busLuma, p_enc_in->PassTwoHWData.busChromaU,
+        p_enc_in->PassTwoHWData.busChromaV);
 
     if (options->input_format == INPUT_FORMAT_RFC_8BIT_COMPRESSED_FB ||
         options->input_format == INPUT_FORMAT_RFC_10BIT_COMPRESSED_FB) {
@@ -1743,372 +1964,247 @@ static int h26x_enc_call_vcencoding(struct VpiH26xEncCtx *enc_ctx,
         p_enc_in->PrivData.crop_h = p_enc_in->PassTwoHWData.crop_h;
     }
 #endif
-    gettimeofday(&vpi_h26xe_cfg->time_frame_start, 0);
-    ret = VCEncStrmEncode(enc_ctx->hantro_encoder, p_enc_in, enc_out,
-                          &h26x_enc_slice_ready, vpi_h26xe_cfg->slice_ctl);
-    gettimeofday(&vpi_h26xe_cfg->time_frame_end, 0);
-    return ret;
-error:
-    VPILOGE("%s %d: goto error\n", __FILE__, __LINE__);
-    return -1;
-}
 
-/**
- *  h26x_enc_call_vcflush
- *  Call vc8000e sdk's VCEncFlush() function
- */
-static int h26x_enc_call_vcflush(struct VpiH26xEncCtx *enc_ctx,
-                                 VCEncOut *enc_out)
-{
-    i32 ret                             = OK;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in                   = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-
-    ret = VCEncFlush(enc_ctx->hantro_encoder, p_enc_in, enc_out,
-                     &h26x_enc_slice_ready);
-    {
-        switch (ret) {
-        case VCENC_FRAME_READY:
-            setup_output_buffer(vpi_h26xe_cfg, p_enc_in);
-            setup_slice_ctl(vpi_h26xe_cfg);
-            vpi_h26xe_cfg->picture_enc_cnt++;
-            if (enc_out->streamSize == 0) {
-                vpi_h26xe_cfg->picture_cnt++;
-                break;
-            }
-#ifndef USE_OLD_DRV
-            if (EWLTransDataEP2RC(vpi_h26xe_cfg->ewl,
-                                  vpi_h26xe_cfg
-                                      ->outbuf_mem[vpi_h26xe_cfg->outbuf_index],
-                                  vpi_h26xe_cfg
-                                      ->outbuf_mem[vpi_h26xe_cfg->outbuf_index],
-                                  enc_out->streamSize))
-                ret = -1;
-#endif
-            p_enc_in->timeIncrement = vpi_h26xe_cfg->output_rate_denom;
-            break;
-        case VCENC_FRAME_ENQUEUE:
-            break;
-        case VCENC_OUTPUT_BUFFER_OVERFLOW:
-            vpi_h26xe_cfg->picture_cnt++;
-            break;
-        case VCENC_OK:
-            /*ctx->flushState = VPIH26X_FLUSH_FINISH;*/
-            break;
-        default:
-            ret = -1;
-        }
-    }
-    return ret;
-}
-
-/**
- *  h26x_enc_call_vcend
- *  Call vc8000e sdk's VCEncStrmEnd() function
- */
-static int h26x_enc_call_vcend(struct VpiH26xEncCtx *enc_ctx, VCEncOut *enc_out)
-{
-    i32 ret                             = OK;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in                   = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-
-    setup_output_buffer(vpi_h26xe_cfg, p_enc_in);
-    ret = VCEncStrmEnd(enc_ctx->hantro_encoder, p_enc_in, enc_out);
-    return ret;
-}
-
-/**
- *  h26x_enc_start
- *  Start h26x(h264/hevc) encoding
- */
-static int h26x_enc_start(struct VpiH26xEncCtx *enc_ctx, VCEncOut *enc_out)
-{
-    VPIH26xEncOptions *options = &enc_ctx->options;
-    i32 ret                    = OK;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-
-    h26x_enc_call_vcstart(enc_ctx, enc_out);
-
-    p_enc_in->poc = 0;
-
-    /*default gop size as IPPP*/
-    u32 gop_size = vpi_h26xe_cfg->gop_size;
-    p_enc_in->gopSize = enc_ctx->next_gop_size =
-        (enc_ctx->
-         adaptive_gop ? (options->lookahead_depth ? 4 : 1) : gop_size);
-    VPILOGE("%s %d p_enc_in->gopSize = %d\n", __FILE__, __LINE__,
-            p_enc_in->gopSize);
-
-    VCEncGetRateCtrl(enc_ctx->hantro_encoder,
-                     (VCEncRateCtrl *)&enc_ctx->vpi_h26xe_cfg.rc);
-
-    /* Allocate a buffer for user data and read data from file */
-    enc_ctx->p_user_data =
-        read_userdata(enc_ctx->hantro_encoder, options->user_data);
-
-    vpi_h26xe_cfg->validencoded_framenumber = 0;
-
-    /* Read configuration files for ROI/CuTree/IPCM/GMV ... */
-    if (read_config_files(vpi_h26xe_cfg, options))
-        goto error;
-
-    return ret;
-
-error:
-    VPILOGE("%s error\n", __FUNCTION__);
-    return -1;
-}
-
-/**
- *  h26x_enc_encoding
- *  The encoding for h26x(h264/hevc) encoder
- */
-static int h26x_enc_encode(struct VpiH26xEncCtx *enc_ctx,
-                           VpiH26xEncInAddr *p_addrs, VCEncOut *enc_out)
-{
-    VPIH26xEncOptions *options = &enc_ctx->options;
-    i32 ret                    = OK;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-    int *stream_size  = &enc_ctx->stream_size;
-    *stream_size      = 0;
-
-    if (vpi_h26xe_cfg->last_pic > 0 &&
-        enc_ctx->next_poc > vpi_h26xe_cfg->last_pic) {
-        VPILOGE("next_poc = %d, exceed last_pic %d\n", enc_ctx->next_poc,
-                vpi_h26xe_cfg->last_pic);
-        return -1;
-    }
-
-    if (p_addrs->bus_luma == 0 || p_addrs->bus_chroma == 0) {
-        VPILOGE("%s(%d) get EOS\n", __FUNCTION__, __LINE__);
-
+    if (h26x_enc_get_out_buffer(ctx, &out_buffer) == -1) {
+        ctx->flush_state = VPIH26X_FLUSH_ENCEND;
         return 0;
     }
+    setup_output_buffer(ctx->hantro_encoder, out_buffer, p_enc_in);
 
-    if (enc_ctx->update_idr_poc == HANTRO_TRUE) {
-        update_next_idr_poc(enc_ctx, (int *)&enc_ctx->next_idr_poc);
+    gettimeofday(&cfg->time_frame_start, 0);
+    ret = VCEncStrmEncode(ctx->hantro_encoder, p_enc_in, p_enc_out,
+                          &h26x_enc_slice_ready, cfg->slice_ctl);
+    gettimeofday(&cfg->time_frame_end, 0);
+
+    if (ret != VCENC_FRAME_ENQUEUE) {
+        VPILOGD("h26x_consume_stored_pic[%d] \n", p_enc_out->indexEncoded);
+        h26x_enc_consume_pic(ctx, p_enc_out->indexEncoded);
+    }
+    if (ret != VCENC_FRAME_READY) {
+        h26x_enc_push_emptyfifo(ctx, out_buffer);
     }
 
-    gettimeofday(&vpi_h26xe_cfg->time_frame_start, 0);
-    ret = h26x_enc_call_vcencoding(enc_ctx, p_addrs, p_enc_in, enc_out);
-    gettimeofday(&vpi_h26xe_cfg->time_frame_end, 0);
-    enc_ctx->next_poc =
-        h26x_enc_next_picture(vpi_h26xe_cfg, vpi_h26xe_cfg->picture_cnt) +
-        vpi_h26xe_cfg->first_pic;
-    p_enc_in->indexTobeEncode = enc_ctx->next_poc;
-    switch (ret) {
-    case VCENC_FRAME_ENQUEUE:
-        if (enc_ctx->adaptive_gop && options->lookahead_depth) {
-            get_next_gop_size(vpi_h26xe_cfg, p_enc_in, enc_ctx->hantro_encoder,
-                              &enc_ctx->next_gop_size, &enc_ctx->agop);
-        } else if (options->lookahead_depth) { /* for sync only, not update
-                                                  gopSize*/
-            getPass1UpdatedGopSize(
-                ((struct vcenc_instance *)enc_ctx->hantro_encoder)
-                    ->lookahead.priv_inst);
-        }
-        if (enc_ctx->flush_state == VPIH26X_FLUSH_TRANSPIC) {
-            enc_ctx->next_gop_size = 1;
-        }
+    VPILOGD("VCEncStrmEncode ret %d\n", ret);
+    switch (ret)
+    {
+        case VCENC_FRAME_ENQUEUE:
+            //Adaptive GOP size decision
+            if (ctx->adaptive_gop && options->lookahead_depth) {
+                VPILOGD("got nextGopSize[%d] before from getNextGopSize\n",
+                            ctx->next_gop_size);
+                get_next_gop_size(cfg, p_enc_in, ctx->hantro_encoder,
+                                   &ctx->next_gop_size, &ctx->agop);
+                VPILOGD("got nextGopSize[%d] from func getNextGopSize\n",
+                                   ctx->next_gop_size);
+            } else if(options->lookahead_depth) { // for sync only, not update gopSize
+                getPass1UpdatedGopSize(
+                          ((struct vcenc_instance *)ctx->hantro_encoder)
+                                                    ->lookahead.priv_inst);
+            }
 
-        enc_ctx->enc_in_bk      = *p_enc_in;
-        enc_ctx->picture_cnt_bk = vpi_h26xe_cfg->picture_cnt;
+            if (ctx->flush_state == VPIH26X_FLUSH_TRANSPIC) {
+                ctx->next_gop_size = 1;
+            }
 
-        calc_next_coding_type(enc_ctx);
-        /*enc_ctx->next_coding_type =
-            VCEncFindNextPic(enc_ctx->hantro_encoder, p_enc_in,
-                             enc_ctx->next_gop_size,
-                             vpi_h26xe_cfg->enc_in.gopConfig.gopCfgOffset,
-                             false);*/
-        vpi_h26xe_cfg->picture_cnt = p_enc_in->picture_cnt;
-        p_enc_in->timeIncrement    = vpi_h26xe_cfg->output_rate_denom;
-        break;
-    case VCENC_FRAME_READY:
-#if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-        if (ReleasePass2InputHwTransformer(enc_ctx->hantro_encoder,
-                                           &p_enc_in->PassTwoHWData) < 0) {
-            goto error;
-        }
-#endif
-        VPILOGE("%s [%d] enc_out->indexEncoded = %d\n", __FILE__, __LINE__,
-                enc_out->indexEncoded);
-        VPILOGE("enc_out->codingType = %d\n", enc_out->codingType);
-        VPILOGE("enc_out->streamSize = %d\n", enc_out->streamSize);
+            ctx->enc_in_bk      = *p_enc_in;
+            ctx->picture_cnt_bk = cfg->enc_in.picture_cnt;
 
-        if (enc_out->codingType != VCENC_NOTCODED_FRAME)
-            vpi_h26xe_cfg->picture_enc_cnt++;
-        if (enc_out->streamSize == 0) {
-            vpi_h26xe_cfg->picture_cnt++;
+            calc_next_coding_type(ctx);
+            p_enc_in->timeIncrement = cfg->output_rate_denom;
             break;
-        }
-
-        VPILOGE("%s %d\n", __FILE__, __LINE__);
-
-        *stream_size += enc_out->streamSize;
-
-        VPILOGE("%s %d, *stream_size = %d\n", __FILE__, __LINE__, *stream_size);
-#ifndef USE_OLD_DRV
-        if (EWLTransDataEP2RC(vpi_h26xe_cfg->ewl,
-                              vpi_h26xe_cfg
-                                  ->outbuf_mem[vpi_h26xe_cfg->outbuf_index],
-                              vpi_h26xe_cfg
-                                  ->outbuf_mem[vpi_h26xe_cfg->outbuf_index],
-                              *stream_size))
-            goto error;
+        case VCENC_FRAME_READY:
+#if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
+            if (ReleasePass2InputHwTransformer(ctx->hantro_encoder,
+                                               &p_enc_in->PassTwoHWData) < 0) {
+                goto error;
+            }
 #endif
+            VPILOGD("encOut->indexEncoded = %d\n", p_enc_out->indexEncoded);
+            VPILOGD("encOut->codingType = %d\n", p_enc_out->codingType);
+            VPILOGD("encOut->streamSize = %d\n", p_enc_out->streamSize);
 
-        VPILOGE("%s %d ff_vpe_h26xe_processFrame over\n", __FILE__, __LINE__);
+            if (p_enc_out->codingType != VCENC_NOTCODED_FRAME)
+                cfg->picture_enc_cnt++;
+            if (p_enc_out->streamSize == 0) {
+                cfg->enc_in.picture_cnt++;
+                break;
+            }
+            VPILOGD("out_buffer %p\n", out_buffer);
+            retValue = h26x_enc_process_frame(ctx, out_buffer);
+            if (retValue < 0)
+                goto error;
+            if (ctx->waiting_for_pkt == 1) {
+                pthread_cond_signal(&ctx->h26xe_thd_cond);
+                ctx->waiting_for_pkt = 0;
+            }
+            //Adaptive GOP size decision
+            if (ctx->adaptive_gop) {
+                get_next_gop_size(cfg, p_enc_in, ctx->hantro_encoder,
+                                   &ctx->next_gop_size, &ctx->agop);
+            } else if (options->lookahead_depth) { // for sync only, not update gopSize
+                getPass1UpdatedGopSize(
+                          ((struct vcenc_instance *)ctx->hantro_encoder)
+                                                    ->lookahead.priv_inst);
+            }
 
-        if (enc_ctx->adaptive_gop)
-            get_next_gop_size(vpi_h26xe_cfg, p_enc_in, enc_ctx->hantro_encoder,
-                              &enc_ctx->next_gop_size, &enc_ctx->agop);
-        else if (options->lookahead_depth) /* for sync only, not update
-                                              gopSize*/
-            getPass1UpdatedGopSize(
-                ((struct vcenc_instance *)enc_ctx->hantro_encoder)
-                    ->lookahead.priv_inst);
+            if (ctx->flush_state == VPIH26X_FLUSH_TRANSPIC) {
+                ctx->next_gop_size = 1;
+            }
 
-        if (enc_ctx->flush_state == VPIH26X_FLUSH_TRANSPIC) {
-            enc_ctx->next_gop_size = 1;
-        }
+            ctx->enc_in_bk      = *p_enc_in;
+            ctx->picture_cnt_bk = cfg->enc_in.picture_cnt;
 
-        enc_ctx->enc_in_bk      = *p_enc_in;
-        enc_ctx->picture_cnt_bk = vpi_h26xe_cfg->picture_cnt;
+            /* add for IDR */
+            VPILOGD("ctx->nextIDRPoc = %d, ctx->poc = %d, ctx->next_poc = %d,"
+                     "picture_enc_cnt = %d, encIn.picture_cnt = %d\n",
+                     ctx->next_idr_poc, ctx->poc, ctx->next_poc,
+                     cfg->picture_enc_cnt, cfg->enc_in.picture_cnt);
+            VPILOGD("gopPicIdx = %d, gopSize = %d, ctx->nextGopSize = %d\n",
+                     p_enc_in->gopPicIdx, p_enc_in->gopSize,
+                     ctx->next_gop_size);
 
-        calc_next_coding_type(enc_ctx);
-        vpi_h26xe_cfg->picture_cnt = p_enc_in->picture_cnt;
+            calc_next_coding_type(ctx);
+            VPILOGD("pEncIn->gopSize = %d, tb->nextGopSize = %d\n",
+                     p_enc_in->gopSize, cfg->next_gop_size);
 
-        VPILOGE("%s %d p_enc_in->gopSize = %d, vpi_h26xe_cfg->next_gop_size = "
-                "%d\n",
-                __FILE__, __LINE__, p_enc_in->gopSize,
-                vpi_h26xe_cfg->next_gop_size);
-
-        if (enc_ctx->p_user_data) {
+            if (ctx->p_user_data) {
             /* We want the user data to be written only once so
-             *              * we disable the user data and free the memory after
-             *                           * first frame has been encoded. */
-            VCEncSetSeiUserData(enc_ctx->hantro_encoder, NULL, 0);
-#ifdef CHECK_MEM_LEAK_TRANS
-            EWLfree(enc_ctx->p_user_data);
-#else
-            free(enc_ctx->p_user_data);
-#endif
-            enc_ctx->p_user_data = NULL;
-        }
-
-        p_enc_in->timeIncrement = vpi_h26xe_cfg->output_rate_denom;
-        break;
-    case VCENC_OUTPUT_BUFFER_OVERFLOW:
-        vpi_h26xe_cfg->picture_cnt++;
-        break;
-    default:
-        goto error;
-        break;
+             * we disable the user data and free the memory after
+             * first frame has been encoded. */
+                VCEncSetSeiUserData(ctx->hantro_encoder, NULL, 0);
+                EWLfree(ctx->p_user_data);
+                ctx->p_user_data = NULL;
+            }
+            break;
+        case VCENC_OUTPUT_BUFFER_OVERFLOW:
+            cfg->enc_in.picture_cnt++;
+            break;
+        default:
+            VPILOGE("VCEncStrmEncode ret is %d\n", ret);
+            goto error;
+            break;
     }
 
-    VPILOGE("%s %d enc_ctx->frame_cnt_total[%d] \n", __FILE__, __LINE__,
-            enc_ctx->frame_cnt_total);
+    VPILOGD("ctx->frame_cnt_total[%d] \n", ctx->frame_cnt_total);
 
     if (options->profile == VCENC_HEVC_MAIN_STILL_PICTURE_PROFILE)
         return ret;
+
     return ret;
 error:
+
+    ret = -1;
+    if (ret != OK) {
+        VCEncSetError(ctx->hantro_encoder);
+        VPILOGE("encode() fails %p\n", ctx->hantro_encoder);
+    }
+
     return -1;
 }
 
-/**
- *  h26x_enc_flush
- *  The flush for h26x(h264/hevc) encoder
- */
-static int h26x_enc_flush(struct VpiH26xEncCtx *enc_ctx, VCEncOut *enc_out)
+int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
 {
-    i32 ret                    = OK;
+    VPIH26xEncOptions *options = &ctx->options;
+    VPIH26xEncCfg *cfg         = (VPIH26xEncCfg *)&ctx->vpi_h26xe_cfg;
+    VCEncIn *p_enc_in          = (VCEncIn *)&(cfg->enc_in);
+    VCEncOut *p_enc_out        = (VCEncOut *)&ctx->enc_out;
 
-    ret = h26x_enc_call_vcflush(enc_ctx, enc_out);
-    if (ret < 0) {
-        enc_ctx->flush_state = VPIH26X_FLUSH_FINISH;
-        return -1;
-    }
+    int ret = 0;
+    int streamSize = 0;
+    int flush_ret = 0;
+    int *got_packet = 0;
+    int i = 0;
 
-    if ((VCENC_FRAME_READY == ret) && (enc_out->streamSize != 0)) {
-        /*ff_vpe_h26xe_processFrame(&ctx->vpi_h26xe_ctx, pkt, &enc_out->streamSize, NULL);
- *          *got_packet = 1;
- *                   hantro_consume_stored_pic(avctx, enc_out->indexEncoded);*/
-    }
-    if ((VCENC_FRAME_ENQUEUE == ret) || (VCENC_OK == ret)) {
-        /*got_packet = 1;*/
-        if (VCENC_OK == ret) {
-            enc_ctx->flush_state = VPIH26X_FLUSH_FINISH;
-        }
-    }
-
-    return ret;
-}
-
-/**
- *  h26x_enc_flush_set
- *  Set the flush state to FLUSH_TRANSPIC for h26x(h264/hevc) encoder
- */
-static int h26x_enc_flush_set(struct VpiH26xEncCtx *enc_ctx)
-{
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-
-    if (enc_ctx->flush_state == VPIH26X_FLUSH_PREPARE) {
-        VPILOGE("%s(%d) get EOS, begin to flush trans pic\n", __FUNCTION__,
-                __LINE__);
-        enc_ctx->flush_state = VPIH26X_FLUSH_TRANSPIC;
-
-        *p_enc_in                  = enc_ctx->enc_in_bk;
-        vpi_h26xe_cfg->picture_cnt = enc_ctx->picture_cnt_bk;
-
-        calc_flush_data_coding_type(enc_ctx);
-        vpi_h26xe_cfg->picture_cnt = p_enc_in->picture_cnt;
-        p_enc_in->gopSize          = 1;
-        p_enc_in->timeIncrement    = vpi_h26xe_cfg->output_rate_denom;
-    }
-
-    return 0;
-}
-
-/**
- *  h26x_enc_end
- *  The end for h26x(h264/hevc) encoder
- */
-static int h26x_enc_end(struct VpiH26xEncCtx *enc_ctx, VCEncOut *enc_out)
-{
-    if (enc_ctx->encoder_is_end == HANTRO_TRUE)
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+  //frame_fifo_process(avctx);
+    if ((ctx->inject_frm_cnt < ctx->hold_buf_num) && ctx->force_idr) {
+        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
         return 0;
+    }
 
-    h26x_enc_call_vcend(enc_ctx, enc_out);
-    enc_ctx->encoder_is_end = HANTRO_TRUE;
+    switch (ctx->flush_state) {
+        case VPIH26X_FLUSH_IDLE:
+            ctx->trans_flush_pic = HANTRO_FALSE;
+            flush_ret = h26x_enc_frame(ctx);
+            VPILOGD("+++ h26x_enc_frame ret = %d\n", flush_ret);
+            VPILOGD("+++ ctx->trans_flush_pic = %d\n", ctx->trans_flush_pic);
+
+            if (flush_ret < 0) {
+                /* need error process */
+                VPILOGE("\n", flush_ret);
+                goto error;
+            }
+
+            if (ctx->trans_flush_pic == HANTRO_TRUE
+                 && ctx->eos_received == 1) {
+                ctx->flush_state = VPIH26X_FLUSH_PREPARE;
+            }
+            break;
+
+        case VPIH26X_FLUSH_PREPARE:
+            h26x_enc_flush_set(ctx);
+            break;
+
+        case VPIH26X_FLUSH_TRANSPIC: /* flush data in dec fifo */
+            flush_ret = h26x_enc_frame(ctx);
+            VPILOGD("h26x_enc_frame ret = %d\n", flush_ret);
+
+            if ((flush_ret == -1) || (flush_ret == VCENC_NULL_ARGUMENT)) {
+                /* need error process */
+                goto error;
+            }
+
+            break;
+
+        case VPIH26X_FLUSH_ENCDATA:
+            flush_ret = h26x_enc_call_vcflush(ctx, p_enc_out);
+            if (flush_ret < 0) {
+                VPILOGE("hantro_encode_flush error. ret = %d\n", ret);
+                goto error;
+            }
+            break;
+
+        case VPIH26X_FLUSH_FINISH:
+            ret = h26x_encode_end(ctx);
+            if (ret != 0) {
+                VPILOGE("h26x_encode_end error. ret = %d\n", ret);
+                goto error;
+            }
+            ctx->flush_state   = VPIH26X_FLUSH_ENCEND;
+            ctx->h26xe_thd_end = 1;
+            ctx->encode_end    = 1;
+            if (ctx->waiting_for_pkt == 1) {
+                pthread_cond_signal(&ctx->h26xe_thd_cond);
+                ctx->waiting_for_pkt = 0;
+            }
+            break;
+        default:
+            break;
+    }
+
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     return 0;
+
+error:
+    ctx->flush_state = VPIH26X_FLUSH_ERROR;
+    VPILOGE("%s got error, will return\n", __FUNCTION__);
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+    return -1;
 }
 
 void *h26x_encode_process(void *arg)
 {
     VpiH26xEncCtx *enc_ctx = (VpiH26xEncCtx *)arg;
-    VpiH26xEncPkt *enc_pkt = NULL;
+    VpiPacket *pkt;
     int ret                = 0;
 
     while (!enc_ctx->h26xe_thd_end) {
-        if ((ret = h26x_enc_pop_emptyfifo(enc_ctx, &enc_pkt)) != FIFO_OK) {
-            usleep(10000);
-            continue;
+        ret = h26x_enc_frame_process(enc_ctx);
+        if (ret == 0) {
+            usleep(500);
+        } else if (ret == -1) {
+            break;
         }
-        memset(enc_pkt, 0, sizeof(VpiH26xEncPkt));
-        ret = vpi_h26xe_encode(enc_ctx, NULL, (void *)enc_pkt);
-
-        enc_pkt->enc_ret = ret;
-        h26x_enc_push_outfifo(enc_ctx, enc_pkt);
-
-        if (VPI_ENC_FLUSH_FINISH_END == ret)
-            enc_ctx->h26xe_thd_end = 1;
     }
 
     return NULL;
@@ -2122,16 +2218,16 @@ void *h26x_encode_process(void *arg)
  *  @Params: enc_cfg The configure of the encoder
  *  @Return: 0 for success, -1 for error
  */
-int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
+int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
 {
     i32 ret = OK;
     i32 i   = 0;
     int max_frames_delay;
 
-    VCEncInst *hantro_encoder  = &enc_ctx->hantro_encoder;
-    VPIH26xEncOptions *options = &enc_ctx->options;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    VCEncOut *enc_out            = (VCEncOut *)&enc_ctx->enc_out;
+    VCEncInst *hantro_encoder    = &enc_ctx->hantro_encoder;
+    VPIH26xEncOptions *options   = &enc_ctx->options;
+    VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
 
     for (i = 0; i < PIC_INDEX_MAX_NUMBER; i++) {
         if (enc_cfg->frame_ctx->pic_info[i].width == enc_cfg->lum_width_src &&
@@ -2146,7 +2242,7 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     enc_ctx->pp_index = i;
 
     h26x_enc_set_options(enc_ctx, enc_cfg);
-    memset(vpi_h26xe_cfg, 0, sizeof(struct VPIH26xEncCfg));
+    memset(vpi_h26xe_cfg, 0, sizeof(VPIH26xEncCfg));
 #ifdef FB_SYSLOG_ENABLE
     vpi_h26xe_cfg->log_header.module_name =
         &enc_cfg->module_name[0]; /* &ctx->module_name[0];*/
@@ -2157,9 +2253,6 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     vpi_h26xe_cfg->log_header.device_id = 0;
 #endif
 #endif
-
-    memset(&enc_ctx->frame_queue_for_enc, 0,
-           sizeof(enc_ctx->frame_queue_for_enc));
 
     enc_ctx->encoder_is_start = HANTRO_FALSE;
     enc_ctx->encoder_is_end   = HANTRO_FALSE;
@@ -2238,9 +2331,15 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     }
     if (max_frames_delay > enc_cfg->frame_ctx->max_frames_delay) {
         enc_cfg->frame_ctx->max_frames_delay = max_frames_delay;
-        if (enc_ctx->force_idr && options->lookahead_depth) {
-            enc_cfg->frame_ctx->max_frames_delay *= 2;
+    }
+    if (((enc_cfg->frame_ctx->flag & HWUPLOAD_FLAG) == 1) &&
+        ((enc_cfg->frame_ctx->flag & PP_FLAG) == 0)) {
+        /* hwupload link to encoder directly, no pp filter */
+        if (max_frames_delay > enc_cfg->frame_ctx->hwupload_max_frames_delay) {
+            enc_cfg->frame_ctx->hwupload_max_frames_delay = max_frames_delay;
         }
+        VPILOGD("vpeframe->hwupload_max_frames_delay = %d\n",
+            enc_cfg->frame_ctx->hwupload_max_frames_delay);
     }
     VPILOGD("max_frames_delay = %d, lookahead_depth=%d\n",
             enc_cfg->frame_ctx->max_frames_delay, options->lookahead_depth);
@@ -2253,8 +2352,9 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     }
     vpi_h26xe_cfg->mem_id = options->mem_id;
 #endif
+    enc_ctx->num_dec_max = enc_cfg->frame_ctx->max_frames_delay;
 
-    VPILOGE(" hantro_encoder[%p], *hantro_encoder[%p]\n", hantro_encoder,
+    VPILOGD(" hantro_encoder[%p], *hantro_encoder[%p]\n", hantro_encoder,
             *hantro_encoder);
     if ((ret = h26x_enc_open_encoder(options, hantro_encoder, vpi_h26xe_cfg)) !=
         0) {
@@ -2318,7 +2418,7 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     VCEncSetTestId(*hantro_encoder, options->test_id);
 
     /* Allocate input and output buffers */
-    if ((ret = h26x_enc_alloc_res(options, *hantro_encoder, vpi_h26xe_cfg)) !=
+    if ((ret = h26x_enc_alloc_res(enc_ctx, *hantro_encoder)) !=
         0) {
         goto error_exit;
     }
@@ -2340,6 +2440,19 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     idr_poc_array_init(enc_ctx);
 
     h26x_enc_fifo_init(enc_ctx);
+
+    if (enc_ctx->encoder_is_start == HANTRO_FALSE) {
+        enc_ctx->encoder_is_start = HANTRO_TRUE;
+
+        ret = h26x_enc_start(enc_ctx, enc_out);
+        if (ret != 0) {
+            ret = -1;
+            goto error_exit;
+        } else {
+            enc_ctx->inject_frm_cnt = 1; /*IDR need store data ahead*/
+            ret = 0;
+        }
+    }
     pthread_mutex_init(&enc_ctx->h26xe_thd_mutex, NULL);
     pthread_cond_init(&enc_ctx->h26xe_thd_cond, NULL);
     enc_ctx->h26xe_thd_end = 0;
@@ -2348,329 +2461,14 @@ int vpi_h26xe_init(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
 
     return ret;
 error_exit:
-    if (ret != 0) {
-    }
-
+    VPILOGE("H26x encoder init failed, ret %d\n", ret);
     if (*hantro_encoder) {
-        h26x_enc_free_res(*hantro_encoder, vpi_h26xe_cfg);
+        h26x_enc_free_res(enc_ctx, *hantro_encoder);
         h26x_enc_close_encoder(*hantro_encoder, vpi_h26xe_cfg);
         *hantro_encoder = NULL;
     }
 
     return ret;
-}
-
-static int vpi_h26x_enc_update_frmhead(VpiH26xFrmHead *h26x_frm_head,
-                                       VCEncOut *enc_out)
-{
-    int ret = 0;
-    if (h26x_frm_head != NULL) {
-        h26x_frm_head->header_data   = enc_out->header_buffer;
-        h26x_frm_head->header_size   = enc_out->header_size;
-        h26x_frm_head->resend_header = enc_out->resendSPS;
-    } else {
-        VPILOGE("%s, h26x_frm_head is NULL\n", __FUNCTION__);
-        ret = -1;
-    }
-
-    return -1;
-}
-
-/**
- *  vpi_h26xe_encode
- *  Encoding of the h26x(h264/hevc) encoder
- *
- *  @Params: enc_ctx The context of Vpi H26x encoder
- *  @Params: input The input video frame for encoding
- *  @Params: output The output of the encoded ES stream
- *  @Return: 0 for success, -1 for error
- */
-int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
-{
-    int ret                       = 0;
-    int flush_ret                 = 0;
-    int outbuf_index              = 0;
-    struct DecPicturePpu *pic_ppu = NULL;
-    struct DecPicture *pic_data   = NULL;
-    VpiH26xEncInAddr *p_addrs     = NULL;
-    VPIH26xEncOptions *options    = &enc_ctx->options;
-    VCEncOut *enc_out             = (VCEncOut *)&enc_ctx->enc_out;
-    VCEncIn *p_enc_in             = (VCEncIn *)&(enc_ctx->vpi_h26xe_cfg.enc_in);
-    VpiH26xEncPkt *enc_pkt        = (VpiH26xEncPkt *)output;
-    VpiPacket *vpi_packet         = (VpiPacket *)&enc_pkt->vpi_packet;
-    VpiH26xFrmHead *h26x_frm_head = &enc_pkt->h26x_frm_head;
-    VPILOGE("%s,%s,%d,h26x_frm_head:%p\n", __FILE__, __FUNCTION__, __LINE__,
-            h26x_frm_head);
-    VpiH26xEncInAddr vpi_h26x_enc_in_addr;
-    VpiFrame vpi_frame;
-
-    /*VpiFrame *vpi_frame = (VpiFrame *)input;*/
-    if (h26x_enc_find_frame_for_enc(enc_ctx, &vpi_frame) != 0) {
-        VPILOGE("%s,%s,%d, h26x_enc_find_frame_for_enc fails\n",
-                __FILE__, __FUNCTION__, __LINE__);
-        return VPI_ENC_ENC_FRM_ENQUEUE;
-    }
-
-    p_addrs = &vpi_h26x_enc_in_addr;
-    memset(p_addrs, 0, sizeof(vpi_h26x_enc_in_addr));
-    if (enc_ctx->find_pict == 1) {
-        if (enc_ctx->first_pts_flag == 0) {
-            enc_ctx->first_pts      = vpi_frame.pts;
-            enc_ctx->first_pts_flag = 1;
-        }
-
-        enc_ctx->find_pict = 0;
-
-        pic_ppu  = (struct DecPicturePpu *)vpi_frame.data[0];
-        pic_data = (struct DecPicture *)&pic_ppu->pictures[enc_ctx->pp_index];
-
-        p_addrs->bus_luma         = pic_data->luma.bus_address;
-        p_addrs->bus_chroma       = pic_data->chroma.bus_address;
-        p_addrs->bus_luma_table   = pic_data->luma_table.bus_address;
-        p_addrs->bus_chroma_table = pic_data->chroma_table.bus_address;
-
-        if (options->enc_index == 0 && options->lookahead_depth &&
-            options->cutree_blkratio) {
-            pic_data = &pic_ppu->pictures[2];
-            if (!pic_data->pp_enabled) {
-                VPILOGE("%s,%d when need 1/4 1pass input, pp1 should be "
-                        "enabled! !!vpi_frame.data[0] = (uint8_t "
-                        "*)&ctx->addrs!! \n",
-                        __FUNCTION__, __LINE__);
-                /*vpi_frame.data[0] = (uint8_t *)&ctx->addrs;*/
-                return -1;
-            }
-            p_addrs->bus_luma_ds         = pic_data->luma.bus_address;
-            p_addrs->bus_chroma_ds       = pic_data->chroma.bus_address;
-            p_addrs->bus_luma_table_ds   = pic_data->luma_table.bus_address;
-            p_addrs->bus_chroma_table_ds = pic_data->chroma_table.bus_address;
-        }
-    }
-
-    if (enc_ctx->flush_state == VPIH26X_FLUSH_IDLE) {
-        if (p_addrs->bus_luma == 0 || p_addrs->bus_chroma == 0) {
-            enc_ctx->trans_flush_pic = HANTRO_TRUE;
-        } else {
-            enc_ctx->trans_flush_pic = HANTRO_FALSE;
-        }
-    }
-    outbuf_index = enc_ctx->vpi_h26xe_cfg.outbuf_index;
-
-    if (enc_ctx->no_input_pict == 1) {
-        /*no valid pict input*/
-        VPILOGD("No data trans from dec, will flush..., no_input_pict:%d\n",
-                enc_ctx->no_input_pict);
-        switch (enc_ctx->flush_state) {
-        case VPIH26X_FLUSH_IDLE:
-            flush_ret = h26x_enc_encode(enc_ctx, p_addrs, enc_out);
-            if (enc_ctx->trans_flush_pic == HANTRO_TRUE) {
-                enc_ctx->flush_state = VPIH26X_FLUSH_PREPARE;
-            }
-            if (flush_ret > VCENC_ERROR) {
-                if (flush_ret == VCENC_FRAME_READY) {
-                    ret = VPI_ENC_FLUSH_IDLE_READY;
-                } else {
-                    ret = VPI_ENC_FLUSH_IDLE_OK;
-                }
-            } else {
-                ret = VPI_ENC_FLUSH_IDLE_ERROR;
-            }
-            break;
-
-        case VPIH26X_FLUSH_PREPARE:
-            VPILOGD(" VPIH26X_FLUSH_PREPARE \n");
-            h26x_enc_flush_set(enc_ctx);
-            ret = VPI_ENC_FLUSH_PREPARE;
-            break;
-
-        case VPIH26X_FLUSH_TRANSPIC: /* flush data in dec fifo */
-            flush_ret = h26x_enc_encode(enc_ctx, p_addrs, enc_out);
-            VPILOGD("+++ h26x_enc_encode ret = %d, VPIH26X_FLUSH_TRANSPIC \n",
-                    flush_ret);
-            if (p_addrs->bus_luma == 0 || p_addrs->bus_chroma == 0)
-                enc_ctx->flush_state = VPIH26X_FLUSH_ENCDATA;
-            if (flush_ret != VCENC_ERROR) {
-                if (flush_ret == VCENC_FRAME_READY) {
-                    ret = VPI_ENC_FLUSH_TRANSPIC_READY;
-                } else {
-                    ret = VPI_ENC_FLUSH_TRANSPIC_OK;
-                }
-            } else {
-                ret = VPI_ENC_FLUSH_TRANSPIC_ERROR;
-            }
-            break;
-
-        case VPIH26X_FLUSH_ENCDATA:
-            flush_ret = h26x_enc_flush(enc_ctx, enc_out);
-            if (flush_ret == VCENC_FRAME_READY) {
-                ret = VPI_ENC_FLUSH_ENCDATA_READY;
-            } else if (flush_ret == VCENC_FRAME_ENQUEUE) {
-                ret = VPI_ENC_FLUSH_ENCDATA_FRM_ENQUEUE;
-            } else if (flush_ret == VCENC_OK) {
-                ret = VPI_ENC_FLUSH_ENCDATA_OK;
-            } else {
-                ret = VPI_ENC_FLUSH_ENCDATA_ERROR;
-            }
-            break;
-
-        case VPIH26X_FLUSH_FINISH:
-            if (enc_ctx->encoder_is_end != HANTRO_TRUE) {
-                flush_ret = h26x_enc_end(enc_ctx, enc_out);
-                VPILOGD("+++ h26x_enc_end ret = %d, FLUSH_FINISH \n",
-                        flush_ret);
-                if (flush_ret == VCENC_OK) {
-                    ret = VPI_ENC_FLUSH_FINISH_OK;
-                } else {
-                    VPILOGD("h26x_enc_end error. ret = %d\n", ret);
-                    ret = VPI_ENC_FLUSH_FINISH_ERROR;
-                }
-            } else {
-                ret = VPI_ENC_FLUSH_FINISH_END;
-            }
-            break;
-        default:
-            VPILOGE("unsupported flush state: %d\n", enc_ctx->flush_state);
-            ret = VPI_ENC_FLUSH_ENCDATA_ERROR;
-            break;
-        }
-        vpi_packet->index_encoded = enc_out->indexEncoded;
-        if (enc_ctx->trans_flush_pic != HANTRO_TRUE)
-            vpi_packet->size = enc_ctx->stream_size;
-        else
-            vpi_packet->size = enc_out->streamSize;
-
-        /*Simplify the ret at FLUSH stage*/
-        switch (ret) {
-        case VPI_ENC_FLUSH_TRANSPIC_READY:
-        case VPI_ENC_FLUSH_IDLE_READY:
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            break;
-        case VPI_ENC_FLUSH_IDLE_OK:
-            vpi_packet->size = 0;
-            ret              = VPI_ENC_FLUSH_IDLE_READY;
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            break;
-        case VPI_ENC_FLUSH_PREPARE:
-            vpi_packet->size = 0;
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            break;
-        case VPI_ENC_FLUSH_TRANSPIC_OK:
-            vpi_packet->size = 0;
-            ret              = VPI_ENC_FLUSH_TRANSPIC_READY;
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            break;
-        case VPI_ENC_FLUSH_ENCDATA_OK:
-        case VPI_ENC_FLUSH_ENCDATA_FRM_ENQUEUE:
-            vpi_packet->size = 0;
-            ret              = VPI_ENC_FLUSH_ENCDATA_READY;
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            break;
-        default:
-            break;
-        }
-#ifdef USE_OLD_DRV
-        vpi_packet->data = (uint8_t *)enc_ctx->vpi_h26xe_cfg
-                               .outbuf_mem[enc_ctx->vpi_h26xe_cfg.outbuf_index]
-                               ->virtualAddress;
-#else
-        vpi_packet->data = (uint8_t *)enc_ctx->vpi_h26xe_cfg
-                               .outbuf_mem[enc_ctx->vpi_h26xe_cfg.outbuf_index]
-                               ->rc_virtualAddress;
-#endif
-        vpi_h26x_enc_update_frmhead(h26x_frm_head, enc_out);
-        vpi_packet->opaque  = (void *)h26x_frm_head;
-        vpi_packet->pts     = enc_out->pts;
-        vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt - 9;
-        if (enc_ctx->first_pts_flag) {
-            vpi_packet->pkt_dts += enc_ctx->first_pts;
-        }
-        return ret;
-
-    } else {
-        p_enc_in->pts = vpi_frame.pts;
-        if (enc_ctx->encoder_is_start == HANTRO_FALSE) {
-            enc_ctx->encoder_is_start = HANTRO_TRUE;
-            ret                       = h26x_enc_start(enc_ctx, enc_out);
-#ifdef USE_OLD_DRV
-            vpi_packet->data =
-                (uint8_t *)enc_ctx->vpi_h26xe_cfg
-                    .outbuf_mem[enc_ctx->vpi_h26xe_cfg.outbuf_index]
-                    ->virtualAddress;
-#else
-            vpi_packet->data =
-                (uint8_t *)enc_ctx->vpi_h26xe_cfg
-                    .outbuf_mem[enc_ctx->vpi_h26xe_cfg.outbuf_index]
-                    ->rc_virtualAddress;
-#endif
-
-            if (ret != 0)
-                ret = VPI_ENC_START_ERROR;
-            else {
-                if (enc_ctx->force_idr)
-                    enc_ctx->inject_frm_cnt = 1; /*IDR need store data ahead*/
-                ret = VPI_ENC_START_OK;
-            }
-
-            vpi_h26x_enc_update_frmhead(h26x_frm_head, enc_out);
-            vpi_packet->index_encoded = enc_out->indexEncoded;
-            if (enc_ctx->trans_flush_pic != HANTRO_TRUE)
-                vpi_packet->size = enc_ctx->stream_size;
-            else
-                vpi_packet->size = enc_out->streamSize;
-            vpi_packet->pts     = enc_out->pts;
-            vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt - 9;
-            if (enc_ctx->first_pts_flag) {
-                vpi_packet->pkt_dts += enc_ctx->first_pts;
-            }
-            return ret;
-        }
-
-        if (enc_ctx->force_idr) {
-            if ((enc_ctx->inject_frm_cnt >= 1) &&
-                (enc_ctx->inject_frm_cnt <= enc_ctx->hold_buf_num)) {
-                return VPI_ENC_ENC_FRM_ENQUEUE;
-            }
-        }
-
-        ret                       = h26x_enc_encode(enc_ctx, p_addrs, enc_out);
-        vpi_packet->index_encoded = enc_out->indexEncoded;
-#ifdef USE_OLD_DRV
-        vpi_packet->data = (uint8_t *)enc_ctx->vpi_h26xe_cfg
-                               .outbuf_mem[enc_ctx->vpi_h26xe_cfg.outbuf_index]
-                               ->virtualAddress;
-#else
-        vpi_packet->data = (uint8_t *)enc_ctx->vpi_h26xe_cfg
-                               .outbuf_mem[enc_ctx->vpi_h26xe_cfg.outbuf_index]
-                               ->rc_virtualAddress;
-#endif
-        vpi_h26x_enc_update_frmhead(h26x_frm_head, enc_out);
-        vpi_packet->opaque = (void *)h26x_frm_head;
-
-        if (enc_ctx->trans_flush_pic != HANTRO_TRUE)
-            vpi_packet->size = enc_ctx->stream_size;
-        else
-            vpi_packet->size = enc_out->streamSize;
-        vpi_packet->pts     = enc_out->pts;
-        vpi_packet->pkt_dts = enc_ctx->vpi_h26xe_cfg.picture_enc_cnt - 9;
-        if (enc_ctx->first_pts_flag) {
-            vpi_packet->pkt_dts += enc_ctx->first_pts;
-        }
-        if (ret == VCENC_FRAME_READY) {
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            return VPI_ENC_ENC_READY;
-        } else if (ret == VCENC_OK) {
-            h26x_enc_consume_frm(enc_ctx, vpi_packet->index_encoded);
-            return VPI_ENC_ENC_OK;
-        } else if (ret == VCENC_FRAME_ENQUEUE) {
-            return VPI_ENC_ENC_FRM_ENQUEUE;
-        } else {
-            return VPI_ENC_ENC_ERROR;
-        }
-        VPILOGE("%s(%d)\n", __FUNCTION__, __LINE__);
-    }
-    VPILOGE("%s(%d) \n", __FUNCTION__, __LINE__);
-
-    return 0;
 }
 
 /**
@@ -2682,31 +2480,20 @@ int vpi_h26xe_encode(struct VpiH26xEncCtx *enc_ctx, void *input, void *output)
  *  @Params: outdata The parameter for output
  *  @Return: 0 for success, -1 for error
  */
-int vpi_h26xe_ctrl(struct VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
+int vpi_h26xe_ctrl(VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
 {
     i32 ret              = OK;
     VpiCtrlCmdParam *cmd = (VpiCtrlCmdParam *)indata;
 
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
-    VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
-
     switch (cmd->cmd) {
-    case VPI_CMD_H26xENC_SET_NO_INFRM:
-        enc_ctx->no_input_pict = *(int *)cmd->data;
+    case VPI_CMD_H26xENC_GET_EMPTY_FRAME_SLOT:
+        ret = h26x_enc_get_pic_buffer(enc_ctx, outdata);
         break;
-    case VPI_CMD_H26xENC_UPDATE_INJECTIONNUM:
-        enc_ctx->inject_frm_cnt--;
+    case VPI_CMD_H26xENC_CONSUME_PIC:
+        ret = h26x_enc_get_used_pic_mem(enc_ctx, outdata);
         break;
-    case VPI_CMD_H26xENC_ENQUEUE_VPIFRAME:
-        if ((vpi_h26xe_cfg->input_pic_cnt < vpi_h26xe_cfg->frame_delay) &&
-            (enc_ctx->frame_index - vpi_h26xe_cfg->input_pic_cnt > 2))
-            usleep(40000); /*While the frame is at buffering stage, delay to
-                              prevent blocking at decoder side. TBD: Need refine*/
-        h26x_enc_enqueue_infrm(enc_ctx, (VpiFrame *)cmd->data);
-        if (enc_ctx->force_idr) {
-            enc_ctx->inject_frm_cnt++;
-        }
+    case VPI_CMD_H26xENC_GET_FRAME_PACKET:
+        ret = h26x_enc_get_frame_packet(enc_ctx, outdata);
         break;
     default:
         break;
@@ -2714,25 +2501,151 @@ int vpi_h26xe_ctrl(struct VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
     return ret;
 }
 
-int vpi_h26xe_get_packet(struct VpiH26xEncCtx *enc_ctx, void *outdata)
+int vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
 {
-    i32 ret                = 0;
-    VpiH26xEncPkt *enc_pkt = NULL;
-    VpiPacket *vpi_packet  = (VpiPacket *)outdata;
+    VpiEncH26xPic *trans_pic = NULL;
+    VpiFrame *frame = (VpiFrame *)indata;
+    int i;
 
-    ret = h26x_enc_pop_outfifo(enc_ctx, &enc_pkt);
-    if (FIFO_OK == ret) {
-        memcpy(vpi_packet, &enc_pkt->vpi_packet, sizeof(VpiPacket));
-        ret = enc_pkt->enc_ret;
-        h26x_enc_push_emptyfifo(enc_ctx, enc_pkt);
-    } else if (FIFO_EMPTY == ret) {
-        ret = VPI_ENC_ENC_FRM_ENQUEUE;
-        usleep(1000);
-        if (enc_ctx->no_input_pict == 1)
-            ret = VPI_ENC_FLUSH_IDLE_OK;
-    } else { /*FIFO_ABORT*/
-        ret = VPI_ENC_FLUSH_FINISH_END;
+    pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (enc_ctx->pic_wait_list[i].pic == frame) {
+            trans_pic = &enc_ctx->pic_wait_list[i];
+            break;
+        }
     }
+
+    if (i == MAX_WAIT_DEPTH) {
+        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+        return -1;
+    }
+
+    if (frame->opaque == NULL) {
+        VPILOGD("received empty input frame, EOF\n");
+        enc_ctx->eos_received        = 1;
+        trans_pic->poc               = -1;
+        trans_pic->in_pass_one_queue = 0;
+        trans_pic->state             = 1;
+        if (enc_ctx->force_idr) {
+            enc_ctx->inject_frm_cnt = enc_ctx->hold_buf_num + 1;
+        }
+    } else {
+        if (enc_ctx->first_pts_flag == 0) {
+            enc_ctx->first_pts      = frame->pts;
+            enc_ctx->first_pts_flag = 1;
+        }
+        trans_pic->state             = 1;
+        //trans_pic->used              = 0;
+        trans_pic->in_pass_one_queue = 0;
+        trans_pic->poc               = enc_ctx->poc;
+        /* add for IDR */
+        if (frame->key_frame && enc_ctx->force_idr) {
+            if (enc_ctx->poc > 0) {
+                enc_ctx->key_frame_flag = HANTRO_TRUE;
+                store_idr_poc(enc_ctx, enc_ctx->poc);
+            }
+        }
+        enc_ctx->poc++;
+        if (enc_ctx->force_idr) {
+            enc_ctx->inject_frm_cnt++;
+        }
+    }
+
+    pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+    return 0;
+}
+
+int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
+{
+    i32 ret                    = 0;
+    VPIH26xEncCfg *cfg         = &enc_ctx->vpi_h26xe_cfg;
+    VpiEncOutData *out_buffer  = enc_ctx->cur_out_buf;
+    VpiPacket *vpi_packet      = (VpiPacket *)outdata;
+    VPIH26xEncOptions *options = &enc_ctx->options;
+    EWLLinearMem_t packet_mem;
+
+    pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+    if (vpi_packet->size != 0) {
+        packet_mem.rc_busAddress = (ptr_t)vpi_packet->data;
+        packet_mem.size          = vpi_packet->size;
+
+        if (out_buffer->header_size != 0 &&
+            out_buffer->resend_header != HANTRO_TRUE) {
+            packet_mem.rc_busAddress += out_buffer->header_size;
+            packet_mem.size          -= out_buffer->header_size;
+            memcpy(vpi_packet->data, out_buffer->header_data,
+                    out_buffer->header_size);
+            out_buffer->header_size = 0;
+        }
+        if (EWLTransDataEP2RC(cfg->ewl, out_buffer->outbuf_mem,
+                             (EWLLinearMem_t *)&packet_mem, packet_mem.size)) {
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+            return -1;
+        }
+
+        if (out_buffer->resend_header) {
+            memcpy(vpi_packet->data, out_buffer->header_data,
+                    out_buffer->header_size);
+        }
+    }
+
+    vpi_packet->pts     = out_buffer->pts;
+    vpi_packet->pkt_dts = out_buffer->dts;
+    VPILOGD("enc pts %ld, dts %ld, cnt %d, size %d\n",
+             vpi_packet->pts, vpi_packet->pkt_dts,
+             cfg->picture_enc_cnt, vpi_packet->size);
+
+    enc_ctx->total_bits += out_buffer->stream_size * 8;
+
+    cfg->validencoded_framenumber++;
+    h26x_enc_ma_add_frame(&enc_ctx->ma, out_buffer->stream_size*8);
+
+    cfg->hwcycle_acc += VCEncGetPerformance(enc_ctx->hantro_encoder);
+
+    VPILOGD("=== Encoded frame%i poc=%d bits=%d TotalBits=%lu "
+                " averagebitrate=%lu HWCycles=%d maxSliceBytes=%d\n",
+                cfg->picture_enc_cnt - 1 - (cfg->parallel_core_num - 1),
+                out_buffer->index_encoded,
+                out_buffer->stream_size*8,
+                enc_ctx->total_bits,
+                (enc_ctx->total_bits * cfg->output_rate_denom) /
+                     ((cfg->picture_enc_cnt - (cfg->parallel_core_num-1))
+                                * cfg->output_rate_denom),
+                VCEncGetPerformance(enc_ctx->hantro_encoder),
+                out_buffer->max_slice_stream_size);
+
+    double ssim = out_buffer->ssim[0] * 0.8 +
+                  0.1 * (out_buffer->ssim[1] + out_buffer->ssim[2]);
+    VPILOGI("SSIM %.4f SSIM Y %.4f U %.4f V %.4f\n", ssim,
+             out_buffer->ssim[0], out_buffer->ssim[1], out_buffer->ssim[2]);
+    cfg->ssim_acc += ssim;
+
+    if ((options->pic_rc == 1) &&
+        (cfg->validencoded_framenumber >= enc_ctx->ma.length)) {
+        cfg->number_square_of_error++;
+        if (cfg->max_error_over_target <
+            (h26x_enc_ma(&enc_ctx->ma) - options->bit_per_second))
+            cfg->max_error_over_target =
+                (h26x_enc_ma(&enc_ctx->ma) - options->bit_per_second);
+        if (cfg->max_error_under_target <
+            (options->bit_per_second - h26x_enc_ma(&enc_ctx->ma)))
+            cfg->max_error_under_target =
+                (options->bit_per_second - h26x_enc_ma(&enc_ctx->ma));
+        cfg->sum_square_of_error += ((float)(ABS(h26x_enc_ma(&enc_ctx->ma) -
+                   options->bit_per_second)) * 100 / options->bit_per_second);
+        cfg->average_square_of_error =
+                    (cfg->sum_square_of_error/cfg->number_square_of_error);
+        VPILOGI("    RateControl(movingBitrate=%d MaxOvertarget=%d%% "
+                    "MaxUndertarget=%d%% AveDeviationPerframe=%f%%)\n",
+                h26x_enc_ma(&enc_ctx->ma),
+                cfg->max_error_over_target * 100 / options->bit_per_second,
+                cfg->max_error_under_target * 100 / options->bit_per_second,
+                cfg->average_square_of_error);
+    }
+
+    h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
+    enc_ctx->cur_out_buf = NULL;
+    pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
 
     return ret;
 }
@@ -2744,20 +2657,24 @@ int vpi_h26xe_get_packet(struct VpiH26xEncCtx *enc_ctx, void *outdata)
  *  @Return: 0 for success, -1 for error
  */
 
-int vpi_h26xe_close(struct VpiH26xEncCtx *enc_ctx)
+int vpi_h26xe_close(VpiH26xEncCtx *enc_ctx)
 {
-    i32 ret                             = OK;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
+    i32 ret                      = OK;
+    VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
 
-    pthread_join(enc_ctx->h26xe_thd_handle, NULL);
+    enc_ctx->h26xe_thd_end = 1;
+
     h26x_enc_report(enc_ctx);
     if (enc_ctx != NULL) {
         if (enc_ctx->hantro_encoder != NULL) {
-            h26x_enc_free_res(enc_ctx->hantro_encoder, vpi_h26xe_cfg);
+            pthread_join(enc_ctx->h26xe_thd_handle, NULL);
+            pthread_mutex_destroy(&enc_ctx->h26xe_thd_mutex);
+            pthread_cond_destroy(&enc_ctx->h26xe_thd_cond);
+
+            h26x_enc_free_res(enc_ctx, enc_ctx->hantro_encoder);
             h26x_enc_close_encoder(enc_ctx->hantro_encoder, vpi_h26xe_cfg);
             h26x_enc_fifo_release(enc_ctx);
         }
     }
-    enc_ctx->h26xe_thd_end = 1;
     return ret;
 }

@@ -49,12 +49,12 @@
 #define MAX_GOP_LEN 300
 
 extern u32 getEWLMallocInoutSize(u32 alignment, u32 in_size);
-extern int h26x_enc_get_params(struct VpiH26xEncCtx *vpi_h26xe_ctx);
-extern int h26x_enc_get_params_from_cmd(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+extern int h26x_enc_get_params(VpiH26xEncCtx *vpi_h26xe_ctx);
+extern int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
                                         const char *name,
                                         const char *input_value);
 
-static int h26x_enc_get_options(struct VpiH26xEncCtx *vpi_h26xe_ctx)
+static int h26x_enc_get_options(VpiH26xEncCtx *vpi_h26xe_ctx)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
@@ -72,49 +72,49 @@ static int h26x_enc_get_options(struct VpiH26xEncCtx *vpi_h26xe_ctx)
             MAX(1, options->roi_map_delta_qp_block_unit);
     }
 #if 0
-    VPILOGE("+++ h26x_enc_get_options\n");
-    VPILOGE("+++ options->rdo_level = %d\n", options->rdo_level);
-    VPILOGE("+++ options->bit_per_second = %d\n", options->bit_per_second);
-    VPILOGE("+++ options->input_rate_numer = %d\n",
+    VPILOGD("+++ h26x_enc_get_options\n");
+    VPILOGD("+++ options->rdo_level = %d\n", options->rdo_level);
+    VPILOGD("+++ options->bit_per_second = %d\n", options->bit_per_second);
+    VPILOGD("+++ options->input_rate_numer = %d\n",
             options->input_rate_numer);
-    VPILOGE("+++ options->input_rate_denom = %d\n",
+    VPILOGD("+++ options->input_rate_denom = %d\n",
             options->input_rate_denom);
-    VPILOGE("+++ options->output_rate_numer = %d\n",
+    VPILOGD("+++ options->output_rate_numer = %d\n",
             options->output_rate_numer);
-    VPILOGE("+++ options->output_rate_denom = %d\n",
+    VPILOGD("+++ options->output_rate_denom = %d\n",
             options->output_rate_denom);
-    VPILOGE("+++ options->intra_pic_rate = %d\n", options->intra_pic_rate);
-    VPILOGE("+++ options->bitrate_window = %d\n", options->bitrate_window);
-    VPILOGE("+++ options->intra_qp_delta = %d\n", options->intra_qp_delta);
-    VPILOGE("+++ options->qp_hdr = %d\n", options->qp_hdr);
-    VPILOGE("+++ options->qp_min = %d\n", options->qp_min);
-    VPILOGE("+++ options->qp_max = %d\n", options->qp_max);
-    VPILOGE("+++ options->fixed_intra_qp = %d\n", options->fixed_intra_qp);
+    VPILOGD("+++ options->intra_pic_rate = %d\n", options->intra_pic_rate);
+    VPILOGD("+++ options->bitrate_window = %d\n", options->bitrate_window);
+    VPILOGD("+++ options->intra_qp_delta = %d\n", options->intra_qp_delta);
+    VPILOGD("+++ options->qp_hdr = %d\n", options->qp_hdr);
+    VPILOGD("+++ options->qp_min = %d\n", options->qp_min);
+    VPILOGD("+++ options->qp_max = %d\n", options->qp_max);
+    VPILOGD("+++ options->fixed_intra_qp = %d\n", options->fixed_intra_qp);
 
-    VPILOGE("+++ options->pic_skip = %d\n", options->pic_skip);
-    VPILOGE("+++ options->profile = %d\n", options->profile);
-    VPILOGE("+++ options->level = %d\n", options->level);
+    VPILOGD("+++ options->pic_skip = %d\n", options->pic_skip);
+    VPILOGD("+++ options->profile = %d\n", options->profile);
+    VPILOGD("+++ options->level = %d\n", options->level);
 
-    VPILOGE("+++ options->tier = %d\n", options->tier);
-    VPILOGE("+++ options->exp_of_input_alignment  = %d\n",
+    VPILOGD("+++ options->tier = %d\n", options->tier);
+    VPILOGD("+++ options->exp_of_input_alignment  = %d\n",
             options->exp_of_input_alignment);
-    VPILOGE("+++ options->exp_of_ref_alignment    = %d\n",
+    VPILOGD("+++ options->exp_of_ref_alignment    = %d\n",
             options->exp_of_ref_alignment);
-    VPILOGE("+++ options->exp_of_ref_ch_alignment = %d\n",
+    VPILOGD("+++ options->exp_of_ref_ch_alignment = %d\n",
             options->exp_of_ref_ch_alignment);
 
-    VPILOGE("+++ options->byte_stream = %d\n", options->byte_stream);
-    VPILOGE("+++ options->video_range = %d\n", options->video_range);
-    VPILOGE("+++ options->chroma_qp_offset = %d\n",
+    VPILOGD("+++ options->byte_stream = %d\n", options->byte_stream);
+    VPILOGD("+++ options->video_range = %d\n", options->video_range);
+    VPILOGD("+++ options->chroma_qp_offset = %d\n",
             options->chroma_qp_offset);
-    VPILOGE("+++ options->gop_size = %d\n", options->gop_size);
-    VPILOGE("+++ options->lookahead_depth = %d\n",
+    VPILOGD("+++ options->gop_size = %d\n", options->gop_size);
+    VPILOGD("+++ options->lookahead_depth = %d\n",
             options->lookahead_depth);
 #endif
     return 0;
 }
 
-static int h26x_enc_set_default_opt(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
                                     VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
@@ -127,7 +127,7 @@ static int h26x_enc_set_default_opt(struct VpiH26xEncCtx *vpi_h26xe_ctx,
         h26x_enc_cfg->input_rate_numer; /*avctx->framerate.num;*/
     options->input_rate_denom =
         h26x_enc_cfg->input_rate_denom; /*avctx->framerate.den;*/
-    VPILOGE("options->input_rate_numer = %d, options->input_rate_denom = %d\n",
+    VPILOGD("options->input_rate_numer = %d, options->input_rate_denom = %d\n",
             options->input_rate_numer, options->input_rate_denom);
 
     options->output_rate_numer = DEFAULT;
@@ -371,7 +371,8 @@ static int h26x_enc_set_default_opt(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     return 0;
 }
 
-static int h26x_enc_profile_check(enum VpiH26xCodecID codec, const char *codec_name,
+static int h26x_enc_profile_check(enum VpiH26xCodecID codec,
+                                  const char *codec_name,
                                   char *profile, VPIH26xEncOptions *options)
 {
     if (codec == CODEC_ID_HEVC) {
@@ -403,7 +404,8 @@ static int h26x_enc_profile_check(enum VpiH26xCodecID codec, const char *codec_n
     return 0;
 }
 
-static int h26x_enc_level_check(enum VpiH26xCodecID codec, const char *codec_name,
+static int h26x_enc_level_check(enum VpiH26xCodecID codec,
+                                const char *codec_name,
                                 char *level, VPIH26xEncOptions *options)
 {
     if (codec == CODEC_ID_HEVC) {
@@ -473,13 +475,14 @@ static int h26x_enc_level_check(enum VpiH26xCodecID codec, const char *codec_nam
     return 0;
 }
 
-static int h26x_enc_get_profile_and_level(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+static int h26x_enc_get_profile_and_level(VpiH26xEncCtx *vpi_h26xe_ctx,
                                           VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
     if (h26x_enc_cfg->profile) {
-        h26x_enc_profile_check(h26x_enc_cfg->codec_id, h26x_enc_cfg->codec_name,
+        h26x_enc_profile_check(h26x_enc_cfg->codec_id,
+                               h26x_enc_cfg->codec_name,
                                h26x_enc_cfg->profile, options);
     }
 
@@ -491,13 +494,13 @@ static int h26x_enc_get_profile_and_level(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     return 0;
 }
 
-static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                                  VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
-    VPILOGE("vpi_h26xe_ctx->pp_index = %d\n", vpi_h26xe_ctx->pp_index);
-    VPILOGE("pic %dx%d\n",
+    VPILOGD("vpi_h26xe_ctx->pp_index = %d\n", vpi_h26xe_ctx->pp_index);
+    VPILOGD("pic %dx%d\n",
             h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].width,
             h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].height);
 
@@ -536,7 +539,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                               .height,
                           4);
     }
-    VPILOGE("lumSrc %dx%d\n", options->lum_width_src, options->lum_height_src);
+    VPILOGD("lumSrc %dx%d\n", options->lum_width_src, options->lum_height_src);
 
     if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].width !=
         options->lum_width_src) {
@@ -549,7 +552,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
         options->height =
             h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].height;
     }
-    VPILOGE("res %dx%d\n", options->width, options->height);
+    VPILOGD("res %dx%d\n", options->width, options->height);
 
     if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
             .picdata.is_interlaced == 0) {
@@ -603,7 +606,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
             }
         }
     }
-    VPILOGE("+++ res %dx%d\n", options->width, options->height);
+    VPILOGD("+++ res %dx%d\n", options->width, options->height);
 
     switch (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
                 .picdata.pic_format) {
@@ -664,7 +667,17 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                 }
             } else if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
                            .picdata.pic_format == DEC_OUT_FRM_RASTER_SCAN) {
-                options->input_format = INPUT_FORMAT_PP_YUV420_SEMIPLANNAR;
+                if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
+                           .format == VPI_YUV420_SEMIPLANAR_VU)
+                    options->input_format =
+                        INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_VU;
+                else if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
+                           .format == VPI_YUV420_SEMIPLANAR_YUV420P)
+                    options->input_format =
+                            INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P;
+                else
+                    options->input_format = INPUT_FORMAT_PP_YUV420_SEMIPLANNAR;
+                options->b_close_dummy_regs = 1;
             } else {
                 if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
                         .picdata.pic_compressed_status == 2) {
@@ -709,7 +722,13 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                 INPUT_FORMAT_YUV420_PLANAR_10BIT_P010_COMPRESSED_FB;
         } else if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
                        .picdata.pic_compressed_status == 0) {
-            options->input_format = VCENC_YUV420_PLANAR_10BIT_P010_FB;
+            if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].
+                    picdata.pic_format == DEC_OUT_FRM_RASTER_SCAN )
+                options->input_format =
+                    INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010;
+            else
+                options->input_format = VCENC_YUV420_PLANAR_10BIT_P010_FB;
+            options->b_close_dummy_regs = 1;
         } else {
             return -1;
         }
@@ -768,7 +787,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                 options->bit_per_second = original_bits_perframe / 2;
                 options->bit_per_second =
                     ((options->bit_per_second + 100000 - 1) / 100000) * 100000;
-                VPILOGE("limit bitrate to %d\n", options->bit_per_second);
+                VPILOGD("limit bitrate to %d\n", options->bit_per_second);
             }
         }
     }
@@ -781,7 +800,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
         if (h26x_enc_cfg->frame_ctx->pic_info[2].enabled &&
             h26x_enc_cfg->frame_ctx->pic_info[2].flag) {
             options->cutree_blkratio = 1;
-            VPILOGE("enable 1/4 resolution first pass\n");
+            VPILOGD("enable 1/4 resolution first pass\n");
 
             if (h26x_enc_cfg->frame_ctx->pic_info[2].picdata.is_interlaced ==
                 0) {
@@ -808,13 +827,13 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                     NEXT_MULTIPLE(h26x_enc_cfg->frame_ctx->pic_info[2].height,
                                   4);
             }
-            VPILOGE("ds lumSrc %dx%d\n", options->lum_widthsrc_ds,
+            VPILOGD("ds lumSrc %dx%d\n", options->lum_widthsrc_ds,
                     options->lum_heightsrc_ds);
 
             options->width_ds  = h26x_enc_cfg->frame_ctx->pic_info[2].width;
             options->height_ds = h26x_enc_cfg->frame_ctx->pic_info[2].height;
 
-            VPILOGE("ds res %dx%d\n", options->width_ds, options->height_ds);
+            VPILOGD("ds res %dx%d\n", options->width_ds, options->height_ds);
 
             switch (h26x_enc_cfg->frame_ctx->pic_info[2].picdata.pic_format) {
             case DEC_OUT_FRM_TILED_4X4:
@@ -841,6 +860,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                             .picdata.bit_depth_chroma > 8) {
                     if (h26x_enc_cfg->frame_ctx->pic_info[2]
                             .picdata.pic_compressed_status > 0) {
+                        VPILOGE("should not get here\n");
                         return -1;
                     } else {
                         options->input_format_ds =
@@ -858,6 +878,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                             options->input_format_ds =
                                 VCENC_YUV420_SEMIPLANAR_VU_8BIT_FB;
                         } else {
+                            VPILOGE("should not get here\n");
                             return -1;
                         }
                     } else if (h26x_enc_cfg->frame_ctx->pic_info[2]
@@ -875,6 +896,7 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
                             options->input_format_ds =
                                 VCENC_YUV420_SEMIPLANAR_8BIT_FB;
                         } else {
+                            VPILOGE("should not get here\n");
                             return -1;
                         }
                     }
@@ -910,13 +932,6 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
 #else
                 options->input_format_ds = VCENC_YUV420_PLANAR_10BIT_P010_FB;
 #endif
-                if (options->codec_format == VCENC_VIDEO_CODEC_H264) {
-                    options->profile = VCENC_H264_HIGH_10_PROFILE;
-                    /*pCml->level = VCENC_H264_LEVEL_6_2;*/
-                } else if (options->codec_format == VCENC_VIDEO_CODEC_HEVC) {
-                    options->profile = VCENC_HEVC_MAIN_10_PROFILE;
-                    /*pCml->level = 0;*/
-                }
                 break;
             case DEC_OUT_PIXEL_RFC:
                 VPILOGE("should not get here!\n");
@@ -924,6 +939,10 @@ static int h26x_enc_set_vceparam(struct VpiH26xEncCtx *vpi_h26xe_ctx,
             default:
                 break;
             }
+            VPILOGD("get ds config: format %d, %dx%d, %dx%d\n",
+                     options->input_format_ds, options->lum_widthsrc_ds,
+                     options->lum_heightsrc_ds, options->width_ds,
+                     options->height_ds);
         }
     }
 
@@ -950,7 +969,7 @@ static int h26x_enc_preset_check(char *input_param, VpiH26xPreset *preset)
         return -1;
     }
 
-    VPILOGE("+++ preset = %d\n", *preset);
+    VPILOGD("+++ preset = %d\n", *preset);
 
     return 0;
 }
@@ -1128,12 +1147,12 @@ static int h26x_enc_set_opt_accord_preset(enum VpiH26xCodecID codec,
         }
     }
 
-    VPILOGE("%s(%d)options->rdo_level = %d\n", __FUNCTION__, __LINE__,
+    VPILOGD("%s(%d)options->rdo_level = %d\n", __FUNCTION__, __LINE__,
             options->rdo_level);
     return 0;
 }
 
-static int h26x_enc_preset_params_set(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+static int h26x_enc_preset_params_set(VpiH26xEncCtx *vpi_h26xe_ctx,
                                       VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
@@ -1141,7 +1160,7 @@ static int h26x_enc_preset_params_set(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     VpiH26xPreset preset;
     i32 ret = 0;
 
-    VPILOGE("+++ vcepreset %s\n", h26x_enc_cfg->preset);
+    VPILOGD("+++ vcepreset %s\n", h26x_enc_cfg->preset);
 
     if (h26x_enc_cfg->preset) {
         ret = h26x_enc_preset_check(h26x_enc_cfg->preset,
@@ -1156,57 +1175,57 @@ static int h26x_enc_preset_params_set(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     return ret;
 }
 
-static void h26x_enc_params_value_print(struct VpiH26xEncCtx *vpi_h26xe_ctx)
+static void h26x_enc_params_value_print(VpiH26xEncCtx *vpi_h26xe_ctx)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
 
-    VPILOGE("^^^ options->force_8bit = %d\n", options->force_8bit);
-    VPILOGE("^^^ options->bitdepth = %d\n", options->bitdepth);
-    VPILOGE("^^^ options->intra_pic_rate = %d\n", options->intra_pic_rate);
-    VPILOGE("^^^ options->bitrate_window = %d\n", options->bitrate_window);
-    VPILOGE("^^^ options->intra_qp_delta = %d\n", options->intra_qp_delta);
+    VPILOGD("^^^ options->force_8bit = %d\n", options->force_8bit);
+    VPILOGD("^^^ options->bitdepth = %d\n", options->bitdepth);
+    VPILOGD("^^^ options->intra_pic_rate = %d\n", options->intra_pic_rate);
+    VPILOGD("^^^ options->bitrate_window = %d\n", options->bitrate_window);
+    VPILOGD("^^^ options->intra_qp_delta = %d\n", options->intra_qp_delta);
 
-    VPILOGE("^^^ options->qp_hdr = %d\n", options->qp_hdr);
-    VPILOGE("^^^ options->qp_min = %d\n", options->qp_min);
-    VPILOGE("^^^ options->qp_max = %d\n", options->qp_max);
-    VPILOGE("^^^ options->tier = %d\n", options->tier);
-    VPILOGE("^^^ options->byte_stream = %d\n", options->byte_stream);
-    VPILOGE("^^^ options->video_range = %d\n", options->video_range);
+    VPILOGD("^^^ options->qp_hdr = %d\n", options->qp_hdr);
+    VPILOGD("^^^ options->qp_min = %d\n", options->qp_min);
+    VPILOGD("^^^ options->qp_max = %d\n", options->qp_max);
+    VPILOGD("^^^ options->tier = %d\n", options->tier);
+    VPILOGD("^^^ options->byte_stream = %d\n", options->byte_stream);
+    VPILOGD("^^^ options->video_range = %d\n", options->video_range);
 
-    VPILOGE("^^^ options->pic_rc = %d\n", options->pic_rc);
-    VPILOGE("^^^ options->ctb_rc = %d\n", options->ctb_rc);
-    VPILOGE("^^^ options->tol_ctb_rc_inter = %f\n", options->tol_ctb_rc_inter);
-    VPILOGE("^^^ options->tol_ctb_rc_intra = %f\n", options->tol_ctb_rc_intra);
-    VPILOGE("^^^ options->ctb_rc_row_qp_step = %d\n",
+    VPILOGD("^^^ options->pic_rc = %d\n", options->pic_rc);
+    VPILOGD("^^^ options->ctb_rc = %d\n", options->ctb_rc);
+    VPILOGD("^^^ options->tol_ctb_rc_inter = %f\n", options->tol_ctb_rc_inter);
+    VPILOGD("^^^ options->tol_ctb_rc_intra = %f\n", options->tol_ctb_rc_intra);
+    VPILOGD("^^^ options->ctb_rc_row_qp_step = %d\n",
             options->ctb_rc_row_qp_step);
-    VPILOGE("^^^ options->hrd_conformance = %d\n", options->hrd_conformance);
+    VPILOGD("^^^ options->hrd_conformance = %d\n", options->hrd_conformance);
 
-    VPILOGE("^^^ options->cpb_size = %d\n", options->cpb_size);
-    VPILOGE("^^^ options->gop_size = %d\n", options->gop_size);
-    VPILOGE("^^^ options->gop_lowdelay = %d\n", options->gop_lowdelay);
+    VPILOGD("^^^ options->cpb_size = %d\n", options->cpb_size);
+    VPILOGD("^^^ options->gop_size = %d\n", options->gop_size);
+    VPILOGD("^^^ options->gop_lowdelay = %d\n", options->gop_lowdelay);
 
-    VPILOGE("^^^ options->qp_min_I = %d\n", options->qp_min_I);
-    VPILOGE("^^^ options->qp_max_I = %d\n", options->qp_max_I);
-    VPILOGE("^^^ options->bframe_qp_delta = %d\n", options->bframe_qp_delta);
+    VPILOGD("^^^ options->qp_min_I = %d\n", options->qp_min_I);
+    VPILOGD("^^^ options->qp_max_I = %d\n", options->qp_max_I);
+    VPILOGD("^^^ options->bframe_qp_delta = %d\n", options->bframe_qp_delta);
 
-    VPILOGE("^^^ options->chroma_qp_offset = %d\n", options->chroma_qp_offset);
-    VPILOGE("^^^ options->vbr = %d\n", options->vbr);
-    VPILOGE("^^^ options->user_data = %p\n", options->user_data);
+    VPILOGD("^^^ options->chroma_qp_offset = %d\n", options->chroma_qp_offset);
+    VPILOGD("^^^ options->vbr = %d\n", options->vbr);
+    VPILOGD("^^^ options->user_data = %p\n", options->user_data);
 
-    VPILOGE("^^^ options->const_chroma_en = %d\n", options->const_chroma_en);
-    VPILOGE("^^^ options->const_cb = %d\n", options->const_cb);
-    VPILOGE("^^^ options->const_cr = %d\n", options->const_cr);
+    VPILOGD("^^^ options->const_chroma_en = %d\n", options->const_chroma_en);
+    VPILOGD("^^^ options->const_cb = %d\n", options->const_cb);
+    VPILOGD("^^^ options->const_cr = %d\n", options->const_cr);
 
-    VPILOGE("^^^ options->rdo_level = %d\n", options->rdo_level);
-    VPILOGE("^^^ options->ssim = %d\n", options->ssim);
-    VPILOGE("^^^ options->vui_timing_info_enable = %d\n",
+    VPILOGD("^^^ options->rdo_level = %d\n", options->rdo_level);
+    VPILOGD("^^^ options->ssim = %d\n", options->ssim);
+    VPILOGD("^^^ options->vui_timing_info_enable = %d\n",
             options->vui_timing_info_enable);
 
-    VPILOGE("^^^ options->lookahead_depth = %d\n", options->lookahead_depth);
-    VPILOGE("^^^ options->crf = %d\n", options->crf);
+    VPILOGD("^^^ options->lookahead_depth = %d\n", options->lookahead_depth);
+    VPILOGD("^^^ options->crf = %d\n", options->crf);
 }
 
-int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
                          VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options       = &vpi_h26xe_ctx->options;
@@ -1220,7 +1239,7 @@ int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     } else {
         options->enc_index = vpi_h26xe_ctx->pp_index - 1;
     }
-    VPILOGE("set options->enc_index = %d, h26x_enc_cfg->frame_ctx->task_id:%d\n",
+    VPILOGD("set options->enc_index = %d, h26x_enc_cfg->frame_ctx->task_id:%d\n",
             options->enc_index, h26x_enc_cfg->frame_ctx->task_id);
 
     options->priority = h26x_enc_cfg->priority;
@@ -1263,7 +1282,7 @@ int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
     }
 
     /* add for debug */
-    VPILOGE("+++ options->profile = %d, options->level = %d\n",
+    VPILOGD("+++ options->profile = %d, options->level = %d\n",
             options->profile, options->level);
     return ret;
 }
@@ -1272,10 +1291,13 @@ int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
  *h26x_enc_init_pic_config
  *initial pic reference configure
  */
-void h26x_enc_init_pic_config(VCEncIn *p_enc_in)
+void h26x_enc_init_pic_config(VCEncIn *p_enc_in, VPIH26xEncCfg *cfg,
+                              VPIH26xEncOptions *options)
 {
     i32 i, j, k, i32Poc;
     i32 max_pic_order_cnt_lsb = 1 << 16;
+    u32 gop_size              = cfg->gop_size;
+    bool adaptive_gop         = (gop_size == 0);
 
     ASSERT(p_enc_in != NULL);
 
@@ -1402,6 +1424,16 @@ void h26x_enc_init_pic_config(VCEncIn *p_enc_in)
                 HANTRO_TRUE;
         }
     }
+
+    p_enc_in->timeIncrement          = 0;
+    p_enc_in->vui_timing_info_enable = options->vui_timing_info_enable;
+    p_enc_in->hashType               = options->hashtype;
+    p_enc_in->poc                    = 0;
+    //default gop size as IPPP
+    p_enc_in->gopSize              = (adaptive_gop ? (options->lookahead_depth ?
+                                     4 : 1) : gop_size);
+    p_enc_in->last_idr_picture_cnt = 0;
+    p_enc_in->picture_cnt          = 0;
 }
 
 int h26x_enc_check_area(VCEncPictureArea *area, VPIH26xEncOptions *options)
@@ -1436,7 +1468,7 @@ void h26x_enc_stream_segment_ready(void *cb_data)
             fwrite(start_code_prefix, 1, 4, ctl->out_stream_file);
             ctl->start_code_done = 1;
         }
-        VPILOGE("<----receive segment irq %d\n", ctl->stream_rd_counter);
+        VPILOGD("<----receive segment irq %d\n", ctl->stream_rd_counter);
         h26x_enc_write_strm(ctl->out_stream_file, (u32 *)stream_base,
                             ctl->segment_size, 0);
 
@@ -1444,12 +1476,12 @@ void h26x_enc_stream_segment_ready(void *cb_data)
     }
 }
 
-void h26x_enc_report(struct VpiH26xEncCtx *enc_ctx)
+void h26x_enc_report(VpiH26xEncCtx *enc_ctx)
 {
 #ifndef BUILD_CMODEL
     if (enc_ctx != NULL) {
-        struct VPIH26xEncCfg *vpi_h26xe_cfg =
-            (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+        VPIH26xEncCfg *vpi_h26xe_cfg =
+            (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
 
         statistic enc_statistic = { 0 };
         ENCPERF *perf           = vpi_h26xe_cfg->perf;
@@ -1501,7 +1533,7 @@ void h26x_enc_report(struct VpiH26xEncCtx *enc_ctx)
                 perf->last_frame_encoded_timestamp;
         }
 
-        VPILOGE(":::ENC[%d] : %d frames, SSIM %.4f, %d Cycles/MB, %d us/frame, %.2f fps, %u bps\n",
+        VPILOGD(":::ENC[%d] : %d frames, SSIM %.4f, %d Cycles/MB, %d us/frame, %.2f fps, %u bps\n",
                 vpi_h26xe_cfg->enc_index, enc_statistic.frame_count,
                 enc_statistic.ssim_avg, enc_statistic.cycle_mb_avg_total,
                 enc_statistic.hw_real_time_avg,
@@ -1511,13 +1543,13 @@ void h26x_enc_report(struct VpiH26xEncCtx *enc_ctx)
                 enc_statistic.bitrate_avg);
 
         if (enc_statistic.cycle_mb_avg_p1) {
-            VPILOGE("\tPass 1 : %d Cycles/MB\n", enc_statistic.cycle_mb_avg_p1);
-            VPILOGE("\tPass 2 : %d Cycles/MB\n", enc_statistic.cycle_mb_avg);
+            VPILOGD("\tPass 1 : %d Cycles/MB\n", enc_statistic.cycle_mb_avg_p1);
+            VPILOGD("\tPass 2 : %d Cycles/MB\n", enc_statistic.cycle_mb_avg);
         }
 
         if (enc_statistic.hw_real_time_avg >
             enc_statistic.hw_real_time_avg_remove_overlap + 10) {
-            VPILOGE("\tremove overlap : %d us/frame, %.2f fps\n",
+            VPILOGD("\tremove overlap : %d us/frame, %.2f fps\n",
                     enc_statistic.hw_real_time_avg_remove_overlap,
                     (enc_statistic.hw_real_time_avg_remove_overlap == 0) ?
                         0.0 :
@@ -1525,7 +1557,7 @@ void h26x_enc_report(struct VpiH26xEncCtx *enc_ctx)
                                          .hw_real_time_avg_remove_overlap));
         }
 
-        VPILOGE(":::ENC[%d] Multi-core usage statistics:\n",
+        VPILOGD(":::ENC[%d] Multi-core usage statistics:\n",
                 vpi_h26xe_cfg->enc_index);
 
         if (enc_statistic.total_usage == 0)
@@ -1534,13 +1566,13 @@ void h26x_enc_report(struct VpiH26xEncCtx *enc_ctx)
         for (j = 0; j < 2; j++) {
             if (enc_statistic.core_usage_counts[2] ||
                 enc_statistic.core_usage_counts[3])
-                VPILOGE("\tPass 1 Slice[%d] used %6d times (%2d%%)\n", j,
+                VPILOGD("\tPass 1 Slice[%d] used %6d times (%2d%%)\n", j,
                         enc_statistic.core_usage_counts[2 + j],
                         (enc_statistic.core_usage_counts[2 + j] * 100) /
                             enc_statistic.total_usage);
         }
         for (j = 0; j < 2; j++) {
-            VPILOGE("\tSlice[%d] used %6d times (%2d%%)\n", j,
+            VPILOGD("\tSlice[%d] used %6d times (%2d%%)\n", j,
                     enc_statistic.core_usage_counts[j],
                     (enc_statistic.core_usage_counts[j] * 100) /
                         enc_statistic.total_usage);
@@ -1577,9 +1609,10 @@ int h26x_enc_get_deviceId(char *dev)
  *Instead, the memories should be allocated from the OS the same way
  *as inside EWLMallocLinear().
  */
-int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
-                       struct VPIH26xEncCfg *vpi_h26xe_cfg)
+int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
 {
+    VPIH26xEncOptions *cmdl      = (VPIH26xEncOptions *)&ctx->options;
+    VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&ctx->vpi_h26xe_cfg;
     i32 ret;
     u32 picture_size    = 0;
     u32 picture_ds_size = 0;
@@ -1778,6 +1811,17 @@ int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
         }
     }
 
+    for (i_buf = 0; i_buf < MAX_WAIT_DEPTH; i_buf++) {
+        ctx->rls_pic_list[i_buf] = malloc(sizeof(H26xEncBufLink));
+        if (NULL == ctx->rls_pic_list[i_buf]) {
+            VPILOGE("UNABLE TO ALLOCATE RELEASE PIC LIST MEMORY\n");
+            return VPI_ERR_MALLOC;
+        }
+        ctx->rls_pic_list[i_buf]->next = NULL;
+        ctx->rls_pic_list[i_buf]->used = 0;
+    }
+    ctx->rls_pic_head = NULL;
+
     /*allocate delta qp map memory.
       4 bits per block.*/
     block_size =
@@ -1913,20 +1957,7 @@ int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
             }
         }
     }
-    for (core_idx = 0; core_idx < vpi_h26xe_cfg->buffer_cnt; core_idx++) {
-#ifdef USE_OLD_DRV
-#else
-#endif
-    }
 
-    for (core_idx = 0; core_idx < vpi_h26xe_cfg->parallel_core_num;
-         core_idx++) {
-        for (i_buf = 0; i_buf < vpi_h26xe_cfg->stream_buf_num; i_buf++) {
-#ifdef USE_OLD_DRV
-#else
-#endif
-        }
-    }
     return 0;
 }
 
@@ -1934,10 +1965,24 @@ int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
  *h26x_enc_free_res
  *Release all resources allcoated byt h26x_enc_alloc_res()
  */
-void h26x_enc_free_res(VCEncInst enc, struct VPIH26xEncCfg *vpi_h26xe_cfg)
+void h26x_enc_free_res(VpiH26xEncCtx *enc_ctx, VCEncInst enc)
 {
+    VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
+    VpiEncH26xPic *trans_pic;
     u32 core_idx = 0;
-    i32 i_buf;
+    i32 i, i_buf;
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        trans_pic = &enc_ctx->pic_wait_list[i];
+        if (trans_pic->pic) {
+            free(trans_pic->pic);
+            trans_pic->pic = NULL;
+        }
+    }
+
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        free(enc_ctx->rls_pic_list[i]);
+    }
 
 #ifdef USE_OLD_DRV
     if (vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0].virtualAddress != NULL) {
@@ -2037,7 +2082,7 @@ void h26x_enc_free_res(VCEncInst enc, struct VPIH26xEncCfg *vpi_h26xe_cfg)
 int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
                                     VPIH26xEncOptions *options, VCEncIn *encIn,
                                     VCEncInst inst,
-                                    struct VPIH26xEncCfg *vpi_h26xe_cfg)
+                                    VPIH26xEncCfg *vpi_h26xe_cfg)
 {
     VCEncCodingCtrl coding_cfg;
     u32 stride, chroma_stride;
@@ -2089,7 +2134,7 @@ int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
  * h26x_enc_ma_add_frame
  * Add new frame bits for moving average bitrate calculation
  */
-static void h26x_enc_ma_add_frame(MaS *ma, i32 frame_size_bits)
+void h26x_enc_ma_add_frame(MaS *ma, i32 frame_size_bits)
 {
     ma->frame[ma->pos++] = frame_size_bits;
     if (ma->pos == ma->length)
@@ -2102,7 +2147,7 @@ static void h26x_enc_ma_add_frame(MaS *ma, i32 frame_size_bits)
  * h26x_enc_ma
  * Calculate average bitrate of moving window
  */
-static i32 h26x_enc_ma(MaS *ma)
+i32 h26x_enc_ma(MaS *ma)
 {
     i32 i;
     unsigned long long sum = 0; /* Using 64-bits to avoid overflow */
@@ -2119,12 +2164,11 @@ static i32 h26x_enc_ma(MaS *ma)
            ma->frame_rate_denom;
 }
 
-int h26x_enc_update_statistic(struct VpiH26xEncCtx *enc_ctx, int *streamSize)
+int h26x_enc_update_statistic(VpiH26xEncCtx *enc_ctx, int *streamSize)
 {
-    int ret                    = 0;
-    VPIH26xEncOptions *options = &enc_ctx->options;
-    struct VPIH26xEncCfg *vpi_h26xe_cfg =
-        (struct VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    int ret                      = 0;
+    VPIH26xEncOptions *options   = &enc_ctx->options;
+    VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
     VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
     VCEncOut *pEncOut = (VCEncOut *)&enc_ctx->enc_out;
 
@@ -2159,4 +2203,30 @@ int h26x_enc_update_statistic(struct VpiH26xEncCtx *enc_ctx, int *streamSize)
              vpi_h26xe_cfg->number_square_of_error);
     }
     return ret;
+}
+
+void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
+                       MaS *ma, AdapGopCtr *agop)
+{
+    cfg->validencoded_framenumber = 0;
+
+    //Adaptive Gop variables
+    agop->last_gopsize            = MAX_ADAPTIVE_GOP_SIZE;
+    agop->gop_frm_num             = 0;
+    agop->sum_intra_vs_interskip  = 0;
+    agop->sum_skip_vs_interskip   = 0;
+    agop->sum_intra_vs_interskipP = 0;
+    agop->sum_intra_vs_interskipB = 0;
+    agop->sum_cost_P              = 0;
+    agop->sum_cost_B              = 0;
+
+    ma->pos              = 0;
+    ma->count            = 0;
+    ma->frame_rate_numer = options->output_rate_numer;
+    ma->frame_rate_denom = options->output_rate_denom;
+    if (options->output_rate_denom)
+        ma->length = MAX(LEAST_MONITOR_FRAME, MIN(options->monitor_frames,
+                              MOVING_AVERAGE_FRAMES));
+    else
+        ma->length = MOVING_AVERAGE_FRAMES;
 }

@@ -47,7 +47,7 @@ struct vcenc_instance
 
   struct buffer stream;
   struct buffer streams[MAX_CORE_NUM];
-  
+
   EWLHwConfig_t featureToSupport;
   EWLHwConfig_t asic_core_cfg[MAX_SUPPORT_CORE_NUM];
   int get_cfg_flag;
@@ -99,7 +99,7 @@ struct vcenc_instance
 
   i32 levelIdx;   /*level 5.1 =8*/
   i32 level;   /*level 5.1 =8*/
-  
+
   i32 profile;   /**/
   i32 tier;
 
@@ -108,7 +108,7 @@ struct vcenc_instance
   /* Rate control parameters */
   vcencRateControl_s rateControl;
 
-  
+
   struct vps *vps;
   struct sps *sps;
 
@@ -255,7 +255,7 @@ struct vcenc_instance
   i32 width_ds;
   i32 height_ds;
 
-  
+
   /* Multi-core parallel ctr */
   struct sw_picture *pic[MAX_CORE_NUM];
   u32 parallelCoreNum;
@@ -269,6 +269,7 @@ struct vcenc_instance
   /* internal mem for pass 1 */
   EWLLinearMem_t internalMem;
 
+  EWLLinearMem_t outputMem;
 };
 
 struct instance

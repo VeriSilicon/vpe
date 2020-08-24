@@ -340,6 +340,7 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     struct DecPicturePpu *pic = malloc(sizeof(struct DecPicturePpu));
     if (!pic)
         return -1;
+    memset(pic, 0, sizeof(struct DecPicturePpu));
     out_frame->data[0] = (void *)pic;
 
     idx = vpi_prc_get_empty_pic(ctx);

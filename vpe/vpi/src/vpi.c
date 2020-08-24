@@ -255,9 +255,10 @@ static int vpi_decode(VpiCtx vpe_ctx, void *indata, void *outdata)
 
 static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
 {
-    VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
+    VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)vpe_ctx;
+    VpiH26xEncCtx *h26x_enc_ctx;
     VpiEncVp9Ctx *vp9_enc_ctx;
-    VpiRet ret                = VPI_SUCCESS;
+    VpiRet ret = VPI_SUCCESS;
 
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
@@ -272,6 +273,9 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
         ret = VPI_ERR_WRONG_PLUGIN;
         break;
     case H26XENC_VPE:
+        h26x_enc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
+        ret = vpi_h26xe_put_frame(h26x_enc_ctx, indata);
+        break;
     case VP9ENC_VPE:
         vp9_enc_ctx = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
         ret = vpi_venc_vp9_put_frame(vp9_enc_ctx, indata);
@@ -337,8 +341,8 @@ static int vpi_encode(VpiCtx vpe_ctx, void *indata, void *outdata)
         ret = VPI_ERR_WRONG_PLUGIN;
         break;
     case H26XENC_VPE:
-        h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
-        ret         = vpi_h26xe_encode(h26xenc_ctx, indata, outdata);
+        //h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
+        //ret         = vpi_h26xe_encode(h26xenc_ctx, indata, outdata);
         break;
     case VP9ENC_VPE:
         ret = vpi_venc_vp9_encode(vp9_enc_ctx, indata, outdata);
@@ -451,8 +455,8 @@ static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
 
     case H26XENC_VPE:
         h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
-        vpi_h26xe_ctrl(h26xenc_ctx, indata, outdata);
-        break;
+        ret         = vpi_h26xe_ctrl(h26xenc_ctx, indata, outdata);
+        return ret;
 
     case VP9ENC_VPE:
         ret = vpi_venc_vp9_control(vp9_enc_ctx, indata, outdata);
@@ -714,6 +718,10 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
 
 int vpi_destroy(VpiCtx ctx)
 {
+    if (!vpi_hw_ctx) {
+        return 0;
+    }
+
     if (ctx == vpi_hw_ctx->sys_info) {
         if (vpi_hw_ctx && vpi_hw_ctx->hw_context) {
             if (ioctl(vpi_hw_ctx->hw_context, CB_TRANX_MEM_FREE_TASKID,

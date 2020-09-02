@@ -2095,6 +2095,11 @@ error:
 
     ret = -1;
     if (ret != OK) {
+        ctx->encode_end = 1;
+        if (ctx->waiting_for_pkt == 1) {
+            pthread_cond_signal(&ctx->h26xe_thd_cond);
+            ctx->waiting_for_pkt = 0;
+        }
         VCEncSetError(ctx->hantro_encoder);
         VPILOGE("encode() fails %p\n", ctx->hantro_encoder);
     }
@@ -2116,6 +2121,10 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
     int i = 0;
 
     pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    if (ctx->flush_state == VPIH26X_FLUSH_ERROR
+       || ctx->flush_state == VPIH26X_FLUSH_ENCEND) {
+           return 0;
+    }
   //frame_fifo_process(avctx);
     if ((ctx->inject_frm_cnt < ctx->hold_buf_num) && ctx->force_idr) {
         pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
@@ -2131,7 +2140,7 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
 
             if (flush_ret < 0) {
                 /* need error process */
-                VPILOGE("\n", flush_ret);
+                VPILOGE("flush_ret %d\n", flush_ret);
                 goto error;
             }
 
@@ -2508,6 +2517,19 @@ int vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
     int i;
 
     pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+    if (enc_ctx->flush_state == VPIH26X_FLUSH_ERROR) {
+        for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+            if (enc_ctx->rls_pic_list[i]->used == 0) {
+                enc_ctx->rls_pic_list[i]->item = frame->opaque;
+                enc_ctx->rls_pic_list[i]->used = 1;
+                break;
+            }
+        }
+        h26x_enc_buf_list_add(&enc_ctx->rls_pic_head, enc_ctx->rls_pic_list[i]);
+        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+        return 0;
+    }
+
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (enc_ctx->pic_wait_list[i].pic == frame) {
             trans_pic = &enc_ctx->pic_wait_list[i];

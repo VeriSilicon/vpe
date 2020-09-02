@@ -107,4 +107,5 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata);
 int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem);
 void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc);
 int h26x_enc_get_out_buffer(VpiH26xEncCtx *ctx, VpiEncOutData **out_buffer);
+void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list);
 #endif /* __VPI_VIDEO_H26XENC_UTILS_H__ */

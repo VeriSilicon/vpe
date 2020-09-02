@@ -3802,7 +3802,7 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
     return 0;
 }
 
-static void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list)
+void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list)
 {
     H26xEncBufLink *temp;
 

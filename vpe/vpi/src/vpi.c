@@ -539,6 +539,9 @@ static int log_init()
     time_t now;
     struct tm *tm;
 
+#ifndef DEBUG
+    log_setlevel(LOG_LEVEL_OFF);
+#else
     time(&now);
     tm = localtime(&now);
 
@@ -547,6 +550,7 @@ static int log_init()
     printf("log_filename %s\n", filename);
 
     log_open(filename);
+#endif
     return 0;
 }
 

@@ -37,7 +37,7 @@ extern "C" {
 #endif
 
 int log_open(char *);
-
+int log_setlevel(int level);
 void log_close();
 
 #ifdef __cplusplus

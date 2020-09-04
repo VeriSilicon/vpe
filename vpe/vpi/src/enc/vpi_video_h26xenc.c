@@ -39,7 +39,7 @@
 #include "transcoder.h"
 #endif
 #endif
-
+#include "hugepage_api.h"
 #include "vpi_log.h"
 #include "vpi.h"
 #include "vpi_video_h26xenc_utils.h"
@@ -1278,11 +1278,7 @@ static int h26x_enc_call_vcstart(VpiH26xEncCtx *enc_ctx,
     memset(&enc_ctx->agop, 0, sizeof(enc_ctx->agop));
 
     /* The first output buffer */
-    ret = h26x_enc_pop_emptyfifo(enc_ctx, &out_buffer);
-    if (ret != FIFO_OK) {
-        VPILOGE("pop empty fifo failed, ret %d\n", ret);
-        goto error;
-    }
+    out_buffer = &enc_ctx->enc_pkt[0];
     setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
 
     //p_enc_in->hashType = options->hashtype;
@@ -1327,7 +1323,6 @@ static int h26x_enc_call_vcstart(VpiH26xEncCtx *enc_ctx,
                out_buffer->outbuf_mem->rc_virtualAddress,
                enc_ctx->header_size);
     }
-    h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
     return 0;
 
 error:
@@ -1343,6 +1338,7 @@ static int h26x_encode_end(VpiH26xEncCtx *enc_ctx)
     VCEncIn *p_enc_in          = (VCEncIn *)&(cfg->enc_in);
     VCEncOut *p_enc_out        = (VCEncOut *)&enc_ctx->enc_out;
     VpiEncOutData *out_buffer  = NULL;
+    int i;
 
     if (enc_ctx->encoder_is_end == HANTRO_TRUE) return 0;
 
@@ -1353,10 +1349,7 @@ static int h26x_encode_end(VpiH26xEncCtx *enc_ctx)
     }
 #endif
 
-    if (h26x_enc_get_out_buffer(enc_ctx, &out_buffer) == -1) {
-        enc_ctx->flush_state = VPIH26X_FLUSH_ENCEND;
-        return 0;
-    }
+    out_buffer = &enc_ctx->enc_pkt[0];
     setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
     ret = VCEncStrmEnd(enc_ctx->hantro_encoder, p_enc_in, p_enc_out);
 
@@ -1368,12 +1361,20 @@ static int h26x_encode_end(VpiH26xEncCtx *enc_ctx)
 #endif
 
     if (ret == VCENC_OK) {
-        out_buffer->header_size = p_enc_out->streamSize;
-        out_buffer->header_data = enc_ctx->header_data;
-        out_buffer->end_data    = HANTRO_TRUE;
-        h26x_enc_push_outfifo(enc_ctx, out_buffer);
+        i = h26x_enc_get_empty_stream_buffer(enc_ctx);
+        if (i == -1) {
+            VPILOGD("Can't found empty stream buffer\n");
+            return 1;
+        }
+        out_buffer                        = &enc_ctx->outstream_pkt[i];
+        out_buffer->header_size           = p_enc_out->streamSize;
+        out_buffer->header_data           = enc_ctx->header_data;
+        out_buffer->end_data              = HANTRO_TRUE;
+        enc_ctx->stream_buf_list[i]->used = 1;
+        enc_ctx->stream_buf_list[i]->item = &enc_ctx->outstream_pkt[i];
+        h26x_enc_buf_list_add(&enc_ctx->stream_buf_head,
+                               enc_ctx->stream_buf_list[i]);
     } else {
-        h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
         VPILOGE("VCEncStrmEnd ret is %d\n", ret);
         goto error;
     }
@@ -1429,14 +1430,14 @@ static int h26x_enc_flush_set(VpiH26xEncCtx *enc_ctx)
     VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
     VCEncIn *p_enc_in            = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
 
-    VPILOGD("get EOS, begin to flush trans pic\n");
+    VPILOGD("ctx %p get EOS, begin to flush trans pic\n", enc_ctx);
     enc_ctx->flush_state = VPIH26X_FLUSH_TRANSPIC;
 
-    *p_enc_in                  = enc_ctx->enc_in_bk;
-    vpi_h26xe_cfg->picture_cnt = enc_ctx->picture_cnt_bk;
+    *p_enc_in                         = enc_ctx->enc_in_bk;
+    vpi_h26xe_cfg->enc_in.picture_cnt = enc_ctx->picture_cnt_bk;
     calc_flush_data_coding_type(enc_ctx);
-    p_enc_in->gopSize          = 1;
-    p_enc_in->timeIncrement    = vpi_h26xe_cfg->output_rate_denom;
+    p_enc_in->gopSize       = 1;
+    p_enc_in->timeIncrement = vpi_h26xe_cfg->output_rate_denom;
 
     return 0;
 }
@@ -1459,6 +1460,8 @@ static int h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (enc_ctx->pic_wait_list[i].state == 1) {
             p_trans = &enc_ctx->pic_wait_list[i];
+            VPILOGD("ctx %p, %d, poc %d, need_poc %d\n",
+                     enc_ctx, i, p_trans->poc, poc_need);
             if (p_trans->poc == poc_need) {
                 pic_ppu = (struct DecPicturePpu *)p_trans->pic->data[0];
                 if (pic_ppu == NULL) {
@@ -1468,6 +1471,7 @@ static int h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
                 pic_data =
                     (struct DecPicture *)&pic_ppu->pictures[enc_ctx->pp_index];
                 p_trans->in_pass_one_queue = 1;
+                p_trans->used              = 1;
                 goto find_pic;
             }
         }
@@ -1523,7 +1527,11 @@ static int h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
     VPIH26xEncCfg *cfg         = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
     VCEncIn *p_enc_in          = (VCEncIn *)&(cfg->enc_in);
     VCEncOut *p_enc_out        = (VCEncOut *)&enc_ctx->enc_out;
+    VpiEncOutData *outstrm_buf = NULL;
     i32 ret = OK;
+    int i, idx;
+    int pkt_size;
+    int new_size;
 
     SliceCtl *ctl   = cfg->slice_ctl_out;
     int stream_size = p_enc_out->streamSize;
@@ -1545,34 +1553,80 @@ static int h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
     p_enc_in->timeIncrement = cfg->output_rate_denom;
 
     if (stream_size != 0) {
+        idx = h26x_enc_get_empty_stream_buffer(enc_ctx);
+        if (idx == -1) {
+            VPILOGE("no empty stream buffer\n");
+            return -1;
+        }
+        outstrm_buf = &enc_ctx->outstream_pkt[idx];
         if (cfg->picture_enc_cnt == 1) {
-            out_buffer->header_data    = enc_ctx->header_data; //ctx->outPkt->data;
-            out_buffer->header_size    = enc_ctx->header_size; //ctx->outPkt->size;
+            outstrm_buf->header_data    = enc_ctx->header_data; //ctx->outPkt->data;
+            outstrm_buf->header_size    = enc_ctx->header_size; //ctx->outPkt->size;
         } else {
             if (p_enc_out->resendSPS) {
                 VPILOGD("has sps header size = %d\n", p_enc_out->header_size);
-                out_buffer->header_data = p_enc_out->header_buffer;
-                out_buffer->header_size = p_enc_out->header_size;
+                outstrm_buf->header_data = p_enc_out->header_buffer;
+                outstrm_buf->header_size = p_enc_out->header_size;
             } else {
-                out_buffer->header_data = NULL;
-                out_buffer->header_size = 0;
+                outstrm_buf->header_data = NULL;
+                outstrm_buf->header_size = 0;
             }
         }
 
-        out_buffer->resend_header = p_enc_out->resendSPS;
-        out_buffer->stream_size   = p_enc_out->streamSize; //streamSize; //pEncOut->streamSize;
-        out_buffer->pts           = p_enc_out->pts; //tb->input_pic_cnt; //pEncOut->pts;
-        out_buffer->dts           = cfg->picture_enc_cnt - 1 - 8; //tb->picture_enc_cnt; //pEncOut->dts;
+        outstrm_buf->resend_header = p_enc_out->resendSPS;
+        outstrm_buf->stream_size   = p_enc_out->streamSize; //streamSize; //pEncOut->streamSize;
+        outstrm_buf->pts           = p_enc_out->pts; //tb->input_pic_cnt; //pEncOut->pts;
+        outstrm_buf->dts           = cfg->picture_enc_cnt - 1 - 8; //tb->picture_enc_cnt; //pEncOut->dts;
         if (enc_ctx->first_pts_flag) {
-            out_buffer->dts += enc_ctx->first_pts;
+            outstrm_buf->dts += enc_ctx->first_pts;
         }
 
-        for (int i = 0; i < 3; i++) {
-            out_buffer->ssim[i] = p_enc_out->ssim[i];
+        for (i = 0; i < 3; i++) {
+            outstrm_buf->ssim[i] = p_enc_out->ssim[i];
         }
-        out_buffer->max_slice_stream_size = p_enc_out->maxSliceStreamSize;
-        out_buffer->index_encoded         = p_enc_out->indexEncoded;
-        h26x_enc_push_outfifo(enc_ctx, out_buffer);
+        outstrm_buf->max_slice_stream_size = p_enc_out->maxSliceStreamSize;
+        outstrm_buf->index_encoded         = p_enc_out->indexEncoded;
+
+        pkt_size = outstrm_buf->resend_header ? outstrm_buf->stream_size :
+                        (outstrm_buf->stream_size + outstrm_buf->header_size);
+
+        if (pkt_size > enc_ctx->stream_buf_list[idx]->item_size) {
+            VPILOGD("packet size is too large(%d > %d @%d), re-allocing\n",
+                 pkt_size, enc_ctx->stream_buf_list[idx]->item_size, idx);
+            fbtrans_free_huge_pages(enc_ctx->outstream_mem[idx],
+                                    enc_ctx->stream_buf_list[idx]->item_size);
+            new_size = NEXT_MULTIPLE(pkt_size, 0x10000);
+            enc_ctx->outstream_mem[idx] = fbtrans_get_huge_pages(new_size);
+            enc_ctx->stream_buf_list[idx]->item_size = new_size;
+            outstrm_buf->outbuf_mem->size = new_size;
+        }
+        if (pkt_size != 0 &&
+            outstrm_buf->header_size != 0 &&
+            outstrm_buf->resend_header != HANTRO_TRUE) {
+            pkt_size -= outstrm_buf->header_size;
+        }
+
+        VPILOGI("src %p, dst %p\n",
+                 out_buffer->outbuf_mem, outstrm_buf->outbuf_mem);
+        VPILOGI("idx %d\n", idx);
+        VPILOGI("src addr %p, dst addr %p\n",
+                 out_buffer->outbuf_mem->busAddress,
+                 outstrm_buf->outbuf_mem->rc_busAddress);
+        VPILOGI("src size %d, dst size %d\n",
+                 out_buffer->outbuf_mem->size, outstrm_buf->outbuf_mem->size);
+        VPILOGI("pkt_size %d\n", pkt_size);
+        ret = EWLTransDataEP2RC(cfg->ewl, out_buffer->outbuf_mem,
+                                outstrm_buf->outbuf_mem, pkt_size);
+        if (ret) {
+            VPILOGE("copy failed, ret %d\n", ret);
+            VPILOGD("pkt_size %d\n", pkt_size);
+            return -1;
+        }
+
+        enc_ctx->stream_buf_list[idx]->used = 1;
+        enc_ctx->stream_buf_list[idx]->item = &enc_ctx->outstream_pkt[idx];
+        h26x_enc_buf_list_add(&enc_ctx->stream_buf_head,
+                               enc_ctx->stream_buf_list[idx]);
     }
 
     return 0;
@@ -1591,29 +1645,23 @@ static int h26x_enc_call_vcflush(VpiH26xEncCtx *enc_ctx,
     VpiEncOutData *out_buffer    = NULL;
     int ret_value;
 
-    if (h26x_enc_get_out_buffer(enc_ctx, &out_buffer) == -1) {
-        enc_ctx->flush_state = VPIH26X_FLUSH_FINISH;
-        return 0;
-    }
-
+    VPILOGD("ctx %p call vcflush\n", enc_ctx);
+    out_buffer = &enc_ctx->enc_pkt[0];
     setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
     ret = VCEncFlush(enc_ctx->hantro_encoder, p_enc_in, enc_out,
                      &h26x_enc_slice_ready);
-    if (ret != VCENC_FRAME_READY) {
-        h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
-    }
-
+    VPILOGD("VCEncFlush ret %d\n", ret);
     switch (ret) {
        case VCENC_FRAME_READY:
             setup_slice_ctl(vpi_h26xe_cfg);
             vpi_h26xe_cfg->picture_enc_cnt++;
             if (enc_out->streamSize == 0) {
-                vpi_h26xe_cfg->picture_cnt++;
                 vpi_h26xe_cfg->enc_in.picture_cnt ++;
                 break;
             }
             ret_value = h26x_enc_process_frame(enc_ctx, out_buffer);
             if (ret_value < 0) {
+                VPILOGE("process error return %d\n", ret_value);
                 goto error;
             }
             if (enc_ctx->waiting_for_pkt == 1) {
@@ -1682,7 +1730,14 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
 #endif
     }
 
-    VPILOGD("picture_cnt = %d. \n", p_enc_in->picture_cnt);
+    VPILOGD("ctx %p picture_cnt = %d. \n", ctx, p_enc_in->picture_cnt);
+
+    if (p_enc_in->picture_cnt > ctx->poc_bak) {
+        ctx->delta_poc = p_enc_in->picture_cnt - ctx->poc_bak;
+        if (ctx->delta_poc != 0)
+            ctx->delta_poc--;
+    }
+    ctx->poc_bak = p_enc_in->picture_cnt;
 
     if (ctx->update_idr_poc == HANTRO_TRUE) {
         update_next_idr_poc(ctx, (int *)&ctx->next_idr_poc);
@@ -1692,7 +1747,8 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
                         + cfg->first_pic;
 
     p_enc_in->indexTobeEncode = ctx->next_poc;
-    VPILOGD("ctx->next_poc = %d\n", ctx->next_poc);
+    VPILOGD("ctx->next_poc = %d, ctx->delta_poc = %d\n",
+             ctx->next_poc, ctx->delta_poc);
 
     if (ctx->flush_state == VPIH26X_FLUSH_IDLE) {
         ret = h26x_enc_send_pic(ctx, ctx->next_poc, &addrs, &pict_pts);
@@ -1965,10 +2021,7 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
     }
 #endif
 
-    if (h26x_enc_get_out_buffer(ctx, &out_buffer) == -1) {
-        ctx->flush_state = VPIH26X_FLUSH_ENCEND;
-        return 0;
-    }
+    out_buffer = &ctx->enc_pkt[0];
     setup_output_buffer(ctx->hantro_encoder, out_buffer, p_enc_in);
 
     gettimeofday(&cfg->time_frame_start, 0);
@@ -1980,10 +2033,6 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
         VPILOGD("h26x_consume_stored_pic[%d] \n", p_enc_out->indexEncoded);
         h26x_enc_consume_pic(ctx, p_enc_out->indexEncoded);
     }
-    if (ret != VCENC_FRAME_READY) {
-        h26x_enc_push_emptyfifo(ctx, out_buffer);
-    }
-
     VPILOGD("VCEncStrmEncode ret %d\n", ret);
     switch (ret)
     {
@@ -2031,8 +2080,10 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
             }
             VPILOGD("out_buffer %p\n", out_buffer);
             retValue = h26x_enc_process_frame(ctx, out_buffer);
-            if (retValue < 0)
+            if (retValue < 0) {
+                VPILOGE("process error return %d\n", retValue);
                 goto error;
+            }
             if (ctx->waiting_for_pkt == 1) {
                 pthread_cond_signal(&ctx->h26xe_thd_cond);
                 ctx->waiting_for_pkt = 0;
@@ -2125,7 +2176,7 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
        || ctx->flush_state == VPIH26X_FLUSH_ENCEND) {
            return 0;
     }
-  //frame_fifo_process(avctx);
+
     if ((ctx->inject_frm_cnt < ctx->hold_buf_num) && ctx->force_idr) {
         pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
         return 0;
@@ -2135,7 +2186,7 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
         case VPIH26X_FLUSH_IDLE:
             ctx->trans_flush_pic = HANTRO_FALSE;
             flush_ret = h26x_enc_frame(ctx);
-            VPILOGD("+++ h26x_enc_frame ret = %d\n", flush_ret);
+            VPILOGD("ctx %p +++ h26x_enc_frame ret = %d\n", ctx, flush_ret);
             VPILOGD("+++ ctx->trans_flush_pic = %d\n", ctx->trans_flush_pic);
 
             if (flush_ret < 0) {
@@ -2156,7 +2207,7 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
 
         case VPIH26X_FLUSH_TRANSPIC: /* flush data in dec fifo */
             flush_ret = h26x_enc_frame(ctx);
-            VPILOGD("h26x_enc_frame ret = %d\n", flush_ret);
+            VPILOGD("ctx %p h26x_enc_frame ret = %d\n", ctx, flush_ret);
 
             if ((flush_ret == -1) || (flush_ret == VCENC_NULL_ARGUMENT)) {
                 /* need error process */
@@ -2175,9 +2226,12 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
 
         case VPIH26X_FLUSH_FINISH:
             ret = h26x_encode_end(ctx);
-            if (ret != 0) {
+            if (ret == -1) {
                 VPILOGE("h26x_encode_end error. ret = %d\n", ret);
                 goto error;
+            } else if (ret == 1) {
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                return 0;
             }
             ctx->flush_state   = VPIH26X_FLUSH_ENCEND;
             ctx->h26xe_thd_end = 1;
@@ -2272,7 +2326,7 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     vpi_h26xe_cfg->enc_index = options->enc_index;
 
     /* the number of output stream buffers */
-    vpi_h26xe_cfg->stream_buf_num = MAX_OUTPUT_FIFO_DEPTH;
+    vpi_h26xe_cfg->stream_buf_num = MAX_OUT_BUF_NUM;
     vpi_h26xe_cfg->outbuf_index   = -1;
 
     /* get GOP configuration */
@@ -2405,6 +2459,7 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
          * avoid buffer overwrite in pass1 before consumed in pass2*/
         vpi_h26xe_cfg->buffer_cnt = vpi_h26xe_cfg->frame_delay + 4;
     }
+    VPILOGD("buffer_cnt %d\n", vpi_h26xe_cfg->buffer_cnt);
     vpi_h26xe_cfg->enc_in.gopConfig.idr_interval = vpi_h26xe_cfg->idr_interval;
     vpi_h26xe_cfg->enc_in.gopConfig.gdrDuration  = options->gdr_duration;
     vpi_h26xe_cfg->enc_in.gopConfig.firstPic     = vpi_h26xe_cfg->first_pic;
@@ -2448,7 +2503,7 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
 
     idr_poc_array_init(enc_ctx);
 
-    h26x_enc_fifo_init(enc_ctx);
+    h26x_enc_outbuf_init(enc_ctx);
 
     if (enc_ctx->encoder_is_start == HANTRO_FALSE) {
         enc_ctx->encoder_is_start = HANTRO_TRUE;
@@ -2472,6 +2527,7 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
 error_exit:
     VPILOGE("H26x encoder init failed, ret %d\n", ret);
     if (*hantro_encoder) {
+        h26x_enc_outbuf_uninit(enc_ctx);
         h26x_enc_free_res(enc_ctx, *hantro_encoder);
         h26x_enc_close_encoder(*hantro_encoder, vpi_h26xe_cfg);
         *hantro_encoder = NULL;
@@ -2543,7 +2599,7 @@ int vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
     }
 
     if (frame->opaque == NULL) {
-        VPILOGD("received empty input frame, EOF\n");
+        VPILOGD("ctx %p received empty input frame, EOF\n", enc_ctx);
         enc_ctx->eos_received        = 1;
         trans_pic->poc               = -1;
         trans_pic->in_pass_one_queue = 0;
@@ -2557,7 +2613,7 @@ int vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
             enc_ctx->first_pts_flag = 1;
         }
         trans_pic->state             = 1;
-        //trans_pic->used              = 0;
+        trans_pic->used              = 0;
         trans_pic->in_pass_one_queue = 0;
         trans_pic->poc               = enc_ctx->poc;
         /* add for IDR */
@@ -2581,12 +2637,15 @@ int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
 {
     i32 ret                    = 0;
     VPIH26xEncCfg *cfg         = &enc_ctx->vpi_h26xe_cfg;
-    VpiEncOutData *out_buffer  = enc_ctx->cur_out_buf;
+    VpiEncOutData *out_buffer  = NULL;
+    H26xEncBufLink *buf        = NULL;
     VpiPacket *vpi_packet      = (VpiPacket *)outdata;
     VPIH26xEncOptions *options = &enc_ctx->options;
     EWLLinearMem_t packet_mem;
 
     pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+    buf        = enc_ctx->stream_buf_head;
+    out_buffer = (VpiEncOutData *)buf->item;
     if (vpi_packet->size != 0) {
         packet_mem.rc_busAddress = (ptr_t)vpi_packet->data;
         packet_mem.size          = vpi_packet->size;
@@ -2599,11 +2658,9 @@ int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
                     out_buffer->header_size);
             out_buffer->header_size = 0;
         }
-        if (EWLTransDataEP2RC(cfg->ewl, out_buffer->outbuf_mem,
-                             (EWLLinearMem_t *)&packet_mem, packet_mem.size)) {
-            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
-            return -1;
-        }
+        memcpy((void *)packet_mem.rc_busAddress,
+               (void *)out_buffer->outbuf_mem->rc_busAddress,
+               packet_mem.size);
 
         if (out_buffer->resend_header) {
             memcpy(vpi_packet->data, out_buffer->header_data,
@@ -2613,9 +2670,10 @@ int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
 
     vpi_packet->pts     = out_buffer->pts;
     vpi_packet->pkt_dts = out_buffer->dts;
+    enc_ctx->output_pic_cnt++;
     VPILOGD("enc pts %ld, dts %ld, cnt %d, size %d\n",
              vpi_packet->pts, vpi_packet->pkt_dts,
-             cfg->picture_enc_cnt, vpi_packet->size);
+             enc_ctx->output_pic_cnt, vpi_packet->size);
 
     enc_ctx->total_bits += out_buffer->stream_size * 8;
 
@@ -2624,14 +2682,15 @@ int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
 
     cfg->hwcycle_acc += VCEncGetPerformance(enc_ctx->hantro_encoder);
 
-    VPILOGD("=== Encoded frame%i poc=%d bits=%d TotalBits=%lu "
+    VPILOGD("(instance: %x)Encoded frame%i poc=%d bits=%d TotalBits=%lu "
                 " averagebitrate=%lu HWCycles=%d maxSliceBytes=%d\n",
-                cfg->picture_enc_cnt - 1 - (cfg->parallel_core_num - 1),
+                enc_ctx,
+                enc_ctx->output_pic_cnt - 1 - (cfg->parallel_core_num - 1),
                 out_buffer->index_encoded,
                 out_buffer->stream_size*8,
                 enc_ctx->total_bits,
                 (enc_ctx->total_bits * cfg->output_rate_denom) /
-                     ((cfg->picture_enc_cnt - (cfg->parallel_core_num-1))
+                     ((enc_ctx->output_pic_cnt - (cfg->parallel_core_num-1))
                                 * cfg->output_rate_denom),
                 VCEncGetPerformance(enc_ctx->hantro_encoder),
                 out_buffer->max_slice_stream_size);
@@ -2665,8 +2724,10 @@ int vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
                 cfg->average_square_of_error);
     }
 
-    h26x_enc_push_emptyfifo(enc_ctx, out_buffer);
-    enc_ctx->cur_out_buf = NULL;
+    enc_ctx->stream_buf_head =
+            h26x_enc_buf_list_delete(enc_ctx->stream_buf_head);
+    buf->used = 0;
+
     pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
 
     return ret;
@@ -2693,9 +2754,9 @@ int vpi_h26xe_close(VpiH26xEncCtx *enc_ctx)
             pthread_mutex_destroy(&enc_ctx->h26xe_thd_mutex);
             pthread_cond_destroy(&enc_ctx->h26xe_thd_cond);
 
+            h26x_enc_outbuf_uninit(enc_ctx);
             h26x_enc_free_res(enc_ctx, enc_ctx->hantro_encoder);
             h26x_enc_close_encoder(enc_ctx->hantro_encoder, vpi_h26xe_cfg);
-            h26x_enc_fifo_release(enc_ctx);
         }
     }
     return ret;

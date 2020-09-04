@@ -50,7 +50,6 @@
 #endif
 #include "vpi_types.h"
 #include "vpi_video_h26xenc_options.h"
-#include "fifo.h"
 
 #define MAX_FIFO_DEPTH 16
 #define MAX_WAIT_DEPTH 78 /*34*/
@@ -63,12 +62,16 @@
 #define MAX_DELAY_NUM (MAX_CORE_NUM + MAX_CUTREE_DEPTH)
 #define MAX_IDR_ARRAY_DEPTH MAX_WAIT_DEPTH
 
-#define MAX_OUTPUT_FIFO_DEPTH MAX_FIFO_DEPTH
+#define MAX_OUT_BUF_NUM      2
+#define MAX_OUTPUT_FIFO_DEPTH MAX_CUTREE_DEPTH
+#define INIT_OUTBUF_NUM      8
+
+#define DEFAULT_OUT_STRM_BUF_SIZE 0x200000
 
 typedef struct {
     int state;
     int in_pass_one_queue;
-    //int used;
+    int used;
     int poc;
     VpiFrame *pic;
 } VpiEncH26xPic;
@@ -122,7 +125,7 @@ typedef struct {
     i32 input_rate_denom; /* Input frame rate denominator */
     i32 first_pic;
     i32 last_pic;
-    i32 picture_cnt;
+    //i32 picture_cnt;
     i32 input_pic_cnt;
     i32 picture_enc_cnt;
     i32 idr_interval;
@@ -164,7 +167,7 @@ typedef struct {
     /* SW/HW shared memories for input/output buffers */
     EWLLinearMem_t *picture_mem;
     EWLLinearMem_t *picture_dsmem;
-    EWLLinearMem_t *outbuf_mem[MAX_FIFO_DEPTH];
+    EWLLinearMem_t *outbuf_mem[MAX_OUT_BUF_NUM];
     EWLLinearMem_t *roi_map_delta_qp_mem;
     EWLLinearMem_t *transform_mem;
     EWLLinearMem_t *roimap_cu_ctrl_infomem;
@@ -173,7 +176,7 @@ typedef struct {
     EWLLinearMem_t picture_mem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t picture_dsmem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t outbuf_mem_factory[MAX_CORE_NUM]
-                                     [MAX_FIFO_DEPTH]; /* [coreIdx][bufIdx] */
+                                     [MAX_OUT_BUF_NUM]; /* [coreIdx][bufIdx] */
     EWLLinearMem_t roi_map_delta_qpmem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t transform_mem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t roimap_cu_ctrl_infomem_factory[MAX_DELAY_NUM];
@@ -341,9 +344,7 @@ typedef struct {
     pthread_mutex_t h26xe_thd_mutex;
     pthread_cond_t h26xe_thd_cond;
     int h26xe_thd_end;
-    VpiEncOutData enc_pkt[MAX_OUTPUT_FIFO_DEPTH];
-    void *empty_fifo;
-    void *output_fifo;
+    VpiEncOutData enc_pkt[MAX_OUT_BUF_NUM];
 
     /* For idr passthrough */
     int next_idr_poc;
@@ -368,13 +369,23 @@ typedef struct {
     /*Input VpiFrame queue*/
     int poc;
     VpiEncH26xPic pic_wait_list[MAX_WAIT_DEPTH];
-    VpiEncOutData *cur_out_buf;
     int encode_end;
     int waiting_for_pkt;
     int eos_received;
 
     H26xEncBufLink* rls_pic_head;
     H26xEncBufLink* rls_pic_list[MAX_WAIT_DEPTH];
+
+    H26xEncBufLink* stream_buf_head;
+    H26xEncBufLink* stream_buf_list[MAX_OUTPUT_FIFO_DEPTH];
+
+    u32 output_pic_cnt;
+    u32 poc_bak;
+    u32 delta_poc;
+
+    void* outstream_mem[MAX_OUTPUT_FIFO_DEPTH];
+    VpiEncOutData outstream_pkt[MAX_OUTPUT_FIFO_DEPTH];
+    u8 outstrm_num;
 } VpiH26xEncCtx;
 
 enum {

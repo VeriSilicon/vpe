@@ -39,7 +39,7 @@
 #include "transcoder.h"
 #endif
 #endif
-
+#include "hugepage_api.h"
 #include "vpi_log.h"
 #include "vpi.h"
 #include "vpi_error.h"
@@ -1811,6 +1811,26 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
         }
     }
 
+    for (i_buf = 0; i_buf < INIT_OUTBUF_NUM; i_buf++) {
+        ctx->outstream_mem[i_buf] =
+            fbtrans_get_huge_pages(DEFAULT_OUT_STRM_BUF_SIZE);
+        if (ctx->outstream_mem[i_buf] == NULL) {
+            VPILOGE("Failed to allocate output buffer size!\n");
+            return VPI_ERR_MALLOC;
+        }
+    }
+    for (i_buf = 0; i_buf < MAX_OUTPUT_FIFO_DEPTH; i_buf++) {
+        ctx->stream_buf_list[i_buf] = malloc(sizeof(H26xEncBufLink));
+        if (NULL == ctx->stream_buf_list[i_buf]) {
+            VPILOGE("UNABLE TO ALLOCATE RELEASE PIC LIST MEMORY\n");
+            return VPI_ERR_MALLOC;
+        }
+        ctx->stream_buf_list[i_buf]->next      = NULL;
+        ctx->stream_buf_list[i_buf]->used      = 0;
+        ctx->stream_buf_list[i_buf]->item_size = DEFAULT_OUT_STRM_BUF_SIZE;
+    }
+    ctx->stream_buf_head = NULL;
+    ctx->outstrm_num     = INIT_OUTBUF_NUM;
     for (i_buf = 0; i_buf < MAX_WAIT_DEPTH; i_buf++) {
         ctx->rls_pic_list[i_buf] = malloc(sizeof(H26xEncBufLink));
         if (NULL == ctx->rls_pic_list[i_buf]) {
@@ -1980,10 +2000,22 @@ void h26x_enc_free_res(VpiH26xEncCtx *enc_ctx, VCEncInst enc)
         }
     }
 
+    if (enc_ctx->header_data) {
+        free(enc_ctx->header_data);
+    }
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         free(enc_ctx->rls_pic_list[i]);
     }
 
+    for (i = 0; i < enc_ctx->outstrm_num; i++) {
+        if (enc_ctx->outstream_mem[i]) {
+            fbtrans_free_huge_pages(enc_ctx->outstream_mem[i],
+                                    enc_ctx->stream_buf_list[i]->item_size);
+        }
+    }
+    for (i = 0; i < MAX_OUTPUT_FIFO_DEPTH; i++) {
+        free(enc_ctx->stream_buf_list[i]);
+    }
 #ifdef USE_OLD_DRV
     if (vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0].virtualAddress != NULL) {
         for (core_idx = 1; core_idx < vpi_h26xe_cfg->buffer_cnt; core_idx++)

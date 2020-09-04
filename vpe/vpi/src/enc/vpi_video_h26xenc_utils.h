@@ -91,21 +91,13 @@ void get_stream_bufs(VCEncStrmBufs *bufs, VPIH26xEncCfg *tb,
                      VPIH26xEncOptions *options, bool encoding);
 /* timer help*/
 unsigned int utime_diff(struct timeval end, struct timeval start);
-
-int h26x_enc_fifo_release(VpiH26xEncCtx *enc_ctx);
-int h26x_enc_fifo_init(VpiH26xEncCtx *enc_ctx);
-int h26x_enc_push_outfifo(VpiH26xEncCtx *enc_ctx,
-                          VpiEncOutData *enc_pkt);
-int h26x_enc_pop_outfifo(VpiH26xEncCtx *enc_ctx,
-                         VpiEncOutData **enc_pkt);
-int h26x_enc_push_emptyfifo(VpiH26xEncCtx *enc_ctx,
-                            VpiEncOutData *enc_pkt);
-int h26x_enc_pop_emptyfifo(VpiH26xEncCtx *enc_ctx,
-                           VpiEncOutData **enc_pkt);
+void h26x_enc_outbuf_init(VpiH26xEncCtx *enc_ctx);
 int h26x_enc_get_pic_buffer(VpiH26xEncCtx *ctx, void *outdata);
 int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata);
 int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem);
 void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc);
-int h26x_enc_get_out_buffer(VpiH26xEncCtx *ctx, VpiEncOutData **out_buffer);
 void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list);
+H26xEncBufLink* h26x_enc_buf_list_delete(H26xEncBufLink *head);
+int h26x_enc_get_empty_stream_buffer(VpiH26xEncCtx *ctx);
+void h26x_enc_outbuf_uninit(VpiH26xEncCtx *enc_ctx);
 #endif /* __VPI_VIDEO_H26XENC_UTILS_H__ */

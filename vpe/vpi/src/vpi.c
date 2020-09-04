@@ -446,6 +446,10 @@ static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
         return 0;
     }
 
+    if (vpe_vpi_ctx == NULL || vpe_vpi_ctx->ctx == NULL) {
+        VPILOGD("vpe_vpi_ctx %p has been destoryed\n", vpe_vpi_ctx);
+        return 0;
+    }
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
     case HEVCDEC_VPE:
@@ -746,9 +750,10 @@ int vpi_destroy(VpiCtx ctx)
         }
         return 0;
     }
-
+    VPILOGD("destroy %p\n", ctx);
     VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)ctx;
     free(vpe_vpi_ctx->ctx);
+    vpe_vpi_ctx->ctx = NULL;
     free(ctx);
 
     if (vpi_codec_ctx) {

@@ -18,6 +18,7 @@
 #include <linux/firmware.h>
 #include <linux/pci.h>
 #include <linux/hrtimer.h>
+#include <linux/interrupt.h>
 
 #include "common.h"
 #include "edma.h"
@@ -197,7 +198,7 @@ struct dw_edma_llp {
 void print_tc_debug_info(struct cb_tranx_t *tdev,
                 struct tcache_info *tc_info,
                                 struct dma_link_table  *new_table, int c);
-                                
+
 static inline void edma_write(struct cb_tranx_t *tdev,
 				 unsigned int addr, unsigned int val)
 {
@@ -1146,7 +1147,12 @@ static int cb_get_dma_addr(struct cb_tranx_t *tdev, unsigned long start,
 
 	flags |= FOLL_WRITE;
 	down_read(&current->mm->mmap_sem);
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0))
+	rv = get_user_pages(current, current->mm, start, page_cnt, 1, flags, user_pages, NULL);
+#else
 	rv = get_user_pages(start, page_cnt, flags, user_pages, NULL);
+#endif
 	up_read(&current->mm->mmap_sem);
 	if (rv != page_cnt) {
 		trans_dbg(tdev, TR_ERR,
@@ -1293,7 +1299,7 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 			tc_info->chk_rc2ep_err = 0;
 			if (tc_empty && tedma->wait_condition_r[c]) {
 				tc_info->current_index += tc_info->each_cnt;
-				
+
 				if (tc_info->current_index < tc_info->total_element_cnt) {/* it's not finished for total link table, setup next tranx  */
 					edma_info.element_size = min((tc_info->total_element_cnt-tc_info->current_index), tc_info->each_cnt);
 					if (!tc_info->retry_flag) {
@@ -1340,8 +1346,8 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 						"edma: %s_%d, wait edma done %dms timeout, reg_1334=0x%x\n",
 						__func__, tc_info->id, EDMA_TIMEOUT, reg_1334);
 					/* double check edma status and registers */
-					rv = double_check_edma_status(link_table, 
-								      tc_info->cur_element_cnt, 
+					rv = double_check_edma_status(link_table,
+								      tc_info->cur_element_cnt,
 								      tedma->tdev, RC2EP, c,
 								      tedma->wait_condition_r[c]);
 					if (rv == 0) {
@@ -1959,7 +1965,7 @@ int edma_init(struct cb_tranx_t *tdev)
 	if (pdev->msix_cap && pdev->msix_enabled) {
 		pci_read_config_word(pdev, pdev->msix_cap + PCI_MSIX_FLAGS, &flags);
 		pci_read_config_dword(pdev, pdev->msix_cap + PCI_MSIX_TABLE, &table);
-		
+
 		msix_bar = table & PCI_MSIX_TABLE_BIR;
 		msix_offset = table & PCI_MSIX_TABLE_OFFSET;
 		msix_size = ((flags & PCI_MSIX_FLAGS_QSIZE) + 1) * 16;

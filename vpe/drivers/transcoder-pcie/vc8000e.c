@@ -19,6 +19,7 @@
 #include <linux/timer.h>
 #include <linux/time.h>
 #include <linux/delay.h>
+#include <linux/interrupt.h>
 
 #include "common.h"
 #include "encoder.h"

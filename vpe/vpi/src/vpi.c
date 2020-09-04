@@ -740,7 +740,9 @@ int vpi_destroy(VpiCtx ctx)
 #ifdef FB_SYSLOG_ENABLE
             close_syslog_module();
 #endif
+#ifdef DEBUG
             log_close();
+#endif
             log_enabled = 0;
         }
         return 0;

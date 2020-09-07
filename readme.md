@@ -99,21 +99,8 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 
 ```
 
-### How to build, install and use VPI module
-
-* make help           - help info
-* make                - make all with VPI library and transcoder-pcie driver
-* make vpi            - make only VPI library
-* make drivers        - make only transcoder-pcie driver
-* make install        - copy the vpe sdk libs to default search path
-                          install the pcie driver
-                          run "sudo make install" if permission denied
+### How to build, install VPE
+ 
+* make                - make everything required
+* sudo make install   - install required libs, firmware to system
 * make clean          - make clean VPI and drivers
-
-### How to make FFmpeg
-* How to make FFmpeg
-  ```
-  cd ffmpeg
-  ./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi"
-  make
-  ```

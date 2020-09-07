@@ -67,12 +67,12 @@ extern "C" {
 #endif
 
 typedef enum {
-    LOG_LEVEL_OFF, // off
-    LOG_LEVEL_ERR, // error
-    LOG_LEVEL_WAR, // warning
-    LOG_LEVEL_INF, // information
-    LOG_LEVEL_DBG, // debug
-    LOG_LEVEL_VER, // verbose
+    LOG_LEVEL_OFF = 0, // off
+    LOG_LEVEL_ERR = 3, // error
+    LOG_LEVEL_WAR = 4, // warning
+    LOG_LEVEL_INF = 5, // information
+    LOG_LEVEL_DBG = 6, // debug
+    LOG_LEVEL_VER = 7, // verbose
     LOG_LEVEL_MAX
 } LogLevel;
 

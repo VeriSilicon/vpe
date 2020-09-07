@@ -533,24 +533,27 @@ static VpiApi vpe_api = {
     vpi_close,
 };
 
-static int log_init()
+static int log_init(LogLevel log_level)
 {
     char filename[512];
     time_t now;
     struct tm *tm;
 
-#ifndef DEBUG
-    log_setlevel(LOG_LEVEL_OFF);
-#else
+    printf("VPE log_level = %d\n", log_level);
+    log_setlevel(log_level);
+    if( log_level<= LOG_LEVEL_OFF)
+        return 0;
+
     time(&now);
     tm = localtime(&now);
 
     sprintf(filename, "vpi_%04d%02d%02d_%02d%02d%02d.log", tm->tm_year + 1900,
             tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
-    printf("log_filename %s\n", filename);
+    printf("VPE log_filename %s\n", filename);
 
     log_open(filename);
-#endif
+    log_enabled = 1;
+
     return 0;
 }
 
@@ -591,17 +594,10 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
     VpiH26xEncCtx *h26xenc_ctx;
     VpiPrcCtx *prc_ctx;
 
-    if (!log_enabled) {
-        if (log_init()) {
-            return -1;
-        }
-        log_enabled = 1;
-    }
-
     if (HWCONTEXT_VPE == plugin) {
         VpiSysInfo *vpi_dev_info = (VpiSysInfo *)(*ctx);
         if (!vpi_dev_info) {
-            VPILOGE("vpi dev info NULL\n");
+            printf("vpi dev info NULL\n");
             return -1;
         }
 
@@ -611,19 +607,22 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
             vpi_hw_ctx->hw_context = vpi_dev_info->device;
             if (ioctl(vpi_hw_ctx->hw_context, CB_TRANX_MEM_GET_TASKID,
                       &vpi_hw_ctx->task_id) < 0) {
-                VPILOGE("get task id failed!\n");
+                printf("get task id failed!\n");
                 return -1;
             }
             vpi_dev_info->task_id = vpi_hw_ctx->task_id;
             vpi_hw_ctx->priority  = vpi_dev_info->priority;
 
 #ifdef FB_SYSLOG_ENABLE
-            if (!vpi_dev_info->sys_log_level) {
-                vpi_dev_info->sys_log_level = SYSLOG_SINK_LEV_STAT;
-            }
-            VPILOGD("sys log level %d\n", vpi_dev_info->sys_log_level);
+            printf("sys log level %d\n", vpi_dev_info->sys_log_level);
             init_syslog_module("system", vpi_dev_info->sys_log_level);
 #endif
+            if (!log_enabled) {
+                if (log_init(vpi_dev_info->sys_log_level)) {
+                    return -1;
+                }
+            }
+
             *vpi = &vpe_api;
         }
 
@@ -740,10 +739,10 @@ int vpi_destroy(VpiCtx ctx)
 #ifdef FB_SYSLOG_ENABLE
             close_syslog_module();
 #endif
-#ifdef DEBUG
-            log_close();
-#endif
-            log_enabled = 0;
+            if( log_enabled){
+                log_close();
+                log_enabled = 0;
+            }
         }
         return 0;
     }

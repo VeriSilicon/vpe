@@ -100,6 +100,8 @@ typedef struct
   i32 constChromaEn;
   u32 constCb;
   u32 constCr;
+
+  u32 b_close_dummy_regs; /* for disable dummy regsister */
 } preProcess_s;
 
 /*------------------------------------------------------------------------------

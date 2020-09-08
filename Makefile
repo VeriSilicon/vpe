@@ -56,7 +56,7 @@ install:
 	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
 	/sbin/ldconfig
 	cp $(PWD)/vpi/inc/*.h $(INC_PATH)
-	rmmod transcoder_pcie
+	$(shell rmmod transcoder_pcie)
 	insmod drivers/transcoder-pcie/transcoder_pcie.ko
 	rm $(DRV_PATH) -rf
 	mkdir -p $(DRV_PATH)

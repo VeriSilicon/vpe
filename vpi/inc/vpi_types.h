@@ -65,10 +65,9 @@ typedef enum {
     VPI_CMD_VP9ENC_CONSUME_PIC,
 
     /*H26x encoder command*/
-    VPI_CMD_H26xENC_SET_NO_INFRM,
-    VPI_CMD_H26xENC_SET_IDR_POC,
-    VPI_CMD_H26xENC_UPDATE_INJECTIONNUM,
-    VPI_CMD_H26xENC_ENQUEUE_VPIFRAME,
+    VPI_CMD_H26xENC_GET_EMPTY_FRAME_SLOT,
+    VPI_CMD_H26xENC_CONSUME_PIC,
+    VPI_CMD_H26xENC_GET_FRAME_PACKET,
 
     /*pp command*/
     VPI_CMD_PP_CONFIG,
@@ -166,7 +165,6 @@ typedef struct VpiPacket {
     uint8_t *data;
     int64_t pts;
     int64_t pkt_dts;
-    int32_t index_encoded;
     void *opaque;
     int64_t duration;
 } VpiPacket;
@@ -275,12 +273,6 @@ typedef enum VpiPlugin {
 /*
  * below definition is for H26xEnc
  */
-typedef struct VpiH26xFrmHead {
-    uint8_t *header_data;
-    int header_size;
-    int resend_header;
-} VpiH26xFrmHead;
-
 typedef enum VpiH26xCodecID {
     CODEC_ID_HEVC,
     CODEC_ID_H264,
@@ -296,14 +288,6 @@ typedef enum VpiH26xPreset {
     VPE_PRESET_NUM
 } VpiH26xPreset;
 
-typedef enum VpiFlushState {
-    VPIH26X_FLUSH_IDLE,
-    VPIH26X_FLUSH_PREPARE,
-    VPIH26X_FLUSH_TRANSPIC,
-    VPIH26X_FLUSH_ENCDATA,
-    VPIH26X_FLUSH_FINISH,
-} VpiFlushState;
-
 typedef enum VpiPixFmt{
     VPI_YUV420_PLANAR,
     VPI_YUV420_SEMIPLANAR,
@@ -311,39 +295,6 @@ typedef enum VpiPixFmt{
     VPI_YUV420_PLANAR_10BIT_P010,
     VPI_YUV420_SEMIPLANAR_YUV420P,
 } VpiPixFmt;
-
-typedef enum VpiEncRet {
-    VPI_ENC_START_OK = 100, /*OK returned at encoder's start stage*/
-    VPI_ENC_START_OUT_ES, /*OUT_ES returned at encoder's start stage*/
-    VPI_ENC_START_ERROR, /*ERROR returned at encoder's stage stage*/
-    VPI_ENC_ENC_OK, /*OK returned at encoder's encoding stage*/
-    VPI_ENC_ENC_READY, /*READY returned at encoder's encoding stage*/
-    VPI_ENC_ENC_FRM_ENQUEUE, /*FRM_ENQUEUE returned at encoder's encoding
-                                stage*/
-    VPI_ENC_ENC_ERROR, /*ERROR returned at encoder's encoding stage*/
-    VPI_ENC_FLUSH_IDLE_OK, /*OK returned at encoder's FLUSH_IDLE stage */
-    VPI_ENC_FLUSH_IDLE_READY, /*READY returned at encoder's FLUSH_IDLE stage*/
-    VPI_ENC_FLUSH_IDLE_FRM_ENQUEUE, /*RFM_ENQUEUE returned at encoder's
-                                       FLUSH_IDLE stage*/
-    VPI_ENC_FLUSH_IDLE_ERROR, /*ERROR returned at encoder's FLUSH_IDLE stage*/
-    VPI_ENC_FLUSH_PREPARE, /*indicate the encoder at FLUSH_PREPARE stage*/
-    VPI_ENC_FLUSH_TRANSPIC_OK, /*OK returned at encoder's FLUSH_TRANSPIC stage*/
-    VPI_ENC_FLUSH_TRANSPIC_READY, /*READY returned at encoder's FLUSH_TRANSPIC
-                                     stage*/
-    VPI_ENC_FLUSH_TRANSPIC_ERROR, /*READY returned at encoder's FLUSH_TRANSPIC
-                                     stage*/
-    VPI_ENC_FLUSH_ENCDATA_OK, /*OK returned at encoder's FLUSH_ENCDATA stage*/
-    VPI_ENC_FLUSH_ENCDATA_READY, /*READY returned at encoder's FLUSH_ENCDATA
-                                    stage*/
-    VPI_ENC_FLUSH_ENCDATA_FRM_ENQUEUE, /*FRM_ENQUEUE returned at encoder's
-                                          FLUSH_ENCDATA stage*/
-    VPI_ENC_FLUSH_ENCDATA_ERROR, /*ERROR returned at encoder's FLUSH_ENCDATA
-                                    stage*/
-    VPI_ENC_FLUSH_FINISH_OK, /*OK returned at encoder's FLUSH_FINISH stage*/
-    VPI_ENC_FLUSH_FINISH_ERROR, /*ERROR returned at encoder's FLUSH_FINISH
-                                   stage*/
-    VPI_ENC_FLUSH_FINISH_END /*END returned at encoder's FLUSH_FINISH stage*/
-} VpiEncRet;
 
 typedef struct VpiDecOption {
     char *pp_setting;

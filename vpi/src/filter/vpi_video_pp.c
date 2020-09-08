@@ -2643,6 +2643,7 @@ static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
         VPILOGE("pp_client_init failed!\n");
         return -1;
     }
+    pthread_mutex_init(&filter->pp_client->pp_mutex, NULL);
 
     ret = pp_set_hwframe_res(filter);
     if (ret < 0) {
@@ -2654,8 +2655,6 @@ static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
     if (ret < 0) {
         return -1;
     }
-
-    pthread_mutex_init(&filter->pp_client->pp_mutex, NULL);
 
     return 0;
 }
@@ -2921,10 +2920,10 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
 #else
         free(pp_client);
 #endif
+
+        pthread_mutex_destroy(&pp_client->pp_mutex);
         filter->pp_client = NULL;
     }
-
-    pthread_mutex_destroy(&pp_client->pp_mutex);
 
     if (inst) {
 #ifdef CHECK_MEM_LEAK_TRANS

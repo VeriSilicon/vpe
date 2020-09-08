@@ -29,12 +29,15 @@
 #include "transcoder.h"
 
 #define description_string	"transcoder driver"
-#define version_string		"2.44"
+#define version_string		"2.45"
 
 #define FB_VENDOR_ID		0x1d9b
 #define FB_DEVICE_ID		0xface
 #define VSI_VENDOR_ID		0x1eb1
 #define VSI_DEVICE_ID		0x1001
+#define YX_VENDOR_ID            0x1ebd
+#define YX_DEVICE_ID            0x0101
+
 
 #define DEVICE_CNT		12
 
@@ -574,6 +577,7 @@ static int trans_resume(struct pci_dev *pdev)
 static struct pci_device_id trans_pcie_table[] = {
 	{FB_VENDOR_ID, FB_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{VSI_VENDOR_ID, VSI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+	{YX_VENDOR_ID, YX_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{0,}
 };
 

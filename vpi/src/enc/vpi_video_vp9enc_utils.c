@@ -795,7 +795,7 @@ void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
         return;
     }
 
-    trans_pic->poc = -1;
+    trans_pic->poc   = -1;
     trans_pic->state = 0;
     trans_pic->used  = 0;
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {

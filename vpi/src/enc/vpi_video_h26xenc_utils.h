@@ -35,24 +35,24 @@
 
 FILE *open_file(char *name, char *mode);
 void h26x_enc_write_strm(FILE *fout, u32 *strmbuf, u32 size, u32 endian);
-i32 setup_roi_map_buffer(struct VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
+i32 setup_roi_map_buffer(VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
                          VCEncIn *p_enc_in, VCEncInst encoder);
 /*input YUV format convertion for specific format*/
 float get_pixel_width_inbyte(VCEncPictureType type);
-FILE *format_customized_yuv(struct VPIH26xEncCfg *tb,
+FILE *format_customized_yuv(VPIH26xEncCfg *tb,
                             VPIH26xEncOptions *options, i32 *ret);
 void change_cml_customized_format(VPIH26xEncOptions *options);
 void change_to_customized_format(VPIH26xEncOptions *options,
                                  VCEncPreProcessingCfg *pre_proc_cfg);
 /*read&parse input cfg files for different features*/
-i32 read_config_files(struct VPIH26xEncCfg *tb, VPIH26xEncOptions *options);
-i32 read_gmv(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
+i32 read_config_files(VPIH26xEncCfg *tb, VPIH26xEncOptions *options);
+i32 read_gmv(VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
              VPIH26xEncOptions *options);
 i32 parsing_smart_config(char *fname, VPIH26xEncOptions *options);
 /*input YUV read*/
-i32 read_picture(struct VPIH26xEncCfg *tb, u32 input_format, u32 src_img_size,
+i32 read_picture(VPIH26xEncCfg *tb, u32 input_format, u32 src_img_size,
                  u32 src_width, u32 src_height);
-u64 h26x_enc_next_picture(struct VPIH26xEncCfg *tb, int picture_cnt);
+u64 h26x_enc_next_picture(VPIH26xEncCfg *tb, int picture_cnt);
 void get_aligned_pic_size_byformat(i32 type, u32 width, u32 height,
                                    u32 alignment, u32 *luma_size,
                                    u32 *chroma_size, u32 *picture_size);
@@ -63,44 +63,49 @@ int init_gop_configs(int gop_size, VPIH26xEncOptions *options,
 /*SEI information from cfg file*/
 u8 *read_userdata(VCEncInst encoder, char *name);
 /*adaptive gop decision*/
-i32 adaptive_gop_decision(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
+i32 adaptive_gop_decision(VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
                           VCEncInst encoder, i32 *p_next_gop_size,
                           AdapGopCtr *agop);
-i32 get_next_gop_size(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
+i32 get_next_gop_size(VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
                       VCEncInst encoder, i32 *p_next_gop_size,
                       AdapGopCtr *agop);
-u32 setup_input_buffer(struct VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
+u32 setup_input_buffer(VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
                        VCEncIn *p_enc_in);
-void setup_output_buffer(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in);
-void get_free_iobuffer(struct VPIH26xEncCfg *tb);
-void init_slice_ctl(struct VPIH26xEncCfg *tb,
-                    struct VPIH26xEncOptions *options);
-void setup_slice_ctl(struct VPIH26xEncCfg *tb);
-i32 change_format_for_FB(struct VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
+void setup_output_buffer(VCEncInst inst, VpiEncOutData *out_buffer,
+                         VCEncIn *p_enc_in);
+void get_free_iobuffer(VPIH26xEncCfg *tb);
+void init_slice_ctl(VPIH26xEncCfg *tb, VPIH26xEncOptions *options);
+void setup_slice_ctl(VPIH26xEncCfg *tb);
+i32 change_format_for_FB(VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
                          VCEncPreProcessingCfg *pre_proc_cfg);
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-i32 read_table(struct VPIH26xEncCfg *tb, u32 lum_tbl_size, u32 ch_tbl_size);
+i32 read_table(VPIH26xEncCfg *tb, u32 lum_tbl_size, u32 ch_tbl_size);
 #endif
-void init_stream_segment_crl(struct VPIH26xEncCfg *tb,
-                             struct VPIH26xEncOptions *options);
+void init_stream_segment_crl(VPIH26xEncCfg *tb, VPIH26xEncOptions *options);
 void write_strm_bufs(FILE *fout, VCEncStrmBufs *bufs, u32 offset, u32 size,
                      u32 endian);
 void write_nals_bufs(FILE *fout, VCEncStrmBufs *bufs,
                      const u32 *p_nalu_size_buf, u32 num_nalus, u32 offset,
                      u32 hdr_size, u32 endian);
-void get_stream_bufs(VCEncStrmBufs *bufs, struct VPIH26xEncCfg *tb,
+void get_stream_bufs(VCEncStrmBufs *bufs, VPIH26xEncCfg *tb,
                      VPIH26xEncOptions *options, bool encoding);
 /* timer help*/
 unsigned int utime_diff(struct timeval end, struct timeval start);
 
-int h26x_enc_fifo_release(struct VpiH26xEncCtx *enc_ctx);
-int h26x_enc_fifo_init(struct VpiH26xEncCtx *enc_ctx);
-int h26x_enc_push_outfifo(struct VpiH26xEncCtx *enc_ctx,
-                          VpiH26xEncPkt *enc_pkt);
-int h26x_enc_pop_outfifo(struct VpiH26xEncCtx *enc_ctx,
-                         VpiH26xEncPkt **enc_pkt);
-int h26x_enc_push_emptyfifo(struct VpiH26xEncCtx *enc_ctx,
-                            VpiH26xEncPkt *enc_pkt);
-int h26x_enc_pop_emptyfifo(struct VpiH26xEncCtx *enc_ctx,
-                           VpiH26xEncPkt **enc_pkt);
+int h26x_enc_fifo_release(VpiH26xEncCtx *enc_ctx);
+int h26x_enc_fifo_init(VpiH26xEncCtx *enc_ctx);
+int h26x_enc_push_outfifo(VpiH26xEncCtx *enc_ctx,
+                          VpiEncOutData *enc_pkt);
+int h26x_enc_pop_outfifo(VpiH26xEncCtx *enc_ctx,
+                         VpiEncOutData **enc_pkt);
+int h26x_enc_push_emptyfifo(VpiH26xEncCtx *enc_ctx,
+                            VpiEncOutData *enc_pkt);
+int h26x_enc_pop_emptyfifo(VpiH26xEncCtx *enc_ctx,
+                           VpiEncOutData **enc_pkt);
+int h26x_enc_get_pic_buffer(VpiH26xEncCtx *ctx, void *outdata);
+int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata);
+int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem);
+void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc);
+int h26x_enc_get_out_buffer(VpiH26xEncCtx *ctx, VpiEncOutData **out_buffer);
+void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list);
 #endif /* __VPI_VIDEO_H26XENC_UTILS_H__ */

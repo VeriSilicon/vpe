@@ -46,6 +46,7 @@
 #include "encasiccontroller.h"
 #include "instance.h"
 #include "vpi_video_h26xenc.h"
+#include "vpi.h"
 
 #ifdef INTERNAL_TEST
 #include "sw_test_id.h"
@@ -220,6 +221,35 @@ FILE *open_file(char *name, char *mode)
     return fp;
 }
 
+void h26xenc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list)
+{
+    H26xEncBufLink *temp;
+
+    if(NULL == *head) {
+        *head = list;
+        (*head)->next = NULL;
+    } else {
+        temp = *head;
+        while(temp) {
+            if(NULL == temp->next) {
+                temp->next = list;
+                list->next = NULL;
+                return;
+            }
+            temp = temp->next;
+        }
+    }
+}
+
+H26xEncBufLink* h26xenc_buf_list_delete(H26xEncBufLink *head)
+{
+    if (NULL == head || NULL == head->next) {
+        return NULL;
+    }
+
+    return head->next;
+}
+
 /**
  *WriteStrm
  *Write encoded stream to file
@@ -260,11 +290,11 @@ void h26x_enc_write_strm(FILE *fout, u32 *strmbuf, u32 size, u32 endian)
     fwrite(strmbuf, 1, size, fout);
 }
 
-void get_stream_bufs(VCEncStrmBufs *bufs, struct VPIH26xEncCfg *tb,
+void get_stream_bufs(VCEncStrmBufs *bufs, VPIH26xEncCfg *tb,
                      VPIH26xEncOptions *options, bool encoding)
 {
     i32 i;
-    for (i = 0; i < MAX_STRM_BUF_NUM; i++) {
+    for (i = 0; i < MAX_FIFO_DEPTH; i++) {
 #ifdef USE_OLD_DRV
         bufs->buf[i] =
             tb->outbuf_mem[i] ? (u8 *)tb->outbuf_mem[i]->virtualAddress : NULL;
@@ -489,7 +519,7 @@ static void write_qp_delta_row_data_2_memory(char *qp_delta_row_start_addr,
 }
 
 static i32 copy_qp_delta_2_memory(VPIH26xEncOptions *options, VCEncInst enc,
-                                  struct VPIH26xEncCfg *vpi_h26xe_cfg,
+                                  VPIH26xEncCfg *vpi_h26xe_cfg,
                                   i32 roi_map_version)
 {
 #define MAX_LINE_LENGTH_BLOCK 512 * 8
@@ -653,7 +683,7 @@ copyEnd:
 }
 
 static int copy_flags_map_2_memory(VPIH26xEncOptions *options, VCEncInst enc,
-                                   struct VPIH26xEncCfg *vpi_h26xe_cfg)
+                                   VPIH26xEncCfg *vpi_h26xe_cfg)
 {
     u32 ctb_per_row =
         ((options->width + options->max_cu_size - 1) / (options->max_cu_size));
@@ -917,6 +947,7 @@ void get_aligned_pic_size_byformat(i32 type, u32 width, u32 height,
         break;
 
         /* fb format */
+    case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P:
     case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR:
     case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_VU:
         luma_stride   = STRIDE(width, alignment);
@@ -1013,7 +1044,7 @@ void get_aligned_pic_size_byformat(i32 type, u32 width, u32 height,
 #endif
 
     default:
-        printf("not support this format\n");
+        VPILOGD("not support this format\n");
         chroma_size = luma_size = 0;
         break;
     }
@@ -1163,7 +1194,7 @@ void change_cml_customized_format(VPIH26xEncOptions *options)
         options->format_customized_type = -1;
 }
 
-static void trans_yuv_to_fbformat(struct VPIH26xEncCfg *tb,
+static void trans_yuv_to_fbformat(VPIH26xEncCfg *tb,
                                   VPIH26xEncOptions *options, i32 *ret)
 {
     u8 *transform_buf;
@@ -1183,7 +1214,7 @@ static void trans_yuv_to_fbformat(struct VPIH26xEncCfg *tb,
     else if (options->input_format == VCENC_YUV420_PLANAR_10BIT_P010)
         byte_per_compt = 2;
 
-    printf("transform YUV to FB format\n");
+    VPILOGD("transform YUV to FB format\n");
 
     if ((options->input_format == VCENC_YUV420_SEMIPLANAR) ||
         (options->input_format == VCENC_YUV420_SEMIPLANAR_VU) ||
@@ -1237,7 +1268,7 @@ static void trans_yuv_to_fbformat(struct VPIH26xEncCfg *tb,
 #endif
 }
 
-i32 read_config_files(struct VPIH26xEncCfg *vpi_h26xe_cfg,
+i32 read_config_files(VPIH26xEncCfg *vpi_h26xe_cfg,
                       VPIH26xEncOptions *options)
 {
     i32 i;
@@ -1298,7 +1329,7 @@ i32 read_config_files(struct VPIH26xEncCfg *vpi_h26xe_cfg,
         vpi_h26xe_cfg->roi_map_info_bin_file =
             fopen(options->roi_map_info_bin_file, "rb");
         if (vpi_h26xe_cfg->roi_map_info_bin_file == NULL) {
-            printf("ROI map config: Error, Can Not Open File %s\n",
+            VPILOGE("ROI map config: Error, Can Not Open File %s\n",
                    options->roi_map_info_bin_file);
         }
     }
@@ -1308,7 +1339,7 @@ i32 read_config_files(struct VPIH26xEncCfg *vpi_h26xe_cfg,
         vpi_h26xe_cfg->roimap_cu_ctrl_info_bin_file =
             fopen(options->roimap_cu_ctrl_info_bin_file, "rb");
         if (vpi_h26xe_cfg->roimap_cu_ctrl_info_bin_file == NULL) {
-            printf("ROI map cu ctrl config: Error, Can Not Open File %s\n",
+            VPILOGE("ROI map cu ctrl config: Error, Can Not Open File %s\n",
                    options->roimap_cu_ctrl_info_bin_file);
         }
     }
@@ -1318,7 +1349,7 @@ i32 read_config_files(struct VPIH26xEncCfg *vpi_h26xe_cfg,
         vpi_h26xe_cfg->roimap_cu_ctrl_index_bin_file =
             fopen(options->roimap_cu_ctrl_index_bin_file, "rb");
         if (vpi_h26xe_cfg->roimap_cu_ctrl_index_bin_file == NULL) {
-            printf("ROI map cu ctrl index config: Error, Can Not Open File %s\n",
+            VPILOGE("ROI map cu ctrl index config: Error, Can Not Open File %s\n",
                    options->roimap_cu_ctrl_index_bin_file);
         }
     }
@@ -1362,7 +1393,7 @@ static i32 parse_gmv_file(FILE *f_in, i16 *hor, i16 *ver, i32 list)
     return 0;
 }
 
-i32 read_gmv(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
+i32 read_gmv(VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
              VPIH26xEncOptions *options)
 {
     i16 mvx, mvy, i;
@@ -1580,7 +1611,7 @@ static i32 file_read(FILE *file, u8 *data, u64 seek, size_t size)
  *h26x_enc_next_picture calculates next input picture depending input and output
  *frame rates.
  */
-u64 h26x_enc_next_picture(struct VPIH26xEncCfg *tb, int picture_cnt)
+u64 h26x_enc_next_picture(VPIH26xEncCfg *tb, int picture_cnt)
 {
     u64 numer, denom;
 
@@ -1590,7 +1621,7 @@ u64 h26x_enc_next_picture(struct VPIH26xEncCfg *tb, int picture_cnt)
     return numer * (picture_cnt / (1 << tb->interlaced_frame)) / denom;
 }
 
-i32 read_picture(struct VPIH26xEncCfg *vpi_h26xe_cfg, u32 inputFormat,
+i32 read_picture(VPIH26xEncCfg *vpi_h26xe_cfg, u32 inputFormat,
                  u32 src_img_size, u32 src_width, u32 src_height)
 {
     i32 num;
@@ -2747,7 +2778,7 @@ u8 *read_userdata(VCEncInst encoder, char *name)
     return data;
 }
 
-i32 get_next_gop_size(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
+i32 get_next_gop_size(VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
                       VCEncInst encoder, i32 *p_next_gop_size, AdapGopCtr *agop)
 {
     struct vcenc_instance *vcenc_instance = (struct vcenc_instance *)encoder;
@@ -2762,7 +2793,7 @@ i32 get_next_gop_size(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
     return *p_next_gop_size;
 }
 
-i32 adaptive_gop_decision(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
+i32 adaptive_gop_decision(VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
                           VCEncInst encoder, i32 *p_next_gop_size,
                           AdapGopCtr *agop)
 {
@@ -2879,7 +2910,7 @@ i32 adaptive_gop_decision(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in,
 #define VCE_INPUT_ALIGNMENT 32
 #endif
 
-i32 change_format_for_FB(struct VPIH26xEncCfg *vpi_h26xe_cfg,
+i32 change_format_for_FB(VPIH26xEncCfg *vpi_h26xe_cfg,
                          VPIH26xEncOptions *options,
                          VCEncPreProcessingCfg *pre_proc_cfg)
 {
@@ -2938,9 +2969,15 @@ i32 change_format_for_FB(struct VPIH26xEncCfg *vpi_h26xe_cfg,
         break;
 #endif
     case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR:
-    case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_VU:
         pre_proc_cfg->inputType = VCENC_YUV420_SEMIPLANAR;
+        break;
+    case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_VU:
+        pre_proc_cfg->inputType = VCENC_YUV420_SEMIPLANAR_VU;
         /*pre_proc_cfg->input_alignment = 32;*/ /*depend on the options option*/
+        break;
+    case INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P:
+        pre_proc_cfg->inputType       = VCENC_YUV420_PLANAR;
+        pre_proc_cfg->input_alignment = 32;
         break;
     case INPUT_FORMAT_PP_YUV420_PLANAR_10BIT_P010:
         pre_proc_cfg->inputType       = VCENC_YUV420_PLANAR_10BIT_P010;
@@ -2956,7 +2993,7 @@ i32 change_format_for_FB(struct VPIH26xEncCfg *vpi_h26xe_cfg,
 }
 
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
-i32 read_table(struct VPIH26xEncCfg *tb, u32 lum_tbl_size, u32 ch_tbl_size)
+i32 read_table(VPIH26xEncCfg *tb, u32 lum_tbl_size, u32 ch_tbl_size)
 {
     i32 num;
 
@@ -3010,7 +3047,7 @@ static u32 get_bits_per_pixel(i32 input_type)
 }
 #endif
 
-u32 setup_input_buffer(struct VPIH26xEncCfg *vpi_h26xe_cfg,
+u32 setup_input_buffer(VPIH26xEncCfg *vpi_h26xe_cfg,
                        VPIH26xEncOptions *options, VCEncIn *p_enc_in)
 {
     u32 src_img_size;
@@ -3156,26 +3193,21 @@ u32 setup_input_buffer(struct VPIH26xEncCfg *vpi_h26xe_cfg,
     return src_img_size;
 }
 
-void setup_output_buffer(struct VPIH26xEncCfg *tb, VCEncIn *p_enc_in)
+void setup_output_buffer(VCEncInst inst, VpiEncOutData *out_buffer,
+                         VCEncIn *p_enc_in)
 {
-    u32 i_buf;
-
-    tb->outbuf_index++;
-    i_buf = tb->outbuf_index = tb->outbuf_index % MAX_OUTPUT_FIFO_DEPTH;
-
-    tb->outbuf_mem[0] = &(tb->outbuf_mem_factory[tb->picture_enc_cnt %
-                                                 tb->parallel_core_num][i_buf]);
-
-    p_enc_in->busOutBuf[0]  = tb->outbuf_mem[i_buf]->busAddress;
-    p_enc_in->outBufSize[0] = tb->outbuf_mem[i_buf]->size;
+    p_enc_in->busOutBuf[0]  = out_buffer->outbuf_mem->busAddress;
+    p_enc_in->outBufSize[0] = out_buffer->outbuf_mem->size;
+    VCEncSetOutBusAddr(inst, out_buffer->outbuf_mem);
 #ifdef USE_OLD_DRV
-    p_enc_in->pOutBuf[0] = tb->outbuf_mem[i_buf]->virtualAddress;
+    p_enc_in->pOutBuf[0] = out_buffer->outbuf_mem->virtualAddress;
 #else
-    p_enc_in->pOutBuf[0] = tb->outbuf_mem[i_buf]->rc_virtualAddress;
+    p_enc_in->pOutBuf[0] = out_buffer->outbuf_mem->rc_virtualAddress;
 #endif
+    VPILOGD("p_enc_in->busOutBuf[0] %x\n", (uint32_t)p_enc_in->busOutBuf[0]);
 }
 
-static i32 setup_roi_map_ver3(struct VPIH26xEncCfg *tb,
+static i32 setup_roi_map_ver3(VPIH26xEncCfg *tb,
                               VPIH26xEncOptions *options, VCEncInst encoder)
 {
     u8 *memory;
@@ -3442,7 +3474,7 @@ static i32 setup_roi_map_ver3(struct VPIH26xEncCfg *tb,
     return OK;
 }
 
-i32 setup_roi_map_buffer(struct VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
+i32 setup_roi_map_buffer(VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
                          VCEncIn *p_enc_in, VCEncInst encoder)
 {
     struct vcenc_instance *vcenc_instance = (struct vcenc_instance *)encoder;
@@ -3492,7 +3524,7 @@ i32 setup_roi_map_buffer(struct VPIH26xEncCfg *tb, VPIH26xEncOptions *options,
     return OK;
 }
 
-FILE *format_customized_yuv(struct VPIH26xEncCfg *tb,
+FILE *format_customized_yuv(VPIH26xEncCfg *tb,
                             VPIH26xEncOptions *options, i32 *ret)
 {
     *ret = OK;
@@ -3506,7 +3538,7 @@ FILE *format_customized_yuv(struct VPIH26xEncCfg *tb,
     return NULL;
 }
 
-void get_free_iobuffer(struct VPIH26xEncCfg *tb)
+void get_free_iobuffer(VPIH26xEncCfg *tb)
 {
     i32 i_buf;
 
@@ -3544,7 +3576,7 @@ void get_free_iobuffer(struct VPIH26xEncCfg *tb)
 #endif
 }
 
-void init_slice_ctl(struct VPIH26xEncCfg *tb, struct VPIH26xEncOptions *options)
+void init_slice_ctl(VPIH26xEncCfg *tb, VPIH26xEncOptions *options)
 {
     int i;
     for (i = 0; i < MAX_CORE_NUM; i++) {
@@ -3560,8 +3592,7 @@ void init_slice_ctl(struct VPIH26xEncCfg *tb, struct VPIH26xEncOptions *options)
     }
 }
 
-void init_stream_segment_crl(struct VPIH26xEncCfg *tb,
-                             struct VPIH26xEncOptions *options)
+void init_stream_segment_crl(VPIH26xEncCfg *tb, VPIH26xEncOptions *options)
 {
     tb->stream_seg_ctl.stream_rd_counter = 0;
     tb->stream_seg_ctl.stream_multi_seg_en =
@@ -3588,7 +3619,7 @@ void init_stream_segment_crl(struct VPIH26xEncCfg *tb,
     tb->stream_seg_ctl.out_stream_file    = tb->out;
 }
 
-void setup_slice_ctl(struct VPIH26xEncCfg *tb)
+void setup_slice_ctl(VPIH26xEncCfg *tb)
 {
     /*find transform buffer of multi-cores*/
     tb->slice_ctl =
@@ -3603,34 +3634,37 @@ unsigned int uTimeDiff(struct timeval end, struct timeval start)
     return (end.tv_sec - start.tv_sec) * 1000000 +
            (end.tv_usec - start.tv_usec);
 }
-int h26x_enc_fifo_release(struct VpiH26xEncCtx *enc_ctx)
+int h26x_enc_fifo_release(VpiH26xEncCtx *enc_ctx)
 {
     int i                                       = 0;
     const struct vcenc_instance *vcenc_instance = enc_ctx->hantro_encoder;
 
-    if (enc_ctx->outputFifo)
-        FifoRelease(enc_ctx->outputFifo);
-    if (enc_ctx->emptyFifo)
-        FifoRelease(enc_ctx->emptyFifo);
+    if (enc_ctx->output_fifo)
+        FifoRelease(enc_ctx->output_fifo);
+    if (enc_ctx->empty_fifo)
+        FifoRelease(enc_ctx->empty_fifo);
 
     return 0;
 }
 
-int h26x_enc_fifo_init(struct VpiH26xEncCtx *enc_ctx)
+int h26x_enc_fifo_init(VpiH26xEncCtx *enc_ctx)
 {
+    VPIH26xEncCfg *cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
     int ret = 0, i = 0;
 
-    ret = FifoInit(MAX_OUTPUT_FIFO_DEPTH, (FifoInst *)&enc_ctx->emptyFifo);
+    ret = FifoInit(MAX_OUTPUT_FIFO_DEPTH, (FifoInst *)&enc_ctx->empty_fifo);
     if (ret < 0) {
         goto error;
     }
-    ret = FifoInit(MAX_OUTPUT_FIFO_DEPTH, (FifoInst *)&enc_ctx->outputFifo);
+    ret = FifoInit(MAX_OUTPUT_FIFO_DEPTH, (FifoInst *)&enc_ctx->output_fifo);
     if (ret < 0) {
         goto error;
     }
     for (i = 0; i < MAX_OUTPUT_FIFO_DEPTH; i++) {
         memset(&enc_ctx->enc_pkt[i], 0, sizeof(enc_ctx->enc_pkt[i]));
-        if (FifoPush(enc_ctx->emptyFifo, &enc_ctx->enc_pkt[i],
+        enc_ctx->enc_pkt[i].outbuf_mem = &(cfg->outbuf_mem_factory[cfg->picture_enc_cnt %
+                                                 cfg->parallel_core_num][i]);
+        if (FifoPush(enc_ctx->empty_fifo, &enc_ctx->enc_pkt[i],
                      FIFO_EXCEPTION_DISABLE)) {
             VPILOGE("[%s L%d] FifoPush to emptryFifo fails\n", __FUNCTION__,
                     __LINE__);
@@ -3643,26 +3677,234 @@ error:
     return 0;
 }
 
-int h26x_enc_push_outfifo(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncPkt *enc_pkt)
+int h26x_enc_push_outfifo(VpiH26xEncCtx *enc_ctx, VpiEncOutData *enc_pkt)
 {
-    return FifoPush(enc_ctx->outputFifo, enc_pkt, FIFO_EXCEPTION_ENABLE);
+    return FifoPush(enc_ctx->output_fifo, enc_pkt, FIFO_EXCEPTION_ENABLE);
 }
 
-int h26x_enc_pop_outfifo(struct VpiH26xEncCtx *enc_ctx, VpiH26xEncPkt **enc_pkt)
+int h26x_enc_pop_outfifo(VpiH26xEncCtx *enc_ctx, VpiEncOutData **enc_pkt)
 {
-    return FifoPop(enc_ctx->outputFifo, (FifoObject *)enc_pkt,
+    return FifoPop(enc_ctx->output_fifo, (FifoObject *)enc_pkt,
                    FIFO_EXCEPTION_ENABLE);
 }
 
-int h26x_enc_push_emptyfifo(struct VpiH26xEncCtx *enc_ctx,
-                            VpiH26xEncPkt *enc_pkt)
+int h26x_enc_push_emptyfifo(VpiH26xEncCtx *enc_ctx,
+                            VpiEncOutData *enc_pkt)
 {
-    return FifoPush(enc_ctx->emptyFifo, enc_pkt, FIFO_EXCEPTION_DISABLE);
+    return FifoPush(enc_ctx->empty_fifo, enc_pkt, FIFO_EXCEPTION_DISABLE);
 }
 
-int h26x_enc_pop_emptyfifo(struct VpiH26xEncCtx *enc_ctx,
-                           VpiH26xEncPkt **enc_pkt)
+int h26x_enc_pop_emptyfifo(VpiH26xEncCtx *enc_ctx,
+                           VpiEncOutData **enc_pkt)
 {
-    return FifoPop(enc_ctx->emptyFifo, (FifoObject *)enc_pkt,
+    return FifoPop(enc_ctx->empty_fifo, (FifoObject *)enc_pkt,
                    FIFO_EXCEPTION_ENABLE);
+}
+
+static int h26x_enc_input_data_check(VpiH26xEncCtx *ctx)
+{
+    VpiEncH26xPic *pTrans;
+    int i;
+    int num = 0;
+
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 1) {
+            pTrans = &ctx->pic_wait_list[i];
+            num++;
+            VPILOGI("poc = %d\n", pTrans->poc);
+        }
+    }
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+
+    VPILOGI("total num = %d\n", num);
+    return num;
+}
+
+int h26x_enc_get_pic_buffer(VpiH26xEncCtx *ctx, void *outdata)
+{
+    VpiFrame **frame;
+    VpiEncH26xPic *trans_pic = NULL;
+    int status, i;
+    int input_cnt;
+
+    do {
+        input_cnt = h26x_enc_input_data_check(ctx);
+        if (input_cnt >= ctx->num_dec_max) {
+            usleep(1000);
+            continue;
+        } else {
+            break;
+        }
+    } while(1);
+
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    frame = (VpiFrame **)outdata;
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 0) {
+            trans_pic = &ctx->pic_wait_list[i];
+            break;
+        }
+    }
+    if (i == MAX_WAIT_DEPTH) {
+        *frame = NULL;
+        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+        return -1;
+    }
+    if (trans_pic->pic == NULL) {
+        trans_pic->pic = malloc(sizeof(VpiFrame));
+    }
+    *frame = trans_pic->pic;
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+    return 0;
+}
+
+int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
+{
+    int stream_size;
+    int ret;
+    VpiEncOutData *out_buf = NULL;
+
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    while (1) {
+        ret = h26x_enc_pop_outfifo(ctx, &out_buf);
+        if (FIFO_OK == ret) {
+            if (out_buf->end_data == HANTRO_TRUE) {
+                ctx->encode_end = 1;
+                ctx->flush_state = VPIH26X_FLUSH_ENCEND;
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                return 1;
+            }
+            stream_size = out_buf->resend_header ? out_buf->stream_size :
+                                (out_buf->stream_size + out_buf->header_size);
+            ctx->cur_out_buf = out_buf;
+            *(int *)outdata = stream_size;
+            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+            return 0;
+        } else if (FIFO_EMPTY == ret) {
+            if (ctx->encode_end == 1) {
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                return 1;
+            } else {
+                if (ctx->eos_received == 0) {
+                    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                    return -1;
+                } else {
+                    ctx->waiting_for_pkt = 1;
+                    pthread_cond_wait(&ctx->h26xe_thd_cond,
+                                      &ctx->h26xe_thd_mutex);
+                    continue;
+                }
+            }
+        }
+    }
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+    return 0;
+}
+
+void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list)
+{
+    H26xEncBufLink *temp;
+
+    if(NULL == *head) {
+        *head = list;
+        (*head)->next = NULL;
+    } else {
+        temp = *head;
+        while(temp) {
+            if(NULL == temp->next) {
+                temp->next = list;
+                list->next = NULL;
+                return;
+            }
+            temp = temp->next;
+        }
+    }
+}
+
+static H26xEncBufLink* h26x_enc_buf_list_delete(H26xEncBufLink *head)
+{
+    if (NULL == head || NULL == head->next) {
+        return NULL;
+    }
+
+    return head->next;
+}
+
+int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem)
+{
+    VpiBufRef **ref;
+
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    ref = (VpiBufRef **)mem;
+    if (ctx->rls_pic_head) {
+        *ref = (VpiBufRef *)ctx->rls_pic_head->item;
+        ctx->rls_pic_head->used = 0;
+        ctx->rls_pic_head =
+            h26x_enc_buf_list_delete(ctx->rls_pic_head);
+    } else {
+        *ref = NULL;
+    }
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+    return 0;
+}
+
+void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc)
+{
+    VpiEncH26xPic * trans_pic = NULL;
+    int i;
+
+    //find the need_poc
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->pic_wait_list[i].state == 1) {
+            trans_pic = &ctx->pic_wait_list[i];
+            if (trans_pic->poc == consume_poc) {
+                break;
+            }
+        }
+    }
+    if (i == MAX_WAIT_DEPTH) {
+        return;
+    }
+
+    trans_pic->poc               = -1;
+    trans_pic->state             = 0;
+    trans_pic->in_pass_one_queue = 0;
+
+    if (ctx->force_idr) {
+        ctx->inject_frm_cnt--;
+    }
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        if (ctx->rls_pic_list[i]->used == 0) {
+            ctx->rls_pic_list[i]->item = trans_pic->pic->opaque;
+            ctx->rls_pic_list[i]->used = 1;
+            break;
+        }
+    }
+    if (i == MAX_WAIT_DEPTH) {
+        return;
+    }
+
+    h26x_enc_buf_list_add(&ctx->rls_pic_head, ctx->rls_pic_list[i]);
+}
+
+int h26x_enc_get_out_buffer(VpiH26xEncCtx *ctx, VpiEncOutData **out_buffer)
+{
+    int ret;
+    int found = 0;
+
+    do {
+        if ((ret = h26x_enc_pop_emptyfifo(ctx, out_buffer)) != FIFO_OK) {
+            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+            usleep(1000);
+            pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+        } else {
+            found = 1;
+            break;
+        }
+    } while (!ctx->h26xe_thd_end);
+    if (found == 1)
+        return 0;
+    else
+        return -1;
 }

@@ -18,6 +18,7 @@
 #include <linux/pagemap.h>
 #include <linux/firmware.h>
 #include <linux/pci.h>
+#include <linux/interrupt.h>
 
 #include "common.h"
 #include "hw_monitor.h"

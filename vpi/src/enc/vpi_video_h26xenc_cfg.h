@@ -63,7 +63,25 @@
 #define MAX_DELAY_NUM (MAX_CORE_NUM + MAX_CUTREE_DEPTH)
 #define MAX_IDR_ARRAY_DEPTH MAX_WAIT_DEPTH
 
-#define MAX_OUTPUT_FIFO_DEPTH 2
+#define MAX_OUTPUT_FIFO_DEPTH MAX_FIFO_DEPTH
+
+typedef struct {
+    int state;
+    int in_pass_one_queue;
+    //int used;
+    int poc;
+    VpiFrame *pic;
+} VpiEncH26xPic;
+
+typedef struct H26xEncBufLink {
+    void *item;
+    int item_size;
+    int used;
+    int show;
+    int64_t pts;
+    int64_t pkt_dts;
+    struct H26xEncBufLink *next;
+} H26xEncBufLink;
 
 typedef struct {
     u32 stream_pos;
@@ -83,7 +101,7 @@ typedef struct {
     i32 output_byte_stream;
 } SegmentCtl;
 
-struct VPIH26xEncCfg {
+typedef struct {
 #ifdef FB_SYSLOG_ENABLE
     LOG_INFO_HEADER log_header;
 #endif
@@ -146,7 +164,7 @@ struct VPIH26xEncCfg {
     /* SW/HW shared memories for input/output buffers */
     EWLLinearMem_t *picture_mem;
     EWLLinearMem_t *picture_dsmem;
-    EWLLinearMem_t *outbuf_mem[MAX_STRM_BUF_NUM];
+    EWLLinearMem_t *outbuf_mem[MAX_FIFO_DEPTH];
     EWLLinearMem_t *roi_map_delta_qp_mem;
     EWLLinearMem_t *transform_mem;
     EWLLinearMem_t *roimap_cu_ctrl_infomem;
@@ -155,7 +173,7 @@ struct VPIH26xEncCfg {
     EWLLinearMem_t picture_mem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t picture_dsmem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t outbuf_mem_factory[MAX_CORE_NUM]
-                                     [MAX_STRM_BUF_NUM]; /* [coreIdx][bufIdx] */
+                                     [MAX_FIFO_DEPTH]; /* [coreIdx][bufIdx] */
     EWLLinearMem_t roi_map_delta_qpmem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t transform_mem_factory[MAX_DELAY_NUM];
     EWLLinearMem_t roimap_cu_ctrl_infomem_factory[MAX_DELAY_NUM];
@@ -216,7 +234,7 @@ struct VPIH26xEncCfg {
 
     struct timeval time_frame_start;
     struct timeval time_frame_end;
-};
+} VPIH26xEncCfg;
 
 #define MOVING_AVERAGE_FRAMES 120
 
@@ -240,7 +258,7 @@ typedef struct {
     int last_gopsize;
 } AdapGopCtr;
 
-typedef struct VpiH26xEncInAddr {
+typedef struct {
     ptr_t bus_luma;
     ptr_t bus_chroma;
     ptr_t bus_luma_table;
@@ -258,36 +276,34 @@ typedef enum IDRCalcState_e {
     FRAME_IDR2NORMAL,
 } IDRCalcState;
 
-typedef struct VpiH26xEncFrm {
-    /*Current Frm is filled or not*/
-    int state;
+typedef struct {
+  EWLLinearMem_t *outbuf_mem; //outbufMem[MAX_STRM_BUF_NUM];
+  u32 stream_size;
+  int header_size;      /* start header or end data size */
+  uint8_t *header_data; /* start header or end data */
+  int poc_encoded;
+  bool end_data;
+  bool resend_header; /* resend header flag */
+  int64_t pts;
+  int64_t dts;
 
-    /*Current Frm is fed to encoder or not*/
-    int fed_to_enc;
+  /* these params used for performance calc */
+  double ssim[3];
+  u32 max_slice_stream_size;
+  i32 index_encoded;
+} VpiEncOutData;
 
-    /*In pass one queue or not*/
-    int in_pass_one_queue;
+typedef enum VpiFlushState {
+    VPIH26X_FLUSH_IDLE,
+    VPIH26X_FLUSH_PREPARE,
+    VPIH26X_FLUSH_TRANSPIC,
+    VPIH26X_FLUSH_ENCDATA,
+    VPIH26X_FLUSH_FINISH,
+    VPIH26X_FLUSH_ENCEND,
+    VPIH26X_FLUSH_ERROR = -1,
+} VpiFlushState;
 
-    /*The index of the frame*/
-    int frame_index;
-
-    /*The pointer for input AVFrame*/
-    VpiFrame frame;
-} VpiH26xEncFrm;
-
-/*typedef struct VpiH26xFrmHead {
-    uint8_t *header_data;
-    int header_size;
-    bool resend_header;
-} VpiH26xFrmHead;*/
-
-typedef struct VpiH26xEncPkt {
-    VpiPacket vpi_packet;
-    VpiH26xFrmHead h26x_frm_head;
-    VpiEncRet enc_ret;
-} VpiH26xEncPkt;
-
-typedef struct VpiH26xEncCtx {
+typedef struct {
     VPIH26xEncOptions options; /*The first item of VpiH26xEncCtx structure*/
     VCEncInst hantro_encoder;
     int stream_size;
@@ -316,9 +332,8 @@ typedef struct VpiH26xEncCtx {
     VCEncGopPicConfig gop_pic_cfg[MAX_GOP_PIC_CONFIG_NUM];
     VCEncGopPicConfig gop_pic_cfg_pass2[MAX_GOP_PIC_CONFIG_NUM];
     VCEncGopPicSpecialConfig gop_pic_special_cfg[MAX_GOP_SPIC_CONFIG_NUM];
-    struct VPIH26xEncCfg vpi_h26xe_cfg;
+    VPIH26xEncCfg vpi_h26xe_cfg;
     VPIH26xParamsDef *h26x_enc_param_table;
-    VpiH26xEncFrm frame_queue_for_enc[MAX_WAIT_DEPTH];
     int frame_index;
 
     /*For encoding thread*/
@@ -326,9 +341,9 @@ typedef struct VpiH26xEncCtx {
     pthread_mutex_t h26xe_thd_mutex;
     pthread_cond_t h26xe_thd_cond;
     int h26xe_thd_end;
-    VpiH26xEncPkt enc_pkt[MAX_OUTPUT_FIFO_DEPTH];
-    void *emptyFifo;
-    void *outputFifo;
+    VpiEncOutData enc_pkt[MAX_OUTPUT_FIFO_DEPTH];
+    void *empty_fifo;
+    void *output_fifo;
 
     /* For idr passthrough */
     int next_idr_poc;
@@ -343,6 +358,23 @@ typedef struct VpiH26xEncCtx {
     int next_idr_poc_idx;
     bool update_idr_poc;
     int hold_buf_num;
+
+    /* For header data */
+    u8 *header_data;
+    u32 header_size;
+
+    int num_dec_max;
+
+    /*Input VpiFrame queue*/
+    int poc;
+    VpiEncH26xPic pic_wait_list[MAX_WAIT_DEPTH];
+    VpiEncOutData *cur_out_buf;
+    int encode_end;
+    int waiting_for_pkt;
+    int eos_received;
+
+    H26xEncBufLink* rls_pic_head;
+    H26xEncBufLink* rls_pic_list[MAX_WAIT_DEPTH];
 } VpiH26xEncCtx;
 
 enum {
@@ -353,19 +385,23 @@ enum {
     VPI_DEC_OUT_PP3,
 };
 
+void h26x_enc_ma_add_frame(MaS *ma, i32 frame_size_bits);
 int h26x_enc_check_area(VCEncPictureArea *area, VPIH26xEncOptions *options);
 void h26x_enc_stream_segment_ready(void *cb_data);
 int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
                                     VPIH26xEncOptions *options, VCEncIn *encIn,
                                     VCEncInst inst,
-                                    struct VPIH26xEncCfg *vpi_h26xe_cfg);
-void h26x_enc_init_pic_config(VCEncIn *p_enc_in);
-int h26x_enc_set_options(struct VpiH26xEncCtx *vpi_h26xe_ctx,
+                                    VPIH26xEncCfg *vpi_h26xe_cfg);
+void h26x_enc_init_pic_config(VCEncIn *p_enc_in, VPIH26xEncCfg *cfg,
+                              VPIH26xEncOptions *options);
+int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
                          VpiH26xEncCfg *h26x_enc_cfg);
 int h26x_enc_get_deviceId(char *dev);
-int h26x_enc_alloc_res(VPIH26xEncOptions *cmdl, VCEncInst enc,
-                       struct VPIH26xEncCfg *vpi_h26xe_cfg);
-void h26x_enc_free_res(VCEncInst enc, struct VPIH26xEncCfg *vpi_h26xe_cfg);
-int h26x_enc_update_statistic(struct VpiH26xEncCtx *enc_ctx, int *streamSize);
-void h26x_enc_report(struct VpiH26xEncCtx *enc_ctx);
+int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc);
+void h26x_enc_free_res(VpiH26xEncCtx *enc_ctx, VCEncInst enc);
+int h26x_enc_update_statistic(VpiH26xEncCtx *enc_ctx, int *streamSize);
+void h26x_enc_report(VpiH26xEncCtx *enc_ctx);
+void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
+                       MaS *ma, AdapGopCtr *agop);
+i32 h26x_enc_ma(MaS *ma);
 #endif /*__VPI_VIDEO_H26XENC_CFG_H__ */

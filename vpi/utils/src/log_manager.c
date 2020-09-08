@@ -76,6 +76,13 @@ void log_write(LogLevel level, const char *p_header, const char *p_format, ...)
     }
 }
 
+int log_setlevel(int level)
+{
+    if( level >= LOG_LEVEL_OFF && level < LOG_LEVEL_MAX)
+        report_file_level = level;
+    return 0;
+}
+
 int log_open(char *file_name)
 {
     if (NULL == file_name) {

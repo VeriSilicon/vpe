@@ -1,13 +1,13 @@
 # Table of Contents
 
 * [Introduction](#Introduction)
-* [2. VPE Plugin Description](#VPE-Plugin-Description)
-* [3. VPE Overall Architecture](#VPE-Overall-Architecture)
-* [4. VPE Directory Description](#VPE Directory Description)
-* [5. Building and Installation](#Building and Installation)
-* [6. VPE H264/H265 Encoder Parameters](#VPE H264/H265 Encoder Parameters)
-* [7. VPE VP9 Encoder Parameters](#VPE VP9 Encoder Parameters)
-* [8. Enable Log](#Enable Log)
+* [VPE Plugin Description](#VPE-Plugin-Description)
+* [VPE Overall Architecture](#VPE-Overall-Architecture)
+* [VPE Directory Description](#VPE-Directory-Description)
+* [Building and Installation](#Building-and-Installation)
+* [VPE H264/H265 Encoder Parameters](#VPE-H264/H265-Encoder-Parameters)
+* [VPE VP9 Encoder Parameters](#VPE-VP9-Encoder-Parameters)
+* [Enable Log](#Enable-Log)
 
 # Introduction
 
@@ -42,13 +42,13 @@ VeriSilicon Platform Engine(VPE for short) consists of VeriSilicon Platform Inte
           Download/Downscale/Format conversion
 
 
-# 2. VPE Plugin Description
+# VPE Plugin Description
 
 VPE Plugin is for the multimedia frameworks to enable video transcoding, encoding,
 decoding and processing with VeriSilicon Platform Engine.
 Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and others.
 
-# 3. VPE Overall Architecture
+# VPE Overall Architecture
      +----------------------------------------+
      |              |              |          |
      |  FFmpeg      |  GStreamer   |   APP    |
@@ -81,7 +81,7 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
      |                                        |
      +----------------------------------------+
 
-# 4. VPE Directory Description
+# VPE Directory Description
 ```
 ├── build                         Configure files for building
 ├── doc                           Documentations
@@ -106,7 +106,7 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 
 ```
 
-# 5. Building and Installation
+# Building and Installation
 
 1. Build
 ```bash
@@ -137,7 +137,7 @@ mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 cp drivers/transcoder-pcie/transcoder_pcie.ko "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 depmod
 ```
-# 6. VPE H264/H265 Encoder Parameters
+# VPE H264/H265 Encoder Parameters
 Verisilicon platform H26X encoder enc_params user manual
 
 The enc_params parameter fully follows FFmpeg rule, for example:
@@ -194,7 +194,7 @@ Below table lists all of the supported parameters by VPE H264/H265 encoder:
 |disable_vui_timing_info|   INT|    0|  1    |  Disable Write VUI timing info in SPS.|
 |lookahead_depth|           INT|    0|  40   |  Number of frames to lookahead. Up to 40. [0]|
 
-# 7. VPE VP9 Encoder Parameters
+# VPE VP9 Encoder Parameters
 
 Verisilicon platform VP9 encoder enc_params user manual
 
@@ -220,7 +220,7 @@ Below table lists all of the supported parameters by VPE VP9 encoder:
 |lag_in_frames		|int		 |0	      |25		|Number of frames to lag. Up to 25. |
 |passes				|int		 |0	      |2		|Number of passes (1/2). |
 
-# 8. Enable Log
+# Enable Log
 
 Log is controlled in FFMpeg parameters -init_hw_device by vpeloglevel parameter:
 

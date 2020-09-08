@@ -1,15 +1,21 @@
 # Table of Contents
 
+# Table of Contents
+
 * [Introduction](#Introduction)
-* [Device Parameters](#Device-Parameters)
-* [Decoder Parameters](#Decoder-Parameters)
-* [Spliter Parameters](#Spliter-Parameters)
-* [PP Parameters](#PP-Parameters)
-* [HWdownloader Parameters](#HWdownloader-Parameters)
-* [VP9 Encoder Parameters](#VP9-Encoder-Parameters)
-* [H264 H265 Encoder Parameters](#H264-H265-Encoder-Parameters)
-* [Preset Detail Parameters](#Preset-Detail-Parameters)
-* [Log Setting](#Log-Setting)
+* [VPE Plugin Description](#VPE-Plugin-Description)
+* [VPE Overall Architecture](#VPE-Overall-Architecture)
+* [VPE Folder Struct Description](#VPE-Folder-Struct-Description)
+* [Building and Installation](#Building-and-Installation)
+* [Codec Parameters](#codec)
+   * [Device](#Device)
+   * [Decoder](#Decoder)
+   * [Spliter](#Spliter)
+   * [PP](#PP-Parameters)
+   * [HWdownloader](#HWdownloader)
+   * [VP9 Encoder](#VP9-Encoder)
+   * [H264 H265 Encoder](#H264-H265-Encoder)
+   * [Preset Detail](#Preset-Detail)
 
 # Introduction
 
@@ -83,7 +89,7 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
      |                                        |
      +----------------------------------------+
 
-# VPE Directory Description
+# VPE Folder Struct Description
 ```
 ├── build                         Configure files for building
 ├── doc                           Documentations
@@ -123,6 +129,7 @@ make -C vpi CHECK_MEM_LEAK=y DEBUG=
 make[1]: Entering directory `/home/gyzhang/work/facebook/spsd/vpe/vpi'
 ...
 ```
+
 2. Install
 ```bash
 $sudo make install
@@ -149,31 +156,31 @@ It's followed by FFMpeg parameters -init_hw_device bparameter:
 | vpeloglevel |            | int    | set the VPE log level                      | 0\-9                 | 0             |
 
 
-# Decoder Parameters
+# Decoder
 | Option        | Sub Option | Type   | Description                                                                 | Range of Value Valid | Default Value    |
 |---------------|------------|--------|-----------------------------------------------------------------------------|----------------------|------------------|
 | \-low\_res    |            | string | Set output number and resize config for each channel                        |                      | null             |
 | \-dev         |            | string | Set device name\.                                                           |                      | /dev/transcoder0 |
 | \-transcode |            | int | Whether need doing transcoding.| 0,1        |0            |
 
-# Spliter Parameters
+# Spliter
 | Option  | Sub Option | Type | Description             | Range of Value Valid | Default Value |
 |---------|------------|------|-------------------------|----------------------|---------------|
 | outputs |            | int  | Set number of outputs\. | \[1\.\.4\]           | 1             |
 
-# PP Parameters
+# PP
 | Option     | Sub Option | Type   | Description                                          | Range of Value Valid | Default Value |
 |------------|------------|--------|------------------------------------------------------|----------------------|---------------|
 | outputs    |            | int    | Set number of outputs\.                              | \[1\.\.4\]           | 1             |
 | force10bit |            | int    | force output 10bit format                            | \[0\.\.1\]           | 0             |
 | low\_res   |            | string | Set output number and resize config for each channel |                      | null          |
 
-# HWdownloader Parameters
+# HWdownloader
 | Option | Sub Option | Type | Description | Range of Value Valid | Default Value |
 |--------|------------|------|-------------|----------------------|---------------|
 | /      |            | /    | /           | /                    | /             |
 
-# VP9 Encoder Parameters
+# VP9 Encoder
 
 | Option             | Sub Option      | Type   | Description                                                                                              | Range of Value Valid                                                                                                                                                                 | Default Value              |
 |--------------------|-----------------|--------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
@@ -200,7 +207,7 @@ It's followed by FFMpeg parameters -init_hw_device bparameter:
 | \-profile:v                               |                 | int    | Encoder profile                       | \[0\.\.3\]                           | 0              |
 | \-preset           |                 | string | Encoding preset\.                                                                                        | superfast/fast/medium/slow/superslow                                                                                                                                                 | none                       |
 
-# H264 H265 Encoder Parameters
+# H264 H265 Encoder
 
 | Option             | Sub Option      | Type   | Description                                                                                              | Range of Value Valid                                                                                                                                                                 | Default Value              |
 |--------------------|-----------------|--------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
@@ -257,7 +264,7 @@ It's followed by FFMpeg parameters -init_hw_device bparameter:
 | \-crf              |                 | int    | VCE Constant rate factor mode\. Works with lookahead turned on\.                                         | \[\-1\.\.51\]                                                                                                                                                                        | \-1                        |
 | \-preset           |                 | string | Encoding preset\.                                                                                        | superfast/fast/medium/slow/superslow                                                                                                                                                 | none                       |
 
-# Preset Detail Parameters
+# Preset Detail
 | Level     | format | Parameters setting                                                                                                                                          | comment                                                         |
 |-----------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
 | superfast | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1                                                                                   |                                                                 |
@@ -276,20 +283,3 @@ It's followed by FFMpeg parameters -init_hw_device bparameter:
 | superslow | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=40                                                             | adaptive GOP size                                               |
 |           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=3 \-\-lookaheadDepth=40                                              | adptive gop encoding                                            |
 |           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=2 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting, effort to 2             |
-
-# Log Setting
-Log is controlled in FFMpeg parameters -init_hw_device by vpeloglevel parameter:
-
-for example:
-> -init_hw_device vpe=dev0:/dev/transcoder0,priority=vod,vpeloglevel=4
-
-Below is lists all of the debug level:
-
-|Level        |log level        |
-|:------------------|:-----------|
-|0|turn off log|
-|3|error|
-|4|warnning|
-|5|information|
-|6|debug|
-|6|verbose|

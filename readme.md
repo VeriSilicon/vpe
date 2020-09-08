@@ -1,13 +1,15 @@
 # Table of Contents
 
 * [Introduction](#Introduction)
-* [VPE Plugin Description](#VPE-Plugin-Description)
-* [VPE Overall Architecture](#VPE-Overall-Architecture)
-* [VPE Directory Description](#VPE-Directory-Description)
-* [Building and Installation](#Building-and-Installation)
-* [VPE H264/H265 Encoder Parameters](#VPE-H264/H265-Encoder-Parameters)
-* [VPE VP9 Encoder Parameters](#VPE-VP9-Encoder-Parameters)
-* [Enable Log](#Enable-Log)
+* [Device Parameters](#Device-Parameters)
+* [Decoder Parameters](#Decoder-Parameters)
+* [Spliter Parameters](#Spliter-Parameters)
+* [PP Parameters](#PP-Parameters)
+* [HWdownloader Parameters](#HWdownloader-Parameters)
+* [VP9 Encoder Parameters](#VP9-Encoder-Parameters)
+* [H264 H265 Encoder Parameters](#H264-H265-Encoder-Parameters)
+* [Preset Detail Parameters](#Preset-Detail-Parameters)
+* [Log Setting](#Log-Setting)
 
 # Introduction
 
@@ -137,7 +139,7 @@ mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 cp drivers/transcoder-pcie/transcoder_pcie.ko "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 depmod
 ```
-# VPE Device Parameters
+# Device Parameters
 
 It's followed by FFMpeg parameters -init_hw_device bparameter:
 
@@ -197,7 +199,7 @@ It's followed by FFMpeg parameters -init_hw_device bparameter:
 | \-profile:v                               |                 | int    | Encoder profile                       | \[0\.\.3\]                           | 0              |
 
 
-# VPE H264/H265 Encoder Parameters
+# H264 H265 Encoder Parameters
 
 | Option             | Sub Option      | Type   | Description                                                                                              | Range of Value Valid                                                                                                                                                                 | Default Value              |
 |--------------------|-----------------|--------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
@@ -253,25 +255,6 @@ It's followed by FFMpeg parameters -init_hw_device bparameter:
 |                    | force8bit       | int    | Force to output 8bit stream\.                                                                            | \[0\.\.1\]                                                                                                                                                                           | 0                          |
 | \-crf              |                 | int    | VCE Constant rate factor mode\. Works with lookahead turned on\.                                         | \[\-1\.\.51\]                                                                                                                                                                        | \-1                        |
 | \-preset           |                 | string | Encoding preset\.                                                                                        | superfast/fast/medium/slow/superslow                                                                                                                                                 | none                       |
-
-| Level     | format | Parameters setting                                                                                                                                          | comment                                                         |
-|-----------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
-| superfast | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1                                                                                   |                                                                 |
-|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1 \-\-rdoLevel=1                                                                    |                                                                 |
-|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=0 \-\-lag\-in\-frames=0                                                    |                                                                 |
-| fast      | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4                                                                                   | intraQpDelta=\-2, intra frame better quality than P frame;      |
-|           |        |                                                                                                                                                             | ctbRc: 1 better subjective quality; 0 better objective quality; |
-|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-rdoLevel=1                                                                    |                                                                 |
-|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-lag\-in\-frames=7                                                    |                                                                 |
-| medium    | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-lookaheadDepth=20                                                             |                                                                 |
-|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-rdoLevel=1 \-\-lookaheadDepth=20                                              |                                                                 |
-|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=12 |                                                                 |
-| slow      | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=30                                                             | adaptive GOP size                                               |
-|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=2 \-\-lookaheadDepth=30                                              | adaptive GOP size                                               |
-|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=1 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting                          |
-| superslow | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=40                                                             | adaptive GOP size                                               |
-|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=3 \-\-lookaheadDepth=40                                              | adptive gop encoding                                            |
-|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=2 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting, effort to 2             |
 
 # Preset Detail Parameters
 | Level     | format | Parameters setting                                                                                                                                          | comment                                                         |

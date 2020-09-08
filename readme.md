@@ -95,7 +95,7 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 
 ```
 
-# 5. Building And Installation
+# 5. Building and Installation
 
 1. Build
 ```bash

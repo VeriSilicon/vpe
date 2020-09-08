@@ -11,7 +11,7 @@
    * [Device](#Device)
    * [Decoder](#Decoder)
    * [Spliter](#Spliter)
-   * [PP](#PP-Parameters)
+   * [PP](#PP)
    * [HWdownloader](#HWdownloader)
    * [VP9 Encoder](#VP9-Encoder)
    * [H264 H265 Encoder](#H264-H265-Encoder)
@@ -146,7 +146,7 @@ mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 cp drivers/transcoder-pcie/transcoder_pcie.ko "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 depmod
 ```
-# Device Parameters
+# Device
 
 It's followed by FFMpeg parameters -init_hw_device bparameter:
 

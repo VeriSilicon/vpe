@@ -137,91 +137,163 @@ mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 cp drivers/transcoder-pcie/transcoder_pcie.ko "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 depmod
 ```
+# VPE Device Parameters
+
+It's followed by FFMpeg parameters -init_hw_device bparameter:
+
+| Option     | Sub Option | Type   | Description                                | Range of Value Valid | Default Value |
+|------------|------------|--------|--------------------------------------------|----------------------|---------------|
+| priority   |            | string | Priority of codec, live is higher than vod | live/vod             | vod           |
+| vpeloglevel |            | int    | set the VPE log level                      | 0\-9                 | 0             |
+
+
+# Decoder Parameters
+| Option        | Sub Option | Type   | Description                                                                 | Range of Value Valid | Default Value    |
+|---------------|------------|--------|-----------------------------------------------------------------------------|----------------------|------------------|
+| \-low\_res    |            | string | Set output number and resize config for each channel                        |                      | null             |
+| \-dev         |            | string | Set device name\.                                                           |                      | /dev/transcoder0 |
+| \-enc\-format |            | string | Give the target format in encode, h264 hevc or vp9, decode only when none\. | h264/hevc/vp9        | none             |
+
+# Spliter Parameters
+| Option  | Sub Option | Type | Description             | Range of Value Valid | Default Value |
+|---------|------------|------|-------------------------|----------------------|---------------|
+| outputs |            | int  | Set number of outputs\. | \[1\.\.4\]           | 1             |
+
+# PP Parameters
+| Option     | Sub Option | Type   | Description                                          | Range of Value Valid | Default Value |
+|------------|------------|--------|------------------------------------------------------|----------------------|---------------|
+| outputs    |            | int    | Set number of outputs\.                              | \[1\.\.4\]           | 1             |
+| force10bit |            | int    | force output 10bit format                            | \[0\.\.1\]           | 0             |
+| low\_res   |            | string | Set output number and resize config for each channel |                      | null          |
+
+# HWdownloader Parameters
+| Option | Sub Option | Type | Description | Range of Value Valid | Default Value |
+|--------|------------|------|-------------|----------------------|---------------|
+| /      |            | /    | /           | /                    | /             |
+
+# VP9 Encoder Parameters
+| \-preset                                  |                 | string | Set the encoding preset\.             | superfast/fast/medium/slow/superslow | none           |
+|-------------------------------------------|-----------------|--------|---------------------------------------|--------------------------------------|----------------|
+| \-b:v                                     |                 | int    | Target bitrate for rate control\.     | \[10000\.\.60000000\]                | 1000000        |
+| \-r \(for input\)                         |                 | int    | Input picture rate numerator\.        | \[1\.\.1048575\]                     | 30             |
+|                                           |                 | int    | Input picture rate denominator\.      | \[1\.\.1048575\]                     | 1              |
+| \-r \(for output\)                        |                 | int    | Output picture rate numerator\.       | \[1\.\.1048575\]                     | inputRateNumer |
+|                                           |                 | int    | Output picture rate denominator\.     | \[1\.\.1048575\]                     | inputRateDenom |
+| \-enc\-params                             | intraPicRate    | int    | Intra picture rate in frames\.        | \[0\.\.INT\_MAX\]                    | 0              |
+|                                           | bitrateWindow   | int    | Bitrate window length in frames\.     | \[1\.\.300\]                         | 150            |
+|                                           | qpHdr           | int    | Initial QP used for the first frame\. | \[\-1\.\.255\]                       | \-1            |
+|                                           | qpMin           | int    | Minimum frame header QP\.             | \[0\.\.255\]                         | 10             |
+|                                           | qpMax           | int    | Maximum frame header QP\.             | \[0\.\.255\]                         | 255            |
+|                                           | fixedIntraQp    | int    | Fixed Intra QP, 0 = disabled\.        | \[0\.\.255\]                         | 0              |
+|                                           | picRc           | int    | Picture rate control enable\.         | 0=OFF, 1=ON                          | 1              |
+|                                           | mcompFilterType | int    | Interpolation filter mode\.           | \[0\.\.4\]                           | 4              |
+|                                           | force8bit       | int    | Force to output 8bit stream           | \[0\.\.1\]                           | 0              |
+|                                           | refFrameScheme  | int    | Reference frame update scheme\.       | \[0\.\.4\]                           | 4              |
+|                                           | filterLevel     | int    | Filter strength level for deblocking  | \[0\.\.64\]                          | 64             |
+|                                           | filterSharpness | int    | Filter sharpness for deblocking\.     | \[0\.\.8\], 8=auto                   | 8              |
+| \-effort or inside \-enc\-params          | effort          | int    | Encoder effort level\.                | \[0\.\.5\]0=fastest,5=best quality   | 0              |
+| \-lag\-in\-frames or inside \-enc\-params | lag\-in\-frames | int    | Number of frames to lag\. Up to 25\.  | \[0\.\.25\]                          | 7              |
+| \-passes or inside \-enc\-params          | passes          | int    | Number of passes\.                    | \[1\.\.2\]                           | 1              |
+| \-profile:v                               |                 | int    | Encoder profile                       | \[0\.\.3\]                           | 0              |
+
+
 # VPE H264/H265 Encoder Parameters
-Verisilicon platform H26X encoder enc_params user manual
 
-The enc_params parameter fully follows FFmpeg rule, for example:
-> -enc_params "ref_frame_scheme=4:lag_in_frames=18:passes=2:bitrate_window=60:effort=0:intra_pic_rate=60"
+| Option             | Sub Option      | Type   | Description                                                                                              | Range of Value Valid                                                                                                                                                                 | Default Value              |
+|--------------------|-----------------|--------|----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| \-b:v              |                 | int    | Target bitrate for rate control\.                                                                        | \[10000\.\.levelMax\]                                                                                                                                                                | 1000000                    |
+| \-r \(for input\)  |                 | int    | Input picture rate numerator\.                                                                           | \[1\.\.1048575\]                                                                                                                                                                     | 30                         |
+|                    |                 | int    | Input picture rate denominator\.                                                                         | \[1\.\.1048575\]                                                                                                                                                                     | 1                          |
+| \-r \(for output\) |                 | int    | Output picture rate numerator\.                                                                          | \[1\.\.1048575\]                                                                                                                                                                     | inputRateNumer             |
+|                    |                 | int    | Output picture rate denominator\.                                                                        | \[1\.\.1048575\]                                                                                                                                                                     | inputRateDenom             |
+| \-profile:v        |                 | int    | Encode profile:HEVC:0\-2; H264:9\-12                                                                     | HEVC: main main10 H264:baseline/main/high/high10                                                                                                                                     | main                       |
+| \-level            |                 | int    | Encode level                                                                                             | HEVC support level\(1\.0; 2\.0; 2\.1; 3\.0; 3\.1; 4\.0; 4\.1; 5\.0; 5\.1\) H264 support level\(1; 1b; 1\.1; 1\.2; 1\.3; 2; 2\.1; 2\.2; 3; 3\.1; 3\.2; 4; 4\.1; 4\.2; 5; 5\.1; 5\.2\) | HEVC: 5\.1 H264: 5\.2      |
+| \-hantro\-params   | intraPicRate    | int    | Intra picture rate in frames\.                                                                           | \[0\.\.INT\_MAX\]                                                                                                                                                                    | 0                          |
+|                    | bitrateWindow   | int    | Bitrate window length in frames\.                                                                        | \[1\.\.300\]                                                                                                                                                                         | intraPicRate               |
+|                    | intraQpDelta    | int    | Intra QP delta, QP difference between target QP and intra frame QP\.                                     | \[\-51\.\.51\]                                                                                                                                                                       | \-5                        |
+|                    | qpHdr           | int    | Initial target QP\.                                                                                      | \[\-1\.\.255\]                                                                                                                                                                       | 26                         |
+|                    | qpMin           | int    | Minimum frame header QP for any slices\.                                                                 | \[0\.\.51\]                                                                                                                                                                          | 0                          |
+|                    | qpMax           | int    | Maximum frame header QP for any slices\.                                                                 | \[0\.\.51\]                                                                                                                                                                          | 51                         |
+|                    | fixedIntraQp    | int    | Fixed Intra QP\. Use fixed QP value for every intra frame in stream\.                                    | \[0\.\.51\]                                                                                                                                                                          | 0                          |
+|                    | tier            | int    | Encoder tier                                                                                             | 0  \-main tier ; 1  \-high tier                                                                                                                                                      | 0                          |
+|                    | byteStream      | int    | Stream type\.                                                                                            | 0 \- NAL units; 1 \- byte stream according to Hevc Standard Annex B                                                                                                                  | 1                          |
+|                    | videoRange      | int    | Video signal sample range value in Hevc stream\.                                                         | 0 \- Y range in \[16\.\.235\] Cb,Cr in \[16\.\.240\] ; 1 \- Y,Cb,Cr range in \[0\.\.255\]                                                                                            | 1                          |
+|                    | sei             | int    | Enable SEI messages \(buffering period \+ picture timing\)\.                                             | \[0\.\.INT\_MAX\]                                                                                                                                                                    | 0                          |
+|                    | cabac           | int    | Select cavlc or cabac, only for H264 encoding                                                            | 0 for cavlc, 1 for cabac\.                                                                                                                                                           | 1                          |
+|                    | sliceSize       | int    | Slice size in number of CTU rows\. 0 to encode each picture in one slice\.                               | \[0\.\.height/ctu\_size\]                                                                                                                                                            | 0                          |
+|                    | bitVarRangeI    | int    | Percent variations over average bits per frame for I frame\.                                             | \[10\.\.10000\]                                                                                                                                                                      | 10000                      |
+|                    | bitVarRangeP    | int    | Percent variations over average bits per frame for P frame\.                                             | \[10\.\.10000\]                                                                                                                                                                      | 10000                      |
+|                    | bitVarRangeB    | int    | Percent variations over average bits per frame for B frame\.                                             | \[10\.\.10000\]                                                                                                                                                                      | 10000                      |
+|                    | picRc           | int    | Picture rate control enable\.                                                                            | 0=OFF, 1=ON                                                                                                                                                                          | 0                          |
+|                    | ctbRc           | int    | CTB QP adjustment mode for Rate Control and Subjective Quality\.                                         | \[0\.\.1\]                                                                                                                                                                           | 0                          |
+|                    | tolCtbRcInter   | float  | Tolerance of Ctb Rate Control for INTER frames\.                                                         | float point number, \[targetPicSize/\(1\+tolCtbRcInter\), argetPicSize\*\(1\+tolCtbRcInter\)\]; A negative number means no bit rate limit in Ctb Rc                                  | 0\.0                       |
+|                    | tolCtbRcIntra   | float  | Tolerance of Ctb Rate Control for INTRA frames\.                                                         | float point number                                                                                                                                                                   | \-1\.0                     |
+|                    | ctbRowQpStep    | int    | The maximum accumulated QP adjustment step per CTB Row allowed by Ctb Rate Control\.                     | QP\_step\_per\_CTB = \(ctbRowQpStep / Ctb\_per\_Row\) and limited by maximum = 4                                                                                                     | H264: 4; HEVC: 16          |
+|                    | picQpDeltaRange | int    | Qp\_Delta Range in Picture RC                                                                            | \[Min:Max\] Min: \[\-1\.\.\-10\], Max: \[1\.\.10\]                                                                                                                                   | Min:\-2; Max:3             |
+|                    | hrdConformance  | int    | Enable HRD conformance\. Uses standard defined model to limit bitrate variance\.                         | \[0\.\.1\]                                                                                                                                                                           | 0                          |
+|                    | cpbSize         | int    | HRD Coded Picture Buffer size in bits\.                                                                  | > 0                                                                                                                                                                                  | 1000000                    |
+|                    | gopSize         | int    | GOP Size\.                                                                                               | \[0\.\.8\] 0 adaptive size; 1\-7 fixed size                                                                                                                                          | 0                          |
+|                    | gopLowdelay     | int    | Enable default lowDelay GOP configuration\. If \-\-gopConfig not specified, only valid for GOP size <= 4 | \[0\.\.1\]                                                                                                                                                                           | 0                          |
+|                    | qpMinI          | int    | qpMin for I Slice\.                                                                                      | \[0\.\.51\]                                                                                                                                                                          | 0                          |
+|                    | qpMaxI          | int    | qpMax for I Slice\.                                                                                      | \[0\.\.51\]                                                                                                                                                                          | 51                         |
+|                    | bFrameQpDelta   | int    | QP difference between BFrame QP and target QP\.                                                          | \[\-1\.\.51\]                                                                                                                                                                        | \-1                        |
+|                    | chromaQpOffset  | int    | Chroma QP offset\.                                                                                       | \[\-12\.\.12\]                                                                                                                                                                       | 0                          |
+|                    | vbr             | int    | Enable variable Bit Rate Control by qpMin\.                                                              | 0=OFF, 1=ON                                                                                                                                                                          | 0                          |
+|                    | userData        | string | SEI User data file name\. File is read and inserted as SEI message before first frame\.                  |                                                                                                                                                                                      |                            |
+|                    | intraArea       | int    | CTB coordinates specifying rectangular area of CTBs to force encoding in intra mode\.                    | left : top : right : bottom                                                                                                                                                                | \-1                        |
+|                    | ipcm1Area       | int    | CTB coordinates specifying rectangular area of CTBs to force encoding in IPCM mode\.                     | left : top : right : bottom                                                                                                                                                                | \-1                        |
+|                    | ipcm2Area       | int    | CTB coordinates specifying rectangular area of CTBs to force encoding in IPCM mode\.                     | left : top : right : bottom                                                                                                                                                                | \-1                        |
+|                    | constChroma     | int    | Enable setting chroma a constant pixel value\.                                                           | \[0\.\.1\]                                                                                                                                                                           | 0                          |
+|                    | constCb         | int    | The constant pixel value for Cb\.                                                                        | 8bit \[0\.\.255\], 10bit \[0\.\.1023\]                                                                                                                                               | 8\-bit:  128, 10\-bit: 512 |
+|                    | constCr         | int    | The constant pixel value for Cr\.                                                                        | 8bit \[0\.\.255\], 10bit \[0\.\.1023\]                                                                                                                                               | 8\-bit:  128, 10\-bit: 512 |
+|                    | rdoLevel        | int    | Programable HW RDO Level\.                                                                               | \[1\.\.3\]                                                                                                                                                                           | 1                          |
+|                    | ssim            | int    | Enable SSIM Calculation\.                                                                                | 0 \- Disable, 1 \- Enable                                                                                                                                                            | 1                          |
+|                    | vuiTimingInfo   | int    | Write VUI timing info in SPS\.                                                                           | 0 \- Disable, 1 \- Enable                                                                                                                                                            | 1                          |
+|                    | lookaheadDepth  | int    | Number of lookahead frames\.                                                                             | \[0\.\.40\]                                                                                                                                                                          | 0                          |
+|                    | force8bit       | int    | Force to output 8bit stream\.                                                                            | \[0\.\.1\]                                                                                                                                                                           | 0                          |
+| \-crf              |                 | int    | VCE Constant rate factor mode\. Works with lookahead turned on\.                                         | \[\-1\.\.51\]                                                                                                                                                                        | \-1                        |
+| \-preset           |                 | string | Encoding preset\.                                                                                        | superfast/fast/medium/slow/superslow                                                                                                                                                 | none                       |
 
-Below table lists all of the supported parameters by VPE H264/H265 encoder:
+| Level     | format | Parameters setting                                                                                                                                          | comment                                                         |
+|-----------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| superfast | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1                                                                                   |                                                                 |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1 \-\-rdoLevel=1                                                                    |                                                                 |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=0 \-\-lag\-in\-frames=0                                                    |                                                                 |
+| fast      | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4                                                                                   | intraQpDelta=\-2, intra frame better quality than P frame;      |
+|           |        |                                                                                                                                                             | ctbRc: 1 better subjective quality; 0 better objective quality; |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-rdoLevel=1                                                                    |                                                                 |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-lag\-in\-frames=7                                                    |                                                                 |
+| medium    | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-lookaheadDepth=20                                                             |                                                                 |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-rdoLevel=1 \-\-lookaheadDepth=20                                              |                                                                 |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=12 |                                                                 |
+| slow      | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=30                                                             | adaptive GOP size                                               |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=2 \-\-lookaheadDepth=30                                              | adaptive GOP size                                               |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=1 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting                          |
+| superslow | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=40                                                             | adaptive GOP size                                               |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=3 \-\-lookaheadDepth=40                                              | adptive gop encoding                                            |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=2 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting, effort to 2             |
 
-|params name              |Type|  Min|    Max|  Description                     |
-|:------------------------|:---|:----|:------|:---------------------------------|
-|force8bit|                 INT|    0|      1|  force to output 8bit stream.    |
-|intra_pic_rate|            INT|    0|      -|  Intra picture rate in frames. (default [0])Forces every Nth frame to be encoded as intra frame.|
-|bitrate_window|            INT| -255|    300|  Bitrate window length in frames. (default [intra_pic_rate]).|
-|intra_qp_delta|            INT| -255|    127|  Intra QP delta. (default [26], -1..51).[Bigsea] Intra QP delta. (default [0], -127..127).|
-|qp_hdr|                    INT|   -1|    255|  Initial QP used for the first frame. (default [-1], -1..51).[Bigsea] Initial QP used for the first frame. (default [-1 or 50], -1..255).|
-|qp_min|                    INT|    0|    255|  Minimum frame header QP for any slices. (default [0], 0..51).[Bigsea] Minimum frame header QP. (default [10], 0..255).|
-|qp_max|                    INT|    0|    255|  Maximum frame header QP for any slices. (default [51], 0..51).[Bigsea] Maximum frame header QP. (default [255], 0..255)|
-|fixed_intra_qp|            INT|    0|    255|  Fixed Intra QP,0|= disabled. (default [0], 0..51).[Bigsea] Fixed Intra QP,0|= disabled. (default [0], 0..255).|
-|pic_skip|                  INT|    0|      1|  Enable picture skip rate control.|
-|bitdepth|                  INT|    0|      1|  Bitdepth. 0=8-bit, 1=10-bit. [default: keep the same as input].|
-|tier|                      INT|    0|      1|  [VC8000E/HEVC] encoder only (default [0], 0..1)0 -main tier1 -high tier|
-|byte_stream|               INT|    0|      1|  stream type (default [1], 0..1)0 - NAL units. Nal sizes returned in <nal_sizes.txt>1 - byte stream according to Hevc Standard Annex B.|
-|video_range|               INT|    0|      1|  [VC8000E/HEVC] Video signal sample range value in Hevc stream. (default [0], 0..1)0 - Y range in [16..235] Cb,Cr in [16..240]1 - Y,Cb,Cr range in [0..255]|
-|sei|                       INT|    -|      -|  enable SEI messages.|
-|disable_cabac|             INT|    0|      1|  disable cabac, use cavlc.|
-|slice_size|                INT|    0|      -|  slice size in number of CTU rows. (default [0], 0..height/ctu_size)0 - to encode each picture in one slice1..height/ctu_size - to each slice with N CTU row|
-|tol_moving_bitrate|        INT|    0|   2000|  percent tolerance over target bitrate of moving bit rate (default [2000], 0..2000%%).|
-| bit_var_range_I|          INT|    10| 10000|  percent variations over average bits per frame for I frame. (default [10000], 10..10000%%).|
-| bit_var_range_P|          INT|    10| 10000|  percent variations over average bits per frame for P frame. (default [10000], 10..10000%%).|
-| bit_var_range_B|          INT|    10| 10000|  percent variations over average bits per frame for B frame. (default [10000], 10..10000%%).|
-|enable_pic_rc|             INT|  -255|     1|  enable picture rate control. Calculates new target QP for every frame.|
-|ctb_rc|                    INT|    0|      3|  CTB QP adjustment mode for Rate Control and Subjective Quality. (default [0], 0..3).0 = No CTB QP adjustment (best PSNR).1 = CTB QP adjustment for Subjective Quality only.2 = CTB QP adjustment for Rate Control only(suggest, best bitrate).3 = CTB QP adjustment for both Subjective Quality and Rate Control.|
-|tol_ctb_rc_inter|          FLOAT|  -|      -|  Tolerance of Ctb Rate Control for INT|ER frames. (float point number). (default [0.0])Ctb Rc will try to limit INT|ER frame bits within the range of:\t[targetPicSize/(1+tol_ctb_rc_inter), targetPicSize*(1+tol_ctb_rc_inter)].|
-|tol_ctb_rc_intra|          FLOAT|  -|      -|  Tolerance of Ctb Rate Control for INT|RA frames. (float point number). (default [-1.0])|
-|ctb_row_qp_step|           INT|    -|  -|      The maximum accumulated QP adjustment step per CTB Row allowed by Ctb Rate Control.Default value is [4] for H264 and [16] for HEVC.QP_step_per_CTB = (ctbRowQpStep / Ctb_per_Row) and limited by maximum = 4.|
-|pic_qp_deelta_range|       INT|    -|      -|  Min:Max. Qp_Delta Range in Picture RC.Min: -1..-10 Minimum Qp_Delta in Picture RC. [-2]Max: 1..10 Maximum Qp_Delta in Picture RC. [3]|
-|hrd_conformance|           INT|    0|      1|  enable HRD conformance. Uses standard defined model to limit bitrate variance.|
-|cpb_size|                  INT|    -|      -|  HRD Coded Picture Buffer size in bits. default [1000000], suggest 2xbitrate.|
-|gop_size|                  INT|    0|      8|  GOP Size. (default [0], 0..8).0 for adaptive GOP size; 1~7 for fixed GOP size.|
-|gop_lowdelay|              INT|    0|      1|  Enable default lowDelay GOP configuration if --gopConfig not specified, only valid for GOP size <= 4.|
-|qp_min_I|                  INT|    0|     51|  minimum frame header QP overriding qp_min for I slices. (default [0], 0..51).|
-|qp_max_I|                  INT|    0|     51|  maximum frame header QP overriding qp_max for I slices. (default [51], 0..51).|
-|bframe_qp_delta|           INT|    -1|    51|  BFrame QP Delta. (default [-1], -1..51).|
-|chroma_qp_offset|          INT|    -12|   12|  Chroma QP offset. (default [0], -12..12).|
-|vbr|                       INT|    0|      1|  enable variable Bit Rate Control by qp_min.|
-|user_data|                 STR|    -|       |  SEI User data file name. File is read and inserted as SEI message before first frame.|
-|intra_area|                INT|    -|      -|  left : top : right : bottom. CTB coordinatesspecifying rectangular area of CTBs to force encoding in intra mode.|
-|ipcm1_area|                INT|    -|      -|  left : top : right : bottom. CTB coordinatesspecifying rectangular area of CTBs to force encoding in IPCM mode.|
-|ipcm2_area|                INT|    -|      -|  left : top : right : bottom. CTB coordinatesspecifying rectangular area of CTBs to force encoding in IPCM mode.|
-|enable_const_chroma|       INT|    0|      1|  enable setting chroma a constant pixel value.|
-|const_cb|                  INT|    0|   1023|  The constant pixel value for Cb.(for 8bit default [128], 0..255, for 10bit default [512], 0..1023).|
-|const_cr|                  INT|    0|   1023|  The constant pixel value for Cr.(for 8bit default [128], 0..255, for 10bit default [512], 0..1023).|
-|rdo_level|                 INT|    1|     3 |  [VC8000E/HEVC] programable HW RDO Level (default [1], 1..3).|
-|disable_ssim|              INT|    0|  1    |  Disable SSIM Calculation.|
-|disable_vui_timing_info|   INT|    0|  1    |  Disable Write VUI timing info in SPS.|
-|lookahead_depth|           INT|    0|  40   |  Number of frames to lookahead. Up to 40. [0]|
+# Preset Detail Parameters
+| Level     | format | Parameters setting                                                                                                                                          | comment                                                         |
+|-----------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|
+| superfast | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1                                                                                   |                                                                 |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=1 \-\-rdoLevel=1                                                                    |                                                                 |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=0 \-\-lag\-in\-frames=0                                                    |                                                                 |
+| fast      | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4                                                                                   | intraQpDelta=\-2, intra frame better quality than P frame;      |
+|           |        |                                                                                                                                                             | ctbRc: 1 better subjective quality; 0 better objective quality; |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-rdoLevel=1                                                                    |                                                                 |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-lag\-in\-frames=7                                                    |                                                                 |
+| medium    | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-lookaheadDepth=20                                                             |                                                                 |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=4 \-\-rdoLevel=1 \-\-lookaheadDepth=20                                              |                                                                 |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=0 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=12 |                                                                 |
+| slow      | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=30                                                             | adaptive GOP size                                               |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=2 \-\-lookaheadDepth=30                                              | adaptive GOP size                                               |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=1 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting                          |
+| superslow | h264   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-lookaheadDepth=40                                                             | adaptive GOP size                                               |
+|           | hevc   |  \-\-intraQpDelta=\-2 \-\-qpHdr=\-1 \-\-picRc=1 \-\-ctbRc=0 \-\-gopSize=0 \-\-rdoLevel=3 \-\-lookaheadDepth=40                                              | adptive gop encoding                                            |
+|           | vp9    |  \-\-qpHdr=\-1 \-\-picRc=1 \-\-effort=2 \-\-mcompFilterType=4 \-\-refFrameScheme=4 \-\-arf\-temporal\-filter\-enabled=0 \-\-passes=2 \-\-lag\-in\-frames=25 | 2\-pass and max lag\-in\-frame setting, effort to 2             |
 
-# VPE VP9 Encoder Parameters
-
-Verisilicon platform VP9 encoder enc_params user manual
-
-The enc_params parameter fully follows FFmpeg rule, for example:
-> -enc_params "ref_frame_scheme=4:lag_in_frames=18:passes=2:bitrate_window=60:effort=0:intra_pic_rate=60"
-
-Below table lists all of the supported parameters by VPE VP9 encoder:
-
-|params name        |Type        |Min     |Max      |Description      |
-|:------------------|:-----------|:-------|:--------|:----------------|
-|intra_pic_rate		|int		 |0	      |65535	|Intra picture rate in frames. |
-|bitrate_window		|int		 |0	      |300		|Bitrate window length in frames.|
-|qp_hdr				|int		 |0	      |255		|Initial QP used for the first frame. |
-|qp_min				|int		 |0	      |255		|Minimum frame header QP.|
-|qp_max				|int		 |0	      |255		|Maximum frame header QP.|
-|fixed_intra_qp		|int		 |0	      |255		|Fixed Intra QP 0 = disabled.|
-|picRc				|int		 |0	      |1		|0=OFF, 1=ON Picture rate control enable. |
-|mcomp_filter_type	|int		 |0	      |4		|Interpolation filter mode. |
-|effort				|int		 |0	      |5		|Encoder effort level 0=fastest 5=best quality|
-|ref_frame_scheme	|int		 |0	      |5		|Reference frame update scheme. Values TBD.|
-|filte_level		|int		 |0	      |64		|Filter strength level for deblocking|
-|filter_sharpness	|int		 |0	      |8		|0..8 8=auto Filter sharpness for deblocking.|
-|lag_in_frames		|int		 |0	      |25		|Number of frames to lag. Up to 25. |
-|passes				|int		 |0	      |2		|Number of passes (1/2). |
-
-# Enable Log
-
+# Log Setting
 Log is controlled in FFMpeg parameters -init_hw_device by vpeloglevel parameter:
 
 for example:

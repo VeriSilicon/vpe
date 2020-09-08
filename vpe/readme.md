@@ -1,10 +1,7 @@
-### VPE description
-```
-VeriSilicon Platform Engine(VPE for short) consists of VeriSilicon Platform
-Interfaces (VPI for short) and SDK. It is the control software for VeriSilicon
-SoC platforms and separate IPs.
-Here, VPI provides the APIs for VeriSilicon Video encoding and decoding functions.
-The details are below:
+# 1. VPE Description
+
+VeriSilicon Platform Engine(VPE for short) consists of VeriSilicon Platform Interfaces (VPI for short) and SDK. It is the control software for VeriSilicon SoC platforms and separate IPs. Here VPI provides the APIs for VeriSilicon Video encoding and decoding functions, the details are below:
+
     * Transcoding
           The input is HEVC,H264,VP9 bitstream up to 4K@60 FPS. The output is
           HEVC,H264,VP9 up to four channels with downscaling.
@@ -32,49 +29,48 @@ The details are below:
           The output is YUV NV12.
     * Video Processing
           Download/Downscale/Format conversion
-```
 
-### VPE Plugin description
-```
+
+# 2. VPE Plugin Description
+
 VPE Plugin is for the multimedia frameworks to enable video transcoding, encoding,
 decoding and processing with VeriSilicon Platform Engine.
 Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and others.
-```
 
-### The overall architecture:
-                +----------------------------------------+
-                |              |              |          |
-                |  FFmpeg      |  GStreamer   |   APP    |
-                |              |              |          |
-                |  +-----------|  +-----------|          |
-                |  | VPE Plugin|  | VPE Plugin|          |
-                +----------------------------------------+
-                +----------------------------------------+
-                |  VPE                                   |
-                |   +--------------------------------+   |
-                |   |                                |   |
-                |   |             VPI                |   |
-                |   |                                |   |
-                |   +--------------------------------+   |
-                |   +--------------------------------+   |
-                |   |                                |   |
-                |   |            VPE Codecs          |   |
-                |   |      (Dynamic Link Libraries)  |   |
-                |   |                                |   |
-                |   +--------------------------------+   |
-                |   +--------------------------------+   |
-                |   |                                |   |
-                |   |         OS Wrapper Layer       |   |
-                |   |                                |   |
-                |   +--------------------------------+   |
-                +----------------------------------------+
-                +----------------------------------------+
-                |                                        |
-                |              Linux  kernel             |
-                |                                        |
-                +----------------------------------------+
+# 3. VPE Overall Architecture
+     +----------------------------------------+
+     |              |              |          |
+     |  FFmpeg      |  GStreamer   |   APP    |
+     |              |              |          |
+     |  +-----------|  +-----------|          |
+     |  | VPE Plugin|  | VPE Plugin|          |
+     +----------------------------------------+
+     +----------------------------------------+
+     |  VPE                                   |
+     |   +--------------------------------+   |
+     |   |                                |   |
+     |   |             VPI                |   |
+     |   |                                |   |
+     |   +--------------------------------+   |
+     |   +--------------------------------+   |
+     |   |                                |   |
+     |   |            VPE Codecs          |   |
+     |   |      (Dynamic Link Libraries)  |   |
+     |   |                                |   |
+     |   +--------------------------------+   |
+     |   +--------------------------------+   |
+     |   |                                |   |
+     |   |         OS Wrapper Layer       |   |
+     |   |                                |   |
+     |   +--------------------------------+   |
+     +----------------------------------------+
+     +----------------------------------------+
+     |                                        |
+     |              Linux  kernel             |
+     |                                        |
+     +----------------------------------------+
 
-### VPI directory
+# 4. VPE Directory
 ```
 ├── build                         Configure files for building
 ├── doc                           Documentations
@@ -86,7 +82,7 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 │   ├── README.md                 Readme
 │   └── transcoder-pcie           Driver source code
 ├── firmware                      The firmware for VeriSilicon Platform
-│   └── ZSP_FW_RP_V017.bin
+│   └── ZSP_FW_RP_Vxxx.bin
 ├── Makefile                      Makefile
 ├── readme.md                     Readme
 ├── sdk_inc                       VeriSilicon Platform Codec SDK header files
@@ -99,21 +95,34 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 
 ```
 
-### How to build, install and use VPI module
+# 5. Building And Installation
 
-* make help           - help info
-* make                - make all with VPI library and transcoder-pcie driver
-* make vpi            - make only VPI library
-* make drivers        - make only transcoder-pcie driver
-* make install        - copy the vpe sdk libs to default search path
-                          install the pcie driver
-                          run "sudo make install" if permission denied
-* make clean          - make clean VPI and drivers
-
-### How to make FFmpeg
-* How to make FFmpeg
-  ```
-  cd ffmpeg
-  ./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi"
-  make
-  ```
+1. Build
+```bash
+$make
+VPE build step - prepare
+sudo cp /home/gyzhang/work/facebook/spsd/vpe/sdk_libs/*.so "/usr/lib/vpe"
+[sudo] password for gyzhang:
+sudo cp /home/gyzhang/work/facebook/spsd/vpe/vpi/inc/*.h "/usr/local/include/vpe"
+sudo cp /home/gyzhang/work/facebook/spsd/vpe/build/libvpi.pc "/usr/share/pkgconfig"
+VPE build step - build VPI
+make -C vpi CHECK_MEM_LEAK=y DEBUG=
+make[1]: Entering directory `/home/gyzhang/work/facebook/spsd/vpe/vpi'
+...
+```
+2. Install
+```bash
+$sudo make install
+VPE build step - install
+cp /home/gyzhang/work/facebook/spsd/vpe/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin
+cp /home/gyzhang/work/facebook/spsd/vpe/sdk_libs/*.so "/usr/lib/vpe"
+cp /home/gyzhang/work/facebook/spsd/vpe/vpi/libvpi.so "/usr/lib/vpe"
+echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
+/sbin/ldconfig
+cp /home/gyzhang/work/facebook/spsd/vpe/vpi/inc/*.h "/usr/local/include/vpe"
+insmod drivers/transcoder-pcie/transcoder_pcie.ko
+rm "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x" -rf
+mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
+cp drivers/transcoder-pcie/transcoder_pcie.ko "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
+depmod
+```

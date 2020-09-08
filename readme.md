@@ -1,7 +1,5 @@
 # Table of Contents
 
-# Table of Contents
-
 * [Introduction](#Introduction)
 * [VPE Plugin Description](#VPE-Plugin-Description)
 * [VPE Overall Architecture](#VPE-Overall-Architecture)

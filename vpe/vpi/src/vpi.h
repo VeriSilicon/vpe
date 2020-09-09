@@ -39,10 +39,11 @@ typedef struct VpeVpiCtx {
     uint32_t dummy;
     VpiPlugin plugin;
     void *ctx;
+    int fd;
 } VpeVpiCtx;
 
 typedef struct VpiHwCtx {
-    char device_name[32];
+    char *device_name;
     int hw_context;
     int task_id;
     int priority;
@@ -56,6 +57,7 @@ typedef struct VpiCodecCtx {
     void *vpi_prc_spliter_ctx;
     void *vpi_prc_hwdw_ctx;
     int ref_cnt;
+    int fd;
 } VpiCodecCtx;
 
 typedef struct statistic {
@@ -72,4 +74,8 @@ typedef struct statistic {
     struct timeval last_frame_encoded_timestamp;
 } statistic;
 
+typedef struct VpiDevCtx {
+    char device_name[32];
+    int fd;
+} VpiDevCtx;
 #endif

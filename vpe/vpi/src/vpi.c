@@ -49,10 +49,28 @@
 #include "syslog_sink.h"
 #endif
 
-static VpiCodecCtx *vpi_codec_ctx = NULL;
-static VpiHwCtx *vpi_hw_ctx       = NULL;
-static int log_enabled            = 0;
-static char *device_name          = NULL;
+static VpiCodecCtx *vpi_codec_ctx[MAX_DEVICE_NUM] = {NULL};
+static VpiHwCtx *vpi_hw_ctx[MAX_DEVICE_NUM]       = {NULL};
+static VpiDevCtx *vpi_dev_ctx[MAX_DEVICE_NUM]     = {NULL};
+
+static int log_enabled = 0;
+static int log_cnt     = 0;
+
+static int vpi_get_hw_ctx(int fd)
+{
+    int i;
+
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (vpi_hw_ctx[i] && vpi_hw_ctx[i]->hw_context == fd) {
+            return i;
+        }
+    }
+    if (i == MAX_DEVICE_NUM) {
+        VPILOGE("Can't find valid hw device, fd %x\n", fd);
+        return -1;
+    }
+    return -1;
+}
 
 static int vpi_init(VpiCtx vpe_ctx, void *cfg)
 {
@@ -63,15 +81,21 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
     VpiPrcCtx *prc_ctx;
     VpiRet ret = VPI_SUCCESS;
     VpiDecOption *dec_option = (VpiDecOption *)cfg;
+    int i, idx;
+
+    idx = vpi_get_hw_ctx(vpe_vpi_ctx->fd);
+    if (idx == -1) {
+        return -1;
+    }
 
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
         dec_ctx = (VpiDecCtx *)vpe_vpi_ctx->ctx;
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
         dec_ctx->dec_fmt      = Dec_H264_H10P;
-        dec_option->dev_name  = device_name;
-        dec_option->task_id   = vpi_hw_ctx->task_id;
-        dec_option->priority  = vpi_hw_ctx->priority;
+        dec_option->dev_name  = vpi_hw_ctx[idx]->device_name;
+        dec_option->task_id   = vpi_hw_ctx[idx]->task_id;
+        dec_option->priority  = vpi_hw_ctx[idx]->priority;
         ret                   = vpi_vdec_init(dec_ctx, dec_option);
         break;
 
@@ -79,9 +103,9 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_ctx = (VpiDecCtx *)vpe_vpi_ctx->ctx;
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
         dec_ctx->dec_fmt      = Dec_HEVC;
-        dec_option->dev_name  = device_name;
-        dec_option->task_id   = vpi_hw_ctx->task_id;
-        dec_option->priority  = vpi_hw_ctx->priority;
+        dec_option->dev_name  = vpi_hw_ctx[idx]->device_name;
+        dec_option->task_id   = vpi_hw_ctx[idx]->task_id;
+        dec_option->priority  = vpi_hw_ctx[idx]->priority;
         ret                   = vpi_vdec_init(dec_ctx, cfg);
         break;
 
@@ -89,27 +113,27 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_ctx = (VpiDecCtx *)vpe_vpi_ctx->ctx;
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
         dec_ctx->dec_fmt      = Dec_VP9;
-        dec_option->dev_name  = device_name;
-        dec_option->task_id   = vpi_hw_ctx->task_id;
-        dec_option->priority  = vpi_hw_ctx->priority;
+        dec_option->dev_name  = vpi_hw_ctx[idx]->device_name;
+        dec_option->task_id   = vpi_hw_ctx[idx]->task_id;
+        dec_option->priority  = vpi_hw_ctx[idx]->priority;
         ret                   = vpi_vdec_init(dec_ctx, cfg);
         break;
 
     case H26XENC_VPE:
         h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
         VpiH26xEncCfg *h26x_enc_cfg         = (VpiH26xEncCfg *)cfg;
-        h26x_enc_cfg->priority           = vpi_hw_ctx->priority;
-        h26x_enc_cfg->device             = device_name;
-        h26x_enc_cfg->frame_ctx->task_id = vpi_hw_ctx->task_id;
+        h26x_enc_cfg->priority           = vpi_hw_ctx[idx]->priority;
+        h26x_enc_cfg->device             = vpi_hw_ctx[idx]->device_name;
+        h26x_enc_cfg->frame_ctx->task_id = vpi_hw_ctx[idx]->task_id;
         ret                              = vpi_h26xe_init(h26xenc_ctx, h26x_enc_cfg);
         break;
 
     case VP9ENC_VPE:
         vp9enc_ctx                    = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
         VpiEncVp9Opition *vp9_enc_cfg = (VpiEncVp9Opition *)cfg;
-        vp9_enc_cfg->priority         = vpi_hw_ctx->priority;
-        vp9_enc_cfg->dev_name         = device_name;
-        vp9_enc_cfg->task_id          = vpi_hw_ctx->task_id;
+        vp9_enc_cfg->priority         = vpi_hw_ctx[idx]->priority;
+        vp9_enc_cfg->dev_name         = vpi_hw_ctx[idx]->device_name;
+        vp9_enc_cfg->task_id          = vpi_hw_ctx[idx]->task_id;
         ret = vpi_venc_vp9_init(vp9enc_ctx, vp9_enc_cfg);
         break;
 
@@ -117,10 +141,10 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         prc_ctx->filter_type       = FILTER_PP;
-        prc_ctx->ppfilter.params.device = device_name;
-        prc_ctx->ppfilter.params.mem_id = vpi_hw_ctx->task_id;
-        prc_ctx->ppfilter.params.priority = vpi_hw_ctx->priority;
-        if (vpi_hw_ctx) {
+        prc_ctx->ppfilter.params.device   = vpi_hw_ctx[idx]->device_name;
+        prc_ctx->ppfilter.params.mem_id   = vpi_hw_ctx[idx]->task_id;
+        prc_ctx->ppfilter.params.priority = vpi_hw_ctx[idx]->priority;
+        if (vpi_hw_ctx[idx]) {
             vpi_vprc_init(prc_ctx, &prc_ctx->ppfilter.params);
         }
         break;
@@ -135,8 +159,8 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         prc_ctx->filter_type = FILTER_HW_DOWNLOADER;
-        if (vpi_hw_ctx) {
-            vpi_vprc_init(prc_ctx, device_name);
+        if (vpi_hw_ctx[idx]) {
+            vpi_vprc_init(prc_ctx, vpi_hw_ctx[idx]->device_name);
         }
         break;
 
@@ -145,10 +169,10 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         VpiHWUploadCfg * hwul_cfg = (VpiHWUploadCfg *)cfg;
         prc_ctx->filter_type      = FILTER_HW_UPLOAD;
-        hwul_cfg->task_id         = vpi_hw_ctx->task_id;
-        hwul_cfg->priority        = vpi_hw_ctx->priority;
-        hwul_cfg->device          = device_name;
-        if (vpi_hw_ctx) {
+        hwul_cfg->task_id         = vpi_hw_ctx[idx]->task_id;
+        hwul_cfg->priority        = vpi_hw_ctx[idx]->priority;
+        hwul_cfg->device          = vpi_hw_ctx[idx]->device_name;
+        if (vpi_hw_ctx[idx]) {
             vpi_vprc_init(prc_ctx, cfg);
         }
         break;
@@ -397,40 +421,41 @@ static int vpe_control_interface(void *id, void *indata, void *outdata)
 {
     int device_id             = *(int *)id;
     VpiCtrlCmdParam *in_param = (VpiCtrlCmdParam *)indata;
+    int idx;
 
-    if (device_id == vpi_hw_ctx->hw_context) {
-        switch (in_param->cmd) {
-            case VPI_CMD_GET_FRAME_BUFFER: {
-                VpiFrame **v_frame;
-                v_frame = (VpiFrame **)outdata;
-                *v_frame = (VpiFrame *)malloc(sizeof(struct VpiFrame));
-                break;
-            }
-            case VPI_CMD_FREE_FRAME_BUFFER: {
-                VpiFrame *v_frame;
-                v_frame = (VpiFrame *)in_param->data;
-                free(v_frame);
-                break;
-            }
-            case VPI_CMD_GET_VPEFRAME_SIZE: {
-                int *size = NULL;
-                size = (int *)outdata;
-                *size = sizeof(VpiFrame);
-                return 0;
-            }
-            case VPI_CMD_GET_PICINFO_SIZE: {
-                int *size = NULL;
-                size = (int *)outdata;
-                *size = sizeof(VpiPicInfo);
-                return 0;
-            }
-            default:
-                break;
-        }
-        return 0;
-    } else {
+    idx = vpi_get_hw_ctx(device_id);
+    if (idx == -1) {
         return -1;
     }
+    switch (in_param->cmd) {
+        case VPI_CMD_GET_FRAME_BUFFER: {
+            VpiFrame **v_frame;
+            v_frame = (VpiFrame **)outdata;
+            *v_frame = (VpiFrame *)malloc(sizeof(struct VpiFrame));
+            break;
+        }
+        case VPI_CMD_FREE_FRAME_BUFFER: {
+            VpiFrame *v_frame;
+            v_frame = (VpiFrame *)in_param->data;
+            free(v_frame);
+            break;
+        }
+        case VPI_CMD_GET_VPEFRAME_SIZE: {
+            int *size = NULL;
+            size = (int *)outdata;
+            *size = sizeof(VpiFrame);
+            return 0;
+        }
+        case VPI_CMD_GET_PICINFO_SIZE: {
+            int *size = NULL;
+            size = (int *)outdata;
+            *size = sizeof(VpiPicInfo);
+            return 0;
+        }
+        default:
+            break;
+    }
+    return 0;
 }
 
 static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
@@ -491,7 +516,12 @@ static int vpi_close(VpiCtx vpe_ctx)
     VpiPrcCtx *prc_ctx        = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
     VpiH26xEncCtx *h26xenc_ctx;
     VpiRet ret = VPI_SUCCESS;
+    int idx;
 
+    idx = vpi_get_hw_ctx(vpe_vpi_ctx->fd);
+    if (idx == -1) {
+        return -1;
+    }
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
     case HEVCDEC_VPE:
@@ -509,7 +539,7 @@ static int vpi_close(VpiCtx vpe_ctx)
     case SPLITER_VPE:
     case HWDOWNLOAD_VPE:
     case HWUPLOAD_VPE:
-        if (vpi_hw_ctx) {
+        if (vpi_hw_ctx[idx]) {
             vpi_vprc_close(prc_ctx);
         }
         break;
@@ -591,12 +621,14 @@ int vpi_get_media_proc_struct(VpiMediaProc **media_proc)
     return 0;
 }
 
-int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
+int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
 {
     VpiDecCtx *dec_ctx;
     VpiEncVp9Ctx *vp9_enc_ctx;
     VpiH26xEncCtx *h26xenc_ctx;
     VpiPrcCtx *prc_ctx;
+    VpiCodecCtx *codec_ctx = NULL;
+    int i, j;
 
     if (HWCONTEXT_VPE == plugin) {
         VpiSysInfo *vpi_dev_info = (VpiSysInfo *)(*ctx);
@@ -605,32 +637,55 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
             return -1;
         }
 
-        if (!vpi_hw_ctx && (vpi_dev_info->device >= 0)) {
-            vpi_hw_ctx             = malloc(sizeof(VpiHwCtx));
-            vpi_hw_ctx->sys_info   = (void *)*ctx;
-            vpi_hw_ctx->hw_context = vpi_dev_info->device;
-            if (ioctl(vpi_hw_ctx->hw_context, CB_TRANX_MEM_GET_TASKID,
-                      &vpi_hw_ctx->task_id) < 0) {
-                printf("get task id failed!\n");
-                return -1;
-            }
-            vpi_dev_info->task_id = vpi_hw_ctx->task_id;
-            vpi_hw_ctx->priority  = vpi_dev_info->priority;
-
-#ifdef FB_SYSLOG_ENABLE
-            printf("sys log level %d\n", vpi_dev_info->sys_log_level);
-            init_syslog_module("system", vpi_dev_info->sys_log_level);
-#endif
-            if (!log_enabled) {
-                if (log_init(vpi_dev_info->sys_log_level)) {
+        if (vpi_dev_info->device >= 0) {
+            for (i = 0; i < MAX_DEVICE_NUM; i++) {
+                if (vpi_hw_ctx[i] &&
+                    vpi_hw_ctx[i]->hw_context == vpi_dev_info->device) {
+                    VPILOGE("device has been created\n");
                     return -1;
                 }
             }
-
-            *vpi = &vpe_api;
+            for (i = 0; i < MAX_DEVICE_NUM; i++) {
+                if (!vpi_hw_ctx[i]) {
+                    vpi_hw_ctx[i]             = malloc(sizeof(VpiHwCtx));
+                    vpi_hw_ctx[i]->sys_info   = (void *)*ctx;
+                    vpi_hw_ctx[i]->hw_context = vpi_dev_info->device;
+                    if (ioctl(vpi_hw_ctx[i]->hw_context, CB_TRANX_MEM_GET_TASKID,
+                              &vpi_hw_ctx[i]->task_id) < 0) {
+                        VPILOGE("get task id failed!\n");
+                        return -1;
+                    }
+                    vpi_dev_info->task_id = vpi_hw_ctx[i]->task_id;
+                    vpi_hw_ctx[i]->priority  = vpi_dev_info->priority;
+                    for (j = 0; j < MAX_DEVICE_NUM; j++) {
+                        if (vpi_dev_ctx[j] && vpi_dev_ctx[j]->fd == fd) {
+                            vpi_hw_ctx[i]->device_name = vpi_dev_ctx[j]->device_name;
+                            break;
+                        }
+                    }
+#ifdef FB_SYSLOG_ENABLE
+                    printf("sys log level %d\n", vpi_dev_info->sys_log_level);
+                    init_syslog_module("system", vpi_dev_info->sys_log_level);
+#endif
+                    if (!log_enabled) {
+                        if (log_init(vpi_dev_info->sys_log_level)) {
+                            return -1;
+                        }
+                    }
+                    log_cnt++;
+                    *vpi = &vpe_api;
+                    VPILOGD("hw ctx %d, fd %d\n", i, vpi_dev_info->device);
+                    return 0;
+                }
+            }
+            if (i == MAX_DEVICE_NUM) {
+                VPILOGE("No empty device\n");
+                return -1;
+            }
+        } else {
+            VPILOGE("vpi dev handle error\n");
+            return -1;
         }
-
-        return 0;
     }
 
     if (NULL == ctx || NULL == vpi) {
@@ -648,26 +703,48 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
         return -1;
     }
     memset(vpe_vpi_ctx, 0, sizeof(VpeVpiCtx));
-    vpe_vpi_ctx->dummy = 0xFFFFFFFF;
+    vpe_vpi_ctx->dummy  = 0xFFFFFFFF;
     vpe_vpi_ctx->plugin = plugin;
+    vpe_vpi_ctx->fd     = fd;
 
-    if (NULL == vpi_codec_ctx) {
-        vpi_codec_ctx = malloc(sizeof(VpiCodecCtx));
-        if (NULL == vpi_codec_ctx) {
-            VPILOGE("failed to allocate vpi codec context\n");
-            return -1;
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (vpi_codec_ctx[i]) {
+            if (vpi_codec_ctx[i]->fd == fd) {
+                VPILOGD("find %d vpi codec ctx\n", i);
+                codec_ctx = vpi_codec_ctx[i];
+                goto find_codec_ctx;
+            }
         }
-        memset(vpi_codec_ctx, 0, sizeof(VpiCodecCtx));
     }
+
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (NULL == vpi_codec_ctx[i]) {
+            vpi_codec_ctx[i] = malloc(sizeof(VpiCodecCtx));
+            if (NULL == vpi_codec_ctx[i]) {
+                VPILOGE("failed to allocate vpi codec context\n");
+                return -1;
+            }
+            memset(vpi_codec_ctx[i], 0, sizeof(VpiCodecCtx));
+            vpi_codec_ctx[i]->fd = fd;
+            codec_ctx            = vpi_codec_ctx[i];
+            break;
+        }
+    }
+    if (i == MAX_DEVICE_NUM) {
+        VPILOGE("Can't find valid vpi codec ctx\n");
+        return -1;
+    }
+
+find_codec_ctx:
     switch (plugin) {
     case H264DEC_VPE:
     case HEVCDEC_VPE:
     case VP9DEC_VPE:
         dec_ctx = (VpiDecCtx *)malloc(sizeof(VpiDecCtx));
         memset(dec_ctx, 0, sizeof(VpiDecCtx));
-        vpe_vpi_ctx->ctx     = dec_ctx;
-        vpi_codec_ctx->vpi_dec_ctx = vpe_vpi_ctx;
-        vpi_codec_ctx->ref_cnt++;
+        vpe_vpi_ctx->ctx       = dec_ctx;
+        codec_ctx->vpi_dec_ctx = vpe_vpi_ctx;
+        codec_ctx->ref_cnt++;
         break;
     case H26XENC_VPE:
         h26xenc_ctx = (VpiH26xEncCtx *)malloc(sizeof(VpiH26xEncCtx));
@@ -675,44 +752,44 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
             return -1;
         }
         memset(h26xenc_ctx, 0, sizeof(VpiH26xEncCtx));
-        vpe_vpi_ctx->ctx = h26xenc_ctx;
-        vpi_codec_ctx->vpi_enc_ctx = vpe_vpi_ctx;
-        vpi_codec_ctx->ref_cnt++;
+        vpe_vpi_ctx->ctx       = h26xenc_ctx;
+        codec_ctx->vpi_enc_ctx = vpe_vpi_ctx;
+        codec_ctx->ref_cnt++;
         break;
     case VP9ENC_VPE:
         vp9_enc_ctx = (VpiEncVp9Ctx *)malloc(sizeof(VpiEncVp9Ctx));
         memset(vp9_enc_ctx, 0, sizeof(VpiEncVp9Ctx));
-        vpe_vpi_ctx->ctx = vp9_enc_ctx;
-        vpi_codec_ctx->vpi_enc_ctx = vpe_vpi_ctx;
-        vpi_codec_ctx->ref_cnt++;
+        vpe_vpi_ctx->ctx       = vp9_enc_ctx;
+        codec_ctx->vpi_enc_ctx = vpe_vpi_ctx;
+        codec_ctx->ref_cnt++;
         break;
     case PP_VPE:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        vpe_vpi_ctx->ctx        = prc_ctx;
-        vpi_codec_ctx->vpi_prc_pp_ctx = vpe_vpi_ctx;
-        vpi_codec_ctx->ref_cnt++;
+        vpe_vpi_ctx->ctx          = prc_ctx;
+        codec_ctx->vpi_prc_pp_ctx = vpe_vpi_ctx;
+        codec_ctx->ref_cnt++;
         break;
     case SPLITER_VPE:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        vpe_vpi_ctx->ctx             = prc_ctx;
-        vpi_codec_ctx->vpi_prc_spliter_ctx = vpe_vpi_ctx;
-        vpi_codec_ctx->ref_cnt++;
+        vpe_vpi_ctx->ctx               = prc_ctx;
+        codec_ctx->vpi_prc_spliter_ctx = vpe_vpi_ctx;
+        codec_ctx->ref_cnt++;
         break;
     case HWDOWNLOAD_VPE:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        vpe_vpi_ctx->ctx          = prc_ctx;
-        vpi_codec_ctx->vpi_prc_hwdw_ctx = vpe_vpi_ctx;
-        vpi_codec_ctx->ref_cnt++;
+        vpe_vpi_ctx->ctx            = prc_ctx;
+        codec_ctx->vpi_prc_hwdw_ctx = vpe_vpi_ctx;
+        codec_ctx->ref_cnt++;
         break;
     case HWUPLOAD_VPE:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         vpe_vpi_ctx->ctx          = prc_ctx;
         prc_ctx->filter_type      = FILTER_HW_UPLOAD;
-        vpi_codec_ctx->ref_cnt++;
+        codec_ctx->ref_cnt++;
         break;
     default:
         break;
@@ -723,29 +800,42 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin)
     return 0;
 }
 
-int vpi_destroy(VpiCtx ctx)
+int vpi_destroy(VpiCtx ctx, int fd)
 {
-    if (!vpi_hw_ctx) {
+    int i;
+    VpiHwCtx *hw_ctx = NULL;
+
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (vpi_hw_ctx[i] && vpi_hw_ctx[i]->hw_context == fd) {
+            hw_ctx = vpi_hw_ctx[i];
+            break;
+        }
+    }
+    if (i == MAX_DEVICE_NUM) {
         return 0;
     }
 
-    if (ctx == vpi_hw_ctx->sys_info) {
-        if (vpi_hw_ctx && vpi_hw_ctx->hw_context) {
-            if (ioctl(vpi_hw_ctx->hw_context, CB_TRANX_MEM_FREE_TASKID,
-                      &vpi_hw_ctx->task_id) < 0) {
+    if (ctx == hw_ctx->sys_info) {
+        if (hw_ctx->hw_context) {
+            if (ioctl(hw_ctx->hw_context, CB_TRANX_MEM_FREE_TASKID,
+                      &hw_ctx->task_id) < 0) {
                 VPILOGE("free hw context task id failed!\n");
             }
 
-            if (vpi_hw_ctx) {
-                free(vpi_hw_ctx);
-                vpi_hw_ctx = NULL;
+            if (hw_ctx) {
+                free(hw_ctx);
+                hw_ctx        = NULL;
+                vpi_hw_ctx[i] = NULL;
             }
 #ifdef FB_SYSLOG_ENABLE
             close_syslog_module();
 #endif
-            if( log_enabled){
-                log_close();
-                log_enabled = 0;
+            log_cnt--;
+            if (!log_cnt) {
+                if (log_enabled) {
+                    log_close();
+                    log_enabled = 0;
+                }
             }
         }
         return 0;
@@ -756,11 +846,14 @@ int vpi_destroy(VpiCtx ctx)
     vpe_vpi_ctx->ctx = NULL;
     free(ctx);
 
-    if (vpi_codec_ctx) {
-        vpi_codec_ctx->ref_cnt--;
-        if (vpi_codec_ctx->ref_cnt == 0) {
-            free(vpi_codec_ctx);
-            vpi_codec_ctx = NULL;
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (vpi_codec_ctx[i] && vpi_codec_ctx[i]->fd == fd) {
+            vpi_codec_ctx[i]->ref_cnt--;
+            if (vpi_codec_ctx[i]->ref_cnt == 0) {
+                free(vpi_codec_ctx[i]);
+                vpi_codec_ctx[i] = NULL;
+                break;
+            }
         }
     }
 
@@ -769,24 +862,46 @@ int vpi_destroy(VpiCtx ctx)
 
 int vpi_open_hwdevice(const char *device)
 {
-    if (!device_name) {
-        device_name = malloc(sizeof(device));
-        strcpy(device_name, device);
+    int fd;
+    int i;
+
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (!vpi_dev_ctx[i]) {
+            vpi_dev_ctx[i] = malloc(sizeof(VpiDevCtx));
+            strcpy(vpi_dev_ctx[i]->device_name, device);
+            break;
+        }
+    }
+    if (i == MAX_DEVICE_NUM) {
+        VPILOGE("No empty device\n");
+        return -1;
     }
 
 #ifdef CHECK_MEM_LEAK_TRANS
     TransCheckMemLeakInit();
 #endif
 
-    return TranscodeOpenFD(device_name, O_RDWR);
+    fd = TranscodeOpenFD(vpi_dev_ctx[i]->device_name, O_RDWR);
+    vpi_dev_ctx[i]->fd = fd;
+    return fd;
 }
 
 int vpi_close_hwdevice(int fd)
 {
-    if (device_name) {
-        free(device_name);
-        device_name = NULL;
+    int i;
+
+    for (i = 0; i < MAX_DEVICE_NUM; i++) {
+        if (vpi_dev_ctx[i] && vpi_dev_ctx[i]->fd == fd) {
+            break;
+        }
     }
+    if (i == MAX_DEVICE_NUM) {
+        VPILOGE("fd %d device not opened\n", fd);
+        return -1;
+    }
+    free(vpi_dev_ctx[i]);
+    vpi_dev_ctx[i] = NULL;
+
 #ifdef CHECK_MEM_LEAK_TRANS
     TransCheckMemLeakGotResult();
 #endif

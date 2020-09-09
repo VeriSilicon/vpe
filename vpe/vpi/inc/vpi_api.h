@@ -60,17 +60,19 @@ int vpi_get_media_proc_struct(VpiMediaProc **media_proc);
  *        Use functions in VpiApi to access vpi services.
  * @param ctx pointer of the vpi context
  * @param vpi pointer of the vpi api function
+ * @param fd handler of the device
  * @param plugin vpi plugin type
  */
 
-int vpi_create(VpiCtx *ctx, VpiApi **vpi, VpiPlugin plugin);
+int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin);
 
 /**
  * @brief Destroy vpi context and free both context and vpi structure
  * @param ctx The context of vpi
+ * @param fd handler of the device
  */
 
-int vpi_destroy(VpiCtx ctx);
+int vpi_destroy(VpiCtx ctx, int fd);
 
 /**
  * @brief Open vpi hardware device

@@ -292,7 +292,7 @@ void get_stream_bufs(VCEncStrmBufs *bufs, VPIH26xEncCfg *tb,
                      VPIH26xEncOptions *options, bool encoding)
 {
     i32 i;
-    for (i = 0; i < MAX_OUTPUT_FIFO_DEPTH; i++) {
+    for (i = 0; i < MAX_OUT_BUF_NUM; i++) {
 #ifdef USE_OLD_DRV
         bufs->buf[i] =
             tb->outbuf_mem[i] ? (u8 *)tb->outbuf_mem[i]->virtualAddress : NULL;

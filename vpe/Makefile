@@ -22,7 +22,7 @@ DRV_PATH := "/lib/modules/$(shell uname -r)/kernel/drivers/pci/pcie/solios-x"
 
 .PHONY: all vpi drivers install clean help
 
-all: prepare vpi drivers
+all: vpi drivers
 
 ifeq ($(DEBUG),y)
 	@echo "Build debug VPE"
@@ -30,15 +30,7 @@ else
 	@echo "Build release VPE"
 endif
 
-prepare:
-	@echo "VPE build step - prepare"
-	$(shell if [ ! -d $(DLL_PATH) ]; then sudo mkdir $(DLL_PATH); fi;)
-	$(shell if [ ! -d $(INC_PATH) ]; then sudo mkdir $(INC_PATH); fi;)
-	sudo cp $(PWD)/sdk_libs/*.so $(DLL_PATH)
-	sudo cp $(PWD)/vpi/inc/*.h $(INC_PATH)
-	sudo cp $(PWD)/build/libvpi.pc $(PKG_PATH)
-
-vpi: prepare
+vpi:
 	@echo "VPE build step - build VPI"
 	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG)
 

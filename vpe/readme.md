@@ -114,15 +114,17 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 1. Build
 ```bash
 $make
-VPE build step - prepare
-sudo cp /home/gyzhang/work/facebook/spsd/vpe/sdk_libs/*.so "/usr/lib/vpe"
-[sudo] password for gyzhang:
-sudo cp /home/gyzhang/work/facebook/spsd/vpe/vpi/inc/*.h "/usr/local/include/vpe"
-sudo cp /home/gyzhang/work/facebook/spsd/vpe/build/libvpi.pc "/usr/share/pkgconfig"
 VPE build step - build VPI
 make -C vpi CHECK_MEM_LEAK=y DEBUG=
 make[1]: Entering directory `/home/gyzhang/work/facebook/spsd/vpe/vpi'
 ...
+ Building modules, stage 2.
+  MODPOST 1 modules
+  CC      /home/gyzhang/work/facebook/spsd/vpe/drivers/transcoder-pcie/transcoder_pcie.mod.o
+  LD [M]  /home/gyzhang/work/facebook/spsd/vpe/drivers/transcoder-pcie/transcoder_pcie.ko
+make[2]: Leaving directory `/home/gyzhang/work/facebook/transcoder/linux-4.19.106'
+make[1]: Leaving directory `/home/gyzhang/work/facebook/spsd/vpe/drivers/transcoder-pcie'
+Build release VPE
 ```
 
 2. Install

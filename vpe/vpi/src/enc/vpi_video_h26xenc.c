@@ -1348,7 +1348,7 @@ static int h26x_encode_end(VpiH26xEncCtx *enc_ctx)
         goto error;
     }
 #endif
-
+    VPILOGD("cometo %s\n", __FUNCTION__);
     out_buffer = &enc_ctx->enc_pkt[0];
     setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
     ret = VCEncStrmEnd(enc_ctx->hantro_encoder, p_enc_in, p_enc_out);
@@ -1380,6 +1380,7 @@ static int h26x_encode_end(VpiH26xEncCtx *enc_ctx)
     }
 
     enc_ctx->encoder_is_end = HANTRO_TRUE;
+    VPILOGD("finish %s\n", __FUNCTION__);
     return 0;
 
 error:

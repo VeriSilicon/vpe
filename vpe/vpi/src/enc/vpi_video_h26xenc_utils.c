@@ -3728,6 +3728,10 @@ int h26x_enc_get_enc_status(VpiH26xEncCtx *ctx)
     // If not control and hold here, the frame buffer in decoder will used off
     // and come into deadlock status
     pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    if (ctx->encode_end == 1) {
+        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+        return 0;
+    }
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->pic_wait_list[i].state == 1) {
             state_num++;

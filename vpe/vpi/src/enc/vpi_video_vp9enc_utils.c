@@ -821,6 +821,10 @@ int vp9enc_get_enc_status(VpiEncVp9Ctx *ctx)
     // If not control and hold here, the frame buffer in decoder will used off
     // and come into deadlock status
     pthread_mutex_lock(&ctx->enc_thread_mutex);
+    if (ctx->encode_end == 1) {
+        pthread_mutex_unlock(&ctx->enc_thread_mutex);
+        return 0;
+    }
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->pic_wait_list[i].state == 1) {
             if (ctx->pic_wait_list[i].used == 0) {

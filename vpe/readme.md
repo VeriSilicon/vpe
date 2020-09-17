@@ -1,20 +1,3 @@
-# Table of Contents
-
-* [Introduction](#Introduction)
-* [VPE Plugin Description](#VPE-Plugin-Description)
-* [VPE Overall Architecture](#VPE-Overall-Architecture)
-* [VPE Folder Struct Description](#VPE-Folder-Struct-Description)
-* [Building and Installation](#Building-and-Installation)
-* [Codec Parameters](#codec)
-   * [Device](#Device)
-   * [Decoder](#Decoder)
-   * [Spliter](#Spliter)
-   * [PP](#PP-Parameters)
-   * [HWdownloader](#HWdownloader)
-   * [VP9 Encoder](#VP9-Encoder)
-   * [H264 H265 Encoder](#H264-H265-Encoder)
-   * [Preset Detail](#Preset-Detail)
-
 # Introduction
 
 VeriSilicon Platform Engine(VPE for short) consists of VeriSilicon Platform Interfaces (VPI for short) and SDK. It is the control software for VeriSilicon SoC platforms and separate IPs. Here VPI provides the APIs for VeriSilicon Video encoding and decoding functions, the details are below:

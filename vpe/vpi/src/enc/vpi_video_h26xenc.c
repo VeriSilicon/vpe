@@ -1533,6 +1533,7 @@ static int h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
     int i, idx;
     int pkt_size;
     int new_size;
+    EWLLinearMem_t *mem;
 
     SliceCtl *ctl   = cfg->slice_ctl_out;
     int stream_size = p_enc_out->streamSize;
@@ -1598,6 +1599,14 @@ static int h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
                                     enc_ctx->stream_buf_list[idx]->item_size);
             new_size = NEXT_MULTIPLE(pkt_size, 0x10000);
             enc_ctx->outstream_mem[idx] = fbtrans_get_huge_pages(new_size);
+            if (enc_ctx->outstream_mem[idx] == NULL) {
+                VPILOGE("get %d size huge page failed\n");
+                return -1;
+            }
+            mem = enc_ctx->outstream_pkt[idx].outbuf_mem;
+            mem->rc_busAddress = (ptr_t)enc_ctx->outstream_mem[idx];
+            mem->size          = new_size;
+
             enc_ctx->stream_buf_list[idx]->item_size = new_size;
             outstrm_buf->outbuf_mem->size = new_size;
         }

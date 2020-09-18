@@ -2187,7 +2187,9 @@ int h26x_enc_frame_process(VpiH26xEncCtx *ctx)
            return 0;
     }
 
-    if ((ctx->inject_frm_cnt < ctx->hold_buf_num) && ctx->force_idr) {
+    if ((ctx->inject_frm_cnt < ctx->hold_buf_num)
+       && ctx->force_idr
+       && ctx->eos_received == 0) {
         pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
         return 0;
     }
@@ -2380,6 +2382,8 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
                 enc_ctx->gop_pic_cfg_pass2;
     }
 
+    VPILOGD("lookahead_depth %d, gop_size %d\n",
+             options->lookahead_depth, options->gop_size);
     if (options->lookahead_depth) {
         /*2pass need add lookahead number*/
         max_frames_delay = 17 + options->lookahead_depth;
@@ -2400,6 +2404,16 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
             } else {
                 max_frames_delay = options->gop_size + 2 + 1;
             }
+        }
+    }
+    /*Set the number of hold buffers*/
+    if (enc_ctx->force_idr) {
+        if (options->lookahead_depth != 0) {
+            enc_ctx->hold_buf_num = max_frames_delay;
+            max_frames_delay += 6;
+        } else {
+            enc_ctx->hold_buf_num =
+                enc_ctx->gop_len + 1 + enc_ctx->gop_len;
         }
     }
     if (max_frames_delay > enc_cfg->frame_ctx->max_frames_delay) {
@@ -2501,15 +2515,6 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     enc_ctx->inject_frm_cnt = 0;
     enc_ctx->gop_len =
         (vpi_h26xe_cfg->gop_size == 0) ? 8 : vpi_h26xe_cfg->gop_size;
-    /*Set the number of hold buffers*/
-    if (enc_ctx->force_idr) {
-        if (options->lookahead_depth != 0) {
-            enc_ctx->hold_buf_num = max_frames_delay;
-        } else {
-            enc_ctx->hold_buf_num =
-                enc_ctx->gop_len + 1 + enc_ctx->gop_len;
-        }
-    }
 
     idr_poc_array_init(enc_ctx);
 

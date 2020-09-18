@@ -66,7 +66,6 @@ static int vpi_get_hw_ctx(int fd)
         }
     }
     if (i == MAX_DEVICE_NUM) {
-        VPILOGE("Can't find valid hw device, fd %x\n", fd);
         return -1;
     }
     return -1;

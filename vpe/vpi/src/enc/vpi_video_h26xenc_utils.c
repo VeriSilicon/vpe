@@ -3722,6 +3722,7 @@ int h26x_enc_get_enc_status(VpiH26xEncCtx *ctx)
     int i;
     int state_num = 0;
     int used_num  = 0;
+    int threshold_num;
 
     // check whether all the input frame has been send to enoder
     // because decoder's speed is faster than encoder
@@ -3740,9 +3741,29 @@ int h26x_enc_get_enc_status(VpiH26xEncCtx *ctx)
             }
         }
     }
-    if (state_num - used_num > ctx->delta_poc) {
-        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-        return 1;
+
+    if (ctx->force_idr == 1) {
+        if (ctx->inject_frm_cnt < ctx->hold_buf_num) {
+            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+            return 0;
+        }
+        if (ctx->options.lookahead_depth) {
+            threshold_num = 3 + ctx->hold_buf_num;
+            if (ctx->inject_frm_cnt > threshold_num) {
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                return 1;
+            }
+        } else {
+            if (state_num - used_num > ctx->delta_poc) {
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                return 1;
+            }
+        }
+    } else {
+        if (state_num - used_num > ctx->delta_poc) {
+            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+            return 1;
+        }
     }
     pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     return 0;

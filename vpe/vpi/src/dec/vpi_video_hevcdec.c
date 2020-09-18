@@ -679,7 +679,7 @@ int vpi_decode_hevc_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
     if (vpi_ctx->enc_type != VPI_ENC_NONE) {
         vpi_ctx->max_frames_delay = vpi_ctx->frame->max_frames_delay;
         ret = vpi_dec_check_buffer_number_for_trans(vpi_ctx);
-        if (ret == 1) {
+        if (ret == 1 || ret == 0) {
             if (vpi_ctx->waiting_for_dpb == 1) {
                 pthread_cond_signal(&vpi_ctx->dec_thread_cond);
                 vpi_ctx->waiting_for_dpb = 0;

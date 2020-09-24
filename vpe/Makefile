@@ -45,6 +45,7 @@ install:
 	cp $(PWD)/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin
 	cp $(PWD)/sdk_libs/*.so $(DLL_PATH)
 	cp $(PWD)/vpi/libvpi.so $(DLL_PATH)
+	cp $(PWD)/build/libvpi.pc $(PKG_PATH)
 	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
 	/sbin/ldconfig
 	cp $(PWD)/vpi/inc/*.h $(INC_PATH)

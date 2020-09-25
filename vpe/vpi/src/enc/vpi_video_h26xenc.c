@@ -1793,7 +1793,7 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
         return -1;
     }
 
-    if (!addrs.bus_luma || !addrs.bus_chroma) {
+    if (!addrs.bus_luma) {
         VPILOGD("get EOS\n");
         return 0;
     }
@@ -1946,9 +1946,11 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
         /*pic_data->luma.bus_address; */ /*p_enc_in->busLuma;*/
         p_enc_in->PrivData.busChromaU = addrs.bus_chroma;
         /*pic_data->chroma.bus_address; */ /*p_enc_in->busChromaU;*/
-        width_chroma_align32 = ((options->width / 2 + 31) / 32) * 32;
-        p_enc_in->PrivData.busChromaV =
-            addrs.bus_chroma + width_chroma_align32 * options->height / 2;
+        if (addrs.bus_chroma) {
+            width_chroma_align32 = ((options->width / 2 + 31) / 32) * 32;
+            p_enc_in->PrivData.busChromaV =
+                addrs.bus_chroma + width_chroma_align32 * options->height / 2;
+        }
         VPILOGD("Priv busLuma %p, busChromaU %p, busChromaV %p \n",
             p_enc_in->PrivData.busLuma, p_enc_in->PrivData.busChromaU,
             p_enc_in->PrivData.busChromaV);

@@ -675,6 +675,9 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                            .format == VPI_YUV420_SEMIPLANAR_YUV420P)
                     options->input_format =
                             INPUT_FORMAT_PP_YUV420_SEMIPLANNAR_YUV420P;
+                else if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
+                           .format == VPI_YUV422_INTERLEAVED_UYVY)
+                    options->input_format = VCENC_YUV422_INTERLEAVED_UYVY;
                 else
                     options->input_format = INPUT_FORMAT_PP_YUV420_SEMIPLANNAR;
                 options->b_close_dummy_regs = 1;
@@ -846,7 +849,12 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                 options->input_format_ds = VCENC_YUV420_UV_8BIT_TILE_64_4;
                 break;
             default:
-                options->input_format_ds = VCENC_YUV420_SEMIPLANAR_8BIT_FB;
+                if (h26x_enc_cfg->frame_ctx->pic_info[2].format
+                     == VPI_YUV422_INTERLEAVED_UYVY) {
+                    options->input_format_ds = VCENC_YUV422_INTERLEAVED_UYVY;
+                } else {
+                    options->input_format_ds = VCENC_YUV420_SEMIPLANAR_8BIT_FB;
+                }
                 break;
             }
 
@@ -884,8 +892,13 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                     } else if (h26x_enc_cfg->frame_ctx->pic_info[2]
                                    .picdata.pic_format ==
                                DEC_OUT_FRM_RASTER_SCAN) {
-                        options->input_format_ds =
-                            INPUT_FORMAT_PP_YUV420_SEMIPLANNAR;
+                        if (h26x_enc_cfg->frame_ctx->pic_info[2].format
+                                 == VPI_YUV422_INTERLEAVED_UYVY) {
+                            options->input_format_ds = VCENC_YUV422_INTERLEAVED_UYVY;
+                        } else {
+                            options->input_format_ds =
+                                INPUT_FORMAT_PP_YUV420_SEMIPLANNAR;
+                        }
                     } else {
                         if (h26x_enc_cfg->frame_ctx->pic_info[2]
                                 .picdata.pic_compressed_status == 2) {

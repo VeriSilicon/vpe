@@ -108,6 +108,7 @@ typedef enum VpiPixsFmt {
     VPI_FMT_ABGR,
     VPI_FMT_BGRA,
     VPI_FMT_VPE,
+    VPI_FMT_UYVY,
     VPI_FMT_OTHERS,
 } VpiPixsFmt;
 
@@ -296,6 +297,7 @@ typedef enum VpiPixFmt{
     VPI_YUV420_SEMIPLANAR_VU,
     VPI_YUV420_PLANAR_10BIT_P010,
     VPI_YUV420_SEMIPLANAR_YUV420P,
+    VPI_YUV422_INTERLEAVED_UYVY,
 } VpiPixFmt;
 
 typedef struct VpiDecOption {

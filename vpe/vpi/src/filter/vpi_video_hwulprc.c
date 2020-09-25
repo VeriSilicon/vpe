@@ -349,15 +349,20 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     }
     mwl_mem_item = &ctx->mwl_mem[idx];
 
-    linesize32_y  = ((in_frame->linesize[0]+1023)/1024)*1024;
+    if (ctx->format == VPI_FMT_UYVY) {
+        linesize32_y  = ((in_frame->linesize[0]+31)/32)*32;
+    } else {
+        linesize32_y  = ((in_frame->linesize[0]+1023)/1024)*1024;
+    }
     linesize32_uv = ((in_frame->linesize[1]+1023)/1024)*1024;
     y_size        = (((in_frame->src_height+7)/8)*8) * linesize32_y;
     uv_size       = in_frame->src_height * linesize32_uv / 2;
     if(ctx->format == VPI_FMT_YUV420P)
         uv_size = in_frame->src_height * linesize32_uv;
     pic->pictures[0].luma.bus_address   = mwl_mem_item->bus_address;
-    pic->pictures[0].chroma.bus_address = pic->pictures[0].luma.bus_address
-                                          + y_size;
+    if (ctx->format != VPI_FMT_UYVY)
+        pic->pictures[0].chroma.bus_address = pic->pictures[0].luma.bus_address
+                                              + y_size;
     VPILOGD("pic %p luma.bus_address %p, chroma.bus_address %p,"
             "linesize32_y %d, linesize32_uv %d, y_size %d, uv_size %d,"
             "in->height %d, in->linesize[0] %d, in->linesize[1] %d,"
@@ -386,22 +391,24 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         return -1;
     }
 
-    //copy UV lines to hugepage buffer, then rc to ep.
-    //NV12 and P010le chroma: 1 plane, UV
-    for (i = 0; i < in_frame->src_height/2; i++) {
-        memcpy(ctx->p_hugepage_buf_uv+i*linesize32_uv,
-               in_frame->data[1]+i*in_frame->linesize[1],
-               in_frame->linesize[1]);
-    }
-    ret = TRANS_EDMA_RC2EP_nonlink(vpi_ctx->edma_handle,
-                                   (u64)ctx->p_hugepage_buf_uv,
-                                   pic->pictures[0].chroma.bus_address,
-                                   uv_size);
-    if (ret) {
-        VPILOGE("TRANS_EDMA_RC2EP_nonlink failed. ret %d,"
-                "chroma.bus_address %p, uv_size %d\n",
-                ret, pic->pictures[0].chroma.bus_address, uv_size);
-        return -1;
+    if (ctx->format != VPI_FMT_UYVY) {
+        //copy UV lines to hugepage buffer, then rc to ep.
+        //NV12 and P010le chroma: 1 plane, UV
+        for (i = 0; i < in_frame->src_height/2; i++) {
+            memcpy(ctx->p_hugepage_buf_uv+i*linesize32_uv,
+                    in_frame->data[1]+i*in_frame->linesize[1],
+                    in_frame->linesize[1]);
+        }
+        ret = TRANS_EDMA_RC2EP_nonlink(vpi_ctx->edma_handle,
+                                       (u64)ctx->p_hugepage_buf_uv,
+                                       pic->pictures[0].chroma.bus_address,
+                                       uv_size);
+        if (ret) {
+            VPILOGE("TRANS_EDMA_RC2EP_nonlink failed. ret %d,"
+                    "chroma.bus_address %p, uv_size %d\n",
+                    ret, pic->pictures[0].chroma.bus_address, uv_size);
+            return -1;
+        }
     }
 
     ctx->mwl_used[idx] = 1;
@@ -426,6 +433,8 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
     frame->pic_info[0].enabled = 1;
     if (vpi_cfg->format == VPI_FMT_P010LE)
         frame->pic_info[0].format = VPI_YUV420_PLANAR_10BIT_P010;
+    else if (vpi_cfg->format == VPI_FMT_UYVY)
+        frame->pic_info[0].format = VPI_YUV422_INTERLEAVED_UYVY;
     else
         frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR;
 
@@ -438,6 +447,8 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
         align_width = (((frame->src_width*2 + 1023)/1024)*1024)/2;
     else if(VPI_FMT_NV12 == vpi_cfg->format)
         align_width = ((frame->src_width + 1023)/1024)*1024;
+    else if(VPI_FMT_UYVY == vpi_cfg->format)
+        align_width = ((frame->src_width + 31)/32)*32;
     else
         align_width = ((frame->src_width + 31)/32)*32;
     VPILOGD("aligne_width %d, format %d %d\n",
@@ -479,12 +490,15 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
     }
 
     ctx->i_hugepage_size_y = align_width * align_height;
-    if (VPI_FMT_P010LE == vpi_cfg->format)
+    if (VPI_FMT_P010LE == vpi_cfg->format ||
+        VPI_FMT_UYVY == vpi_cfg->format)
         ctx->i_hugepage_size_y *= 2;
 
-    ctx->i_hugepage_size_uv = ctx->i_hugepage_size_y/2;
     ctx->p_hugepage_buf_y   = fbtrans_get_huge_pages(ctx->i_hugepage_size_y);
-    ctx->p_hugepage_buf_uv  = fbtrans_get_huge_pages(ctx->i_hugepage_size_uv);
+    if(VPI_FMT_UYVY != vpi_cfg->format) {
+        ctx->i_hugepage_size_uv = ctx->i_hugepage_size_y/2;
+        ctx->p_hugepage_buf_uv  = fbtrans_get_huge_pages(ctx->i_hugepage_size_uv);
+    }
 
     ctx->mwl_item_size  = ctx->i_hugepage_size_y + ctx->i_hugepage_size_uv;
     for(int i = 0; i < ctx->mwl_nums; i++){

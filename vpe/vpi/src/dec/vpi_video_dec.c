@@ -207,6 +207,18 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         vpi_ctx->frame_buf_list[i]->used    = 0;
         vpi_ctx->frame_buf_list[i]->next    = NULL;
     }
+    vpi_ctx->frame_stored_num = 2 * MAX_BUFFERS;
+    for (i = 0; i < vpi_ctx->frame_stored_num; i++) {
+        vpi_ctx->frame_stored_list[i] = malloc(sizeof(BufLink));
+        if (NULL == vpi_ctx->frame_stored_list[i]) {
+            VPILOGE("UNABLE TO ALLOCATE FRAME BUFFER LIST\n");
+            return VPI_ERR_NO_AP_MEM;
+        }
+        vpi_ctx->frame_stored_list[i]->item    = NULL;
+        vpi_ctx->frame_stored_list[i]->mem_idx = 0xFFFFFFFF;
+        vpi_ctx->frame_stored_list[i]->used    = 0;
+        vpi_ctx->frame_stored_list[i]->next    = NULL;
+    }
     for (i = 0; i < 32; i++) {
         vpi_ctx->rls_strm_buf_list[i] = malloc(sizeof(BufLink));
         if (NULL == vpi_ctx->rls_strm_buf_list[i]) {
@@ -235,7 +247,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         vpi_ctx->time_stamp_info[i].pkt_dts = VDEC_NOPTS_VALUE;
         vpi_ctx->time_stamp_info[i].used    = 0;
     }
-    vpi_ctx->waiting_for_dpb      = 0;
+    vpi_ctx->waiting_for_dpb = 0;
     pthread_mutex_init(&vpi_ctx->dec_thread_mutex, NULL);
     pthread_cond_init(&vpi_ctx->dec_thread_cond, NULL);
     vpi_ctx->dec_thread_finish = 0;
@@ -391,7 +403,13 @@ VpiRet vpi_vdec_close(VpiDecCtx *vpi_ctx)
 {
     VpiRet ret = VPI_SUCCESS;
 
+    pthread_mutex_lock(&vpi_ctx->dec_thread_mutex);
     vpi_ctx->dec_thread_finish = 1;
+    if (vpi_ctx->waiting_for_dpb == 1) {
+        pthread_cond_signal(&vpi_ctx->dec_thread_cond);
+        vpi_ctx->waiting_for_dpb = 0;
+    }
+    pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
 
     if (vpi_ctx->init_finish == 1) {
         pthread_join(vpi_ctx->dec_thread_handle, NULL);

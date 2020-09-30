@@ -94,7 +94,7 @@ extern "C" {
  * and be ready when core has finished
  */
 #define MAX_STRM_BUFFERS (MAX_ASIC_CORES + 1)
-#define MAX_PTS_DTS_DEPTH 36
+#define MAX_PTS_DTS_DEPTH 78
 
 #ifdef FB_SYSLOG_ENABLE
 #include "syslog_sink.h"
@@ -252,6 +252,8 @@ typedef struct VpiDecCtx {
     BufLink *frame_buf_head;
     BufLink *frame_buf_list[MAX_BUFFERS];
     uint32_t frame_buf_list_idx;
+    BufLink *frame_stored_list[200];
+    uint32_t frame_stored_num;
     int max_frames_delay;
     int output_num;
 

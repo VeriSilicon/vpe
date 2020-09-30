@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -1225,11 +1226,101 @@ end:
     return -1;
 }
 
+static int pp_get_empty_pic(PPClient *pp)
+{
+    int i;
+
+    pthread_mutex_lock(&pp->pp_mutex);
+    for (i = 0; i < pp->out_buf_nums; i++) {
+        if (pp->pic_list[i].state == 0) {
+            pthread_mutex_unlock(&pp->pp_mutex);
+            return i;
+        }
+    }
+    pthread_mutex_unlock(&pp->pp_mutex);
+    return -1;
+}
+
+static void pp_push_output_buf(PPClient *pp, struct DecPicturePpu *pic)
+{
+    int j, index;
+
+#ifdef SUPPORT_TCACHE
+    index = 0;
+#else
+    index = 1;
+#endif
+
+    for (j = 0; j < pp->out_buf_nums; j++) {
+        if (pp->pp_out_buffer[j].bus_address ==
+            pic->pictures[index].luma.bus_address) {
+            VPILOGD("push buff %d...\n", j);
+            FifoPush(pp->pp_out_Fifo, &pp->pp_out_buffer[j],
+                       FIFO_EXCEPTION_DISABLE);
+            break;
+        }
+    }
+}
+
+static void pp_clear_pic_state(PPClient *pp, int idx)
+{
+    VpiFrame *frame;
+    struct DecPicturePpu *picture;
+    int j;
+
+    for (j = 0; j < pp->out_buf_nums; j++) {
+        if (pp->pic_list[j].state == 1) {
+            frame = pp->pic_list[j].pic;
+            picture = (struct DecPicturePpu *)frame->data[0];
+            if (pp->pp_out_buffer[idx].bus_address ==
+                picture->pictures[0].luma.bus_address) {
+                pp->pic_list[j].state = 0;
+                break;
+            }
+        }
+    }
+}
+
+static void pp_pic_consume(PPClient *pp)
+{
+    VpiFrame *frame;
+    struct DecPicturePpu *picture;
+    int i;
+
+    for (i = 0; i < pp->out_buf_nums; i++) {
+        if (pp->pic_list[i].state == 1) {
+            frame = pp->pic_list[i].pic;
+            if (frame->nb_outputs == frame->used_cnt) {
+                picture = (struct DecPicturePpu *)frame->data[0];
+                if (picture) {
+                    pp_push_output_buf(pp, picture);
+                    free(picture);
+                    pthread_mutex_destroy(&frame->frame_mutex);
+                }
+                frame->data[0] = NULL;
+                pp->pic_list[i].state = 0;
+            }
+        }
+    }
+}
+
 static void pp_request_buf(PPClient *pp)
 {
     struct DWLLinearMem *pp_out_buffer;
+    int cnt;
 
     pthread_mutex_lock(&pp->pp_mutex);
+
+    do {
+        cnt = FifoCount(pp->pp_out_Fifo);
+        VPILOGD("output fifo cnt %d\n", cnt);
+        if (cnt != 0) {
+            break;
+        } else {
+            usleep(50);
+            pp_pic_consume(pp);
+        }
+    } while(1);
     FifoPop(pp->pp_out_Fifo, (FifoObject *)&pp_out_buffer,
             FIFO_EXCEPTION_DISABLE);
     pp->dec_cfg.pp_out_buffer = *pp_out_buffer;
@@ -2679,8 +2770,7 @@ static int pp_picture_consumed(VpiPPFilter *filter, VpiFrame *input)
 
     picture = (struct DecPicturePpu *)input->data[0];
     if (picture == NULL) {
-        VPILOGE("picture is NULL\n");
-        return -1;
+        return 0;
     }
 
     pthread_mutex_lock(&pp->pp_mutex);
@@ -2688,12 +2778,16 @@ static int pp_picture_consumed(VpiPPFilter *filter, VpiFrame *input)
         if (pp->pp_out_buffer[i].bus_address ==
             picture->pictures[index].luma.bus_address) {
             VPILOGD("push buff %d...\n", i);
+            pp_clear_pic_state(pp, i);
             FifoPush(pp->pp_out_Fifo, &pp->pp_out_buffer[i],
                      FIFO_EXCEPTION_DISABLE);
+            break;
         }
     }
 
     free(picture);
+    input->data[0] = NULL;
+    pthread_mutex_destroy(&input->frame_mutex);
     pthread_mutex_unlock(&pp->pp_mutex);
     return 0;
 }
@@ -2807,6 +2901,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     PPContainer *pp_c         = NULL;
     static u32 decode_pic_num = 0;
     int ret                   = 0;
+    int idx;
 
     if (!pp || !pp->pp_inst) {
         VPILOGE("PP was not inited\n");
@@ -2896,6 +2991,23 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pp_get_next_pic(pp, &dec_picture);
     pp_print_dec_picture(&dec_picture, decode_pic_num++);
     ret = pp_output_frame(filter, output, &dec_picture);
+
+    if (filter->b_disable_tcache == 1) {
+        // release vpi_frame from hwupload
+        input->used_cnt++;
+    }
+
+    idx = pp_get_empty_pic(pp);
+    if (idx == -1) {
+        VPILOGE("error to get empty slot\n");
+        goto err_exit;
+    }
+    pp->pic_list[idx].state = 1;
+    pp->pic_list[idx].pic   = output;
+
+    output->nb_outputs = filter->nb_outputs;
+    output->used_cnt   = 0;
+    pthread_mutex_init(&output->frame_mutex, NULL);
 
     pp->num_of_output_pics++;
     return ret;

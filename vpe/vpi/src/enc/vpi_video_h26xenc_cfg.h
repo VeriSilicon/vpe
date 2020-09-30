@@ -74,6 +74,7 @@ typedef struct {
     int used;
     int poc;
     VpiFrame *pic;
+    pthread_mutex_t pic_mutex;
 } VpiEncH26xPic;
 
 typedef struct H26xEncBufLink {

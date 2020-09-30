@@ -779,7 +779,8 @@ int vp9enc_get_used_pic_mem(VpiEncVp9Ctx *ctx, void *mem)
 
 void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
 {
-    VpiEncVp9Pic * trans_pic = NULL;
+    VpiEncVp9Pic *trans_pic = NULL;
+    VpiFrame *in_vpi_frame  = NULL;
     int i;
 
     //find the need_poc
@@ -798,6 +799,12 @@ void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
     trans_pic->poc   = -1;
     trans_pic->state = 0;
     trans_pic->used  = 0;
+
+    in_vpi_frame = (VpiFrame *)trans_pic->pic->vpi_opaque;
+    pthread_mutex_lock(&in_vpi_frame->frame_mutex);
+    in_vpi_frame->used_cnt++;
+    pthread_mutex_unlock(&in_vpi_frame->frame_mutex);
+
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->rls_pic_list[i]->used == 0) {
             ctx->rls_pic_list[i]->item = trans_pic->pic->opaque;
@@ -812,48 +819,11 @@ void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
     vp9enc_buf_list_add(&ctx->rls_pic_head, ctx->rls_pic_list[i]);
 }
 
-int vp9enc_get_enc_status(VpiEncVp9Ctx *ctx)
-{
-    int i;
-
-    // check whether all the input frame has been send to enoder
-    // because decoder's speed is faster than encoder
-    // If not control and hold here, the frame buffer in decoder will used off
-    // and come into deadlock status
-    pthread_mutex_lock(&ctx->enc_thread_mutex);
-    if (ctx->encode_end == 1) {
-        pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return 0;
-    }
-    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-        if (ctx->pic_wait_list[i].state == 1) {
-            if (ctx->pic_wait_list[i].used == 0) {
-                VPILOGD("%d not used\n", i);
-                pthread_mutex_unlock(&ctx->enc_thread_mutex);
-                return 1;
-            }
-        }
-    }
-    pthread_mutex_unlock(&ctx->enc_thread_mutex);
-    return 0;
-}
-
 int vp9enc_get_pic_buffer(VpiEncVp9Ctx *ctx, void *outdata)
 {
     VpiFrame **frame;
     VpiEncVp9Pic *trans_pic = NULL;
     int status, i;
-
-
-    do {
-        status = vp9enc_get_enc_status(ctx);
-        if (status == 1) {
-            usleep(1000);
-            continue;
-        } else {
-            break;
-        }
-    } while(1);
 
     pthread_mutex_lock(&ctx->enc_thread_mutex);
     frame = (VpiFrame **)outdata;

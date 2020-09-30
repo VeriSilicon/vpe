@@ -31,6 +31,7 @@
 #define __VPI_TYPES_H__
 
 #include <stdint.h>
+#include <pthread.h>
 
 #define PIC_INDEX_MAX_NUMBER 5
 
@@ -56,6 +57,7 @@ typedef enum {
     VPI_CMD_DEC_SET_FRAME_BUFFER,
     VPI_CMD_DEC_GET_STRM_BUF_PKT,
     VPI_CMD_DEC_INIT_OPTION,
+    VPI_CMD_DEC_GET_FRAME_BUFFER_REQUEST,
 
     /*hw downloader command*/
     VPI_CMD_HWDW_FREE_BUF,
@@ -246,8 +248,10 @@ typedef struct VpiFrame {
     /* frame flow flag */
     int flag;
     void *opaque;
+    void *vpi_opaque;
     VpiPixsFmt raw_format;
     void (*vpe_frame_free)(void *opaque, uint8_t *data);
+    pthread_mutex_t frame_mutex;
 } VpiFrame;
 
 typedef struct VpiSysInfo {

@@ -154,9 +154,6 @@ VpiRet vpi_prc_hwdw_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     }
 
     in_frame->used_cnt++;
-    if (in_frame->used_cnt == in_frame->nb_outputs) {
-        in_frame->locked = 0;
-    }
     VPILOGD("linesize %d %d\n", out_frame->linesize[0], out_frame->linesize[1]);
 
     VPILOGD("in %s:%d, dma get luma data from EP:%p to RC:%p \n", __FUNCTION__,

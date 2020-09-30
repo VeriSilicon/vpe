@@ -39,6 +39,12 @@ extern "C" {
 
 #define MWL_BUF_DEPTH 68
 
+typedef struct {
+    int state;
+    VpiFrame *pic;
+    struct DWLLinearMem mwl_mem;
+} VpiHwUlPic;
+
 typedef struct VpiPrcHwUlCtx {
     void *mwl;
 
@@ -54,10 +60,10 @@ typedef struct VpiPrcHwUlCtx {
     VpiPixsFmt format;
 
     int mwl_nums;
-    struct DWLLinearMem mwl_mem[MWL_BUF_DEPTH];
-    uint8_t mwl_used[MWL_BUF_DEPTH];
 
     pthread_mutex_t hw_upload_mutex;
+
+    VpiHwUlPic pic_list[MWL_BUF_DEPTH];
 }VpiPrcHwUlCtx;
 
 

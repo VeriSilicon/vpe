@@ -615,8 +615,7 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
         pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
         return 0;
     }
-    if (vpi_packet->size > vpi_ctx->stream_mem[idx].size)
-    {
+    if (vpi_packet->size > vpi_ctx->stream_mem[idx].size) {
         int new_size;
 
         VPILOGD("packet size is too large(%d > %d @%d), re-allocing\n",
@@ -629,7 +628,8 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
         if(DWLMallocLinear(vpi_ctx->dwl_inst, new_size,
                            vpi_ctx->stream_mem + idx) != DWL_OK) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
-            H264DecEndOfStream(vpi_ctx->dec_inst,1);
+            HevcDecEndOfStream(vpi_ctx->dec_inst);
+            pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
             return -1;
         } else {
             VPILOGD("new alloc size %d\n", new_size);
@@ -644,6 +644,7 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
 
     if (vpi_packet->size > 0) {
         if (vpi_dec_set_pts_dts(vpi_ctx, vpi_packet) == -1) {
+            pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
             return -1;
         }
     }
@@ -660,6 +661,7 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
         vpi_ctx->eos_received = 1;
     }
     pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
+
     return vpi_packet->size;
 }
 
@@ -687,6 +689,18 @@ int vpi_decode_hevc_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
         } else if (ret == -1) {
             pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
             return 2;
+        }
+    }
+
+    for (i = 0; i < vpi_ctx->frame_stored_num; i++) {
+        if (vpi_ctx->frame_stored_list[i]->used == 1) {
+            vpi_frame = (VpiFrame *)vpi_ctx->frame_stored_list[i]->item;
+            if (vpi_frame->nb_outputs == vpi_frame->used_cnt &&
+                vpi_frame->locked == 1) {
+                vpi_frame->locked = 0;
+                pthread_mutex_destroy(&vpi_frame->frame_mutex);
+                vpi_ctx->frame_stored_list[i]->used = 0;
+            }
         }
     }
 
@@ -725,6 +739,27 @@ int vpi_decode_hevc_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
     return 1;
 }
 
+int vpi_decode_hevc_get_frame_buffer_request(VpiDecCtx *vpi_ctx)
+{
+    int i, ret = 1;
+    int frame_buf_cnt = 0;
+    int frame_threshold = 0;
+
+    pthread_mutex_lock(&vpi_ctx->dec_thread_mutex);
+    for (i = 0; i < MAX_BUFFERS; i++) {
+        if (vpi_ctx->frame_buf_list[i]->used == 1) {
+            frame_buf_cnt++;
+        }
+    }
+    frame_threshold = MAX_BUFFERS - 2;
+    if (frame_buf_cnt > frame_threshold) {
+        ret = 0;
+    }
+
+    pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
+    return ret;
+}
+
 int vpi_decode_hevc_get_used_strm_mem(VpiDecCtx *vpi_ctx, void *mem)
 {
     VpiBufRef **ref;
@@ -759,7 +794,20 @@ int vpi_decode_hevc_set_frame_buffer(VpiDecCtx *vpi_ctx, void *frame)
         VPILOGE("no valid frame buffer to store buffer info\n");
         ret = -1;
     }
-    vpi_frame->locked         = 1;
+    vpi_frame->locked     = 1;
+    vpi_frame->nb_outputs = 1;
+    vpi_frame->used_cnt   = 0;
+    for (i = 0; i < vpi_ctx->frame_stored_num; i++) {
+        if (vpi_ctx->frame_stored_list[i]->used == 0) {
+            vpi_ctx->frame_stored_list[i]->used = 1;
+            vpi_ctx->frame_stored_list[i]->item = frame;
+            break;
+        }
+    }
+    if (i == MAX_BUFFERS) {
+        VPILOGE("no valid frame buffer to store buffer info\n");
+        ret = -1;
+    }
     pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
     return ret;
 }
@@ -1220,8 +1268,10 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
     VPILOGD("decoding stream size %d\n", vpi_ctx->hevc_dec_input.data_len);
 
     if (vpi_ctx->enc_type != VPI_ENC_NONE) {
-        if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1)
+        if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
+            pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
             return -1;
+        }
     }
     do {
         ret = vpi_decode_hevc_frame_decoding(vpi_ctx);
@@ -1231,6 +1281,10 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
             vpi_ctx->waiting_for_dpb = 1;
             pthread_cond_wait(&vpi_ctx->dec_thread_cond,
                               &vpi_ctx->dec_thread_mutex);
+            if (vpi_ctx->dec_thread_finish) {
+                pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
+                return 1;
+            }
         } else {
             break;
         }
@@ -1322,7 +1376,7 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
 VpiRet vpi_decode_hevc_control(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
 {
     VpiCtrlCmdParam *in_param = (VpiCtrlCmdParam *)indata;
-    int *out_num = NULL;
+    int *out_value = NULL;
     int ret = VPI_SUCCESS;
 
     switch (in_param->cmd) {
@@ -1330,14 +1384,18 @@ VpiRet vpi_decode_hevc_control(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
         vpi_decode_hevc_picture_consume(vpi_ctx, in_param->data);
         break;
     case VPI_CMD_DEC_STRM_BUF_COUNT:
-        out_num = (int*)outdata;
-        *out_num = vpi_dec_get_stream_buffer_index(vpi_ctx, 0);
+        out_value = (int*)outdata;
+        *out_value = vpi_dec_get_stream_buffer_index(vpi_ctx, 0);
         break;
     case VPI_CMD_DEC_GET_USED_STRM_MEM:
         vpi_decode_hevc_get_used_strm_mem(vpi_ctx, outdata);
         break;
     case VPI_CMD_DEC_SET_FRAME_BUFFER:
         ret = vpi_decode_hevc_set_frame_buffer(vpi_ctx, in_param->data);
+        break;
+    case VPI_CMD_DEC_GET_FRAME_BUFFER_REQUEST:
+        out_value = (int*)outdata;
+        *out_value = vpi_decode_hevc_get_frame_buffer_request(vpi_ctx);
         break;
     default:
         break;
@@ -1371,6 +1429,9 @@ int vpi_decode_hevc_close(VpiDecCtx *vpi_ctx)
     }
     for (i = 0; i < MAX_BUFFERS; i++) {
         free(vpi_ctx->frame_buf_list[i]);
+    }
+    for (i = 0; i < vpi_ctx->frame_stored_num; i++) {
+        free(vpi_ctx->frame_stored_list[i]);
     }
     if (vpi_ctx->pic_display_number > 0) {
         vpi_dec_performance_report(vpi_ctx);

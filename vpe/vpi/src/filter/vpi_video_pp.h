@@ -54,6 +54,11 @@ typedef const void *pp_raw_parser_inst;
 #define OUTPUT_BUF_DEPTH 68 /* support VCE lookaheadDepth 40 */
 
 typedef struct {
+    int state;
+    VpiFrame *pic;
+} VpiPpPic;
+
+typedef struct {
     u32 in_width;
     u32 in_height;
     u32 in_width_align;
@@ -206,6 +211,7 @@ typedef struct {
     const void *tcache_handle;
     int disable_tcache;
     pthread_mutex_t pp_mutex;
+    VpiPpPic pic_list[OUTPUT_BUF_DEPTH];
 } PPClient;
 
 typedef struct ppResize {

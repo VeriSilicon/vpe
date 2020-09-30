@@ -29,6 +29,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
@@ -227,7 +228,7 @@ int vpi_prc_get_empty_pic(VpiPrcHwUlCtx *ctx)
 
     pthread_mutex_lock(&ctx->hw_upload_mutex);
     for (i = 0; i < ctx->mwl_nums; i++) {
-        if (ctx->mwl_used[i] == 0) {
+        if (ctx->pic_list[i].state == 0) {
             pthread_mutex_unlock(&ctx->hw_upload_mutex);
             return i;
         }
@@ -254,21 +255,19 @@ static int vpi_upload_add_extra_buffer(VpiPrcHwUlCtx *ctx,
     for (i = current_pp_buffers_num;
          i < current_pp_buffers_num + ext_buffers_num;
          i++) {
-        ctx->mwl_mem[i].mem_type = DWL_MEM_TYPE_DPB;
+        ctx->pic_list[i].mwl_mem.mem_type = DWL_MEM_TYPE_DPB;
         if (mwl_malloc_linear(ctx->mwl, ctx->mwl_item_size,
-                             &ctx->mwl_mem[i]) != DWL_OK) {
+                             &(ctx->pic_list[i].mwl_mem)) != DWL_OK) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
             return -1;
         }
         VPILOGD("out_buffer i %d, bus_address=0x%llx, bus_address_rc=0x%llx,"
                  "virtual_address %p, virtual_address_ep %p, size %d \n", i,
-                ctx->mwl_mem[i].bus_address,
-                ctx->mwl_mem[i].bus_address_rc,
-                ctx->mwl_mem[i].virtual_address,
-                ctx->mwl_mem[i].virtual_address_ep,
-                ctx->mwl_mem[i].size);
-
-        ctx->mwl_used[i] = 0;
+                ctx->pic_list[i].mwl_mem.bus_address,
+                ctx->pic_list[i].mwl_mem.bus_address_rc,
+                ctx->pic_list[i].mwl_mem.virtual_address,
+                ctx->pic_list[i].mwl_mem.virtual_address_ep,
+                ctx->pic_list[i].mwl_mem.size);
     }
 
     VPILOGD("add ext_buffers_num %d, total out_buf_nums %d\n",
@@ -297,26 +296,55 @@ static int vpi_upload_check_buffer_number_for_trans(VpiPrcHwUlCtx *ctx)
     return 0;
 }
 
-static void  mwl_pic_consume(VpiPrcHwUlCtx *ctx, void *in_data)
+static void  mwl_pic_consume(VpiPrcHwUlCtx *ctx)
 {
-    VpiFrame *frame               = (VpiFrame *)in_data;
-    struct DecPicturePpu *picture = (struct DecPicturePpu *)frame->data[0];
+    VpiFrame *frame;
+    struct DecPicturePpu *picture;
     int i;
 
     pthread_mutex_lock(&ctx->hw_upload_mutex);
 
     for (i = 0; i < ctx->mwl_nums; i++) {
-        if (ctx->mwl_mem[i].bus_address == picture->pictures[0].luma.bus_address
-            && ctx->mwl_used[i] == 1) {
-            ctx->mwl_used[i] = 0;
-            free(picture);
-            break;
+        if (ctx->pic_list[i].state == 1) {
+            frame = ctx->pic_list[i].pic;
+            if (frame->nb_outputs == frame->used_cnt) {
+                picture = (struct DecPicturePpu *)frame->data[0];
+                if (picture) {
+                    free(picture);
+                    pthread_mutex_destroy(&frame->frame_mutex);
+                }
+                ctx->pic_list[i].state = 0;
+                frame->data[0] = NULL;
+            }
         }
     }
-    if (i == ctx->mwl_nums) {
-        VPILOGE("Can't find valid mwl\n");
+    pthread_mutex_unlock(&ctx->hw_upload_mutex);
+}
+
+static void vpi_mwl_pic_consume(VpiPrcHwUlCtx *ctx, void *in_data)
+{
+    VpiFrame *frame = (VpiFrame *)in_data;
+    struct DecPicturePpu *picture;
+    int i;
+
+    pthread_mutex_lock(&ctx->hw_upload_mutex);
+    picture = (struct DecPicturePpu *)frame->data[0];
+    if (picture == NULL) {
+        pthread_mutex_unlock(&ctx->hw_upload_mutex);
+        return;
     }
 
+    for (i = 0; i < ctx->mwl_nums; i++) {
+        if (ctx->pic_list[i].state == 1) {
+            if (ctx->pic_list[i].pic == frame) {
+                free(picture);
+                ctx->pic_list[i].state = 0;
+                frame->data[0] = NULL;
+                pthread_mutex_destroy(&frame->frame_mutex);
+                break;
+            }
+        }
+    }
     pthread_mutex_unlock(&ctx->hw_upload_mutex);
 }
 
@@ -329,9 +357,12 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     unsigned long linesize32_y, linesize32_uv;
     uint32_t y_size,uv_size;
     int idx, ret;
+    uint8_t *addr_offset = NULL;
+    unsigned int i;
 
     pthread_mutex_lock(&ctx->hw_upload_mutex);
     if (vpi_upload_check_buffer_number_for_trans(ctx) < 0) {
+        VPILOGD("check buffer failed\n");
         pthread_mutex_unlock(&ctx->hw_upload_mutex);
         return -1;
     }
@@ -343,11 +374,17 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     memset(pic, 0, sizeof(struct DecPicturePpu));
     out_frame->data[0] = (void *)pic;
 
-    idx = vpi_prc_get_empty_pic(ctx);
-    if (idx == -1) {
-        return -1;
-    }
-    mwl_mem_item = &ctx->mwl_mem[idx];
+    do {
+        mwl_pic_consume(ctx);
+        idx = vpi_prc_get_empty_pic(ctx);
+        if (idx == -1) {
+            VPILOGD("can't find empty pic\n");
+            usleep(50);
+        } else {
+            break;
+        }
+    } while (1);
+    mwl_mem_item = &(ctx->pic_list[idx].mwl_mem);
 
     if (ctx->format == VPI_FMT_UYVY) {
         linesize32_y  = ((in_frame->linesize[0]+31)/32)*32;
@@ -373,8 +410,6 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
             in_frame->linesize[1], in_frame->linesize[2],
             linesize32_y, linesize32_uv);
 
-    uint8_t *addr_offset = NULL;
-    unsigned int i;
     //copy Y lines to hugepage buffer, then rc to ep
     for (i = 0; i < in_frame->src_height; i++) {
         addr_offset = ctx->p_hugepage_buf_y + i*linesize32_y;
@@ -411,7 +446,12 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         }
     }
 
-    ctx->mwl_used[idx] = 1;
+    ctx->pic_list[idx].state = 1;
+    ctx->pic_list[idx].pic   = out_frame;
+
+    out_frame->nb_outputs = 1;
+    out_frame->used_cnt   = 0;
+    pthread_mutex_init(&out_frame->frame_mutex, NULL);
     return 0;
 }
 
@@ -502,19 +542,20 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
 
     ctx->mwl_item_size  = ctx->i_hugepage_size_y + ctx->i_hugepage_size_uv;
     for(int i = 0; i < ctx->mwl_nums; i++){
-        ctx->mwl_mem[i].mem_type = DWL_MEM_TYPE_DPB;
-        if (mwl_malloc_linear(ctx->mwl, ctx->mwl_item_size, &ctx->mwl_mem[i])){
+        ctx->pic_list[i].mwl_mem.mem_type = DWL_MEM_TYPE_DPB;
+        if (mwl_malloc_linear(ctx->mwl, ctx->mwl_item_size, &(ctx->pic_list[i].mwl_mem))){
             VPILOGE("No memory available for the stream buffer\n");
             return -1;
         }
         VPILOGD("mwl i %d, bus_address=0x%llx, bus_address_rc=0x%llx,"
                 "size %d, align_width %d, align_height %d\n",
-                i, ctx->mwl_mem[i].bus_address, ctx->mwl_mem[i].bus_address_rc,
-                ctx->mwl_mem[i].size, align_width, align_height);
-
-        ctx->mwl_used[i] = 0;
+                i, ctx->pic_list[i].mwl_mem.bus_address, ctx->pic_list[i].mwl_mem.bus_address_rc,
+                ctx->pic_list[i].mwl_mem.size, align_width, align_height);
     }
 
+    for (i = 0; i < MWL_BUF_DEPTH; i++) {
+        ctx->pic_list[i].state = 0;
+    }
     pthread_mutex_init(&ctx->hw_upload_mutex, NULL);
 
     return VPI_SUCCESS;
@@ -527,7 +568,7 @@ VpiRet vpi_prc_hwul_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
 
     switch (in_param->cmd) {
     case VPI_CMD_HWUL_FREE_BUF:
-        mwl_pic_consume(ctx, in_param->data);
+        vpi_mwl_pic_consume(ctx, in_param->data);
         break;
     case VPI_CMD_HWDL_INIT_OPTION: {
         VpiHWUploadCfg **cfg;
@@ -555,7 +596,7 @@ VpiRet vpi_prc_hwul_close(VpiPrcCtx *vpi_ctx)
 
     if(ctx->mwl){
         for(i = 0; i < ctx->mwl_nums; i++)
-            mwl_free_linear(ctx->mwl, &ctx->mwl_mem[i]);
+            mwl_free_linear(ctx->mwl, &(ctx->pic_list[i].mwl_mem));
         mwl_release(ctx->mwl);
         ctx->mwl = NULL;
     }

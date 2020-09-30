@@ -3697,78 +3697,6 @@ int h26x_enc_get_empty_stream_buffer(VpiH26xEncCtx *ctx)
     }
 }
 
-static int h26x_enc_input_data_check(VpiH26xEncCtx *ctx)
-{
-    VpiEncH26xPic *pTrans;
-    int i;
-    int num = 0;
-
-    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
-    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-        if (ctx->pic_wait_list[i].state == 1) {
-            pTrans = &ctx->pic_wait_list[i];
-            num++;
-            VPILOGI("poc = %d\n", pTrans->poc);
-        }
-    }
-    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-
-    VPILOGI("total num = %d\n", num);
-    return num;
-}
-
-int h26x_enc_get_enc_status(VpiH26xEncCtx *ctx)
-{
-    int i;
-    int state_num = 0;
-    int used_num  = 0;
-    int threshold_num;
-
-    // check whether all the input frame has been send to enoder
-    // because decoder's speed is faster than encoder
-    // If not control and hold here, the frame buffer in decoder will used off
-    // and come into deadlock status
-    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
-    if (ctx->encode_end == 1) {
-        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-        return 0;
-    }
-    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
-        if (ctx->pic_wait_list[i].state == 1) {
-            state_num++;
-            if (ctx->pic_wait_list[i].used == 1) {
-                used_num++;
-            }
-        }
-    }
-
-    if (ctx->force_idr == 1) {
-        if (ctx->inject_frm_cnt < ctx->hold_buf_num) {
-            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-            return 0;
-        }
-        if (ctx->options.lookahead_depth) {
-            threshold_num = 3 + ctx->hold_buf_num;
-            if (ctx->inject_frm_cnt > threshold_num) {
-                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-                return 1;
-            }
-        } else {
-            if (state_num - used_num > ctx->delta_poc) {
-                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-                return 1;
-            }
-        }
-    } else {
-        if (state_num - used_num > ctx->delta_poc) {
-            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-            return 1;
-        }
-    }
-    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-    return 0;
-}
-
 int h26x_enc_get_pic_buffer(VpiH26xEncCtx *ctx, void *outdata)
 {
     VpiFrame **frame;
@@ -3776,34 +3704,25 @@ int h26x_enc_get_pic_buffer(VpiH26xEncCtx *ctx, void *outdata)
     int status, i;
     int input_cnt;
 
-    do {
-        status = h26x_enc_get_enc_status(ctx);
-        if (status == 1) {
-            usleep(1000);
-            continue;
-        } else {
-            break;
-        }
-    } while(1);
-
-    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
     frame = (VpiFrame **)outdata;
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        pthread_mutex_lock(&ctx->pic_wait_list[i].pic_mutex);
         if (ctx->pic_wait_list[i].state == 0) {
             trans_pic = &ctx->pic_wait_list[i];
+            pthread_mutex_unlock(&trans_pic->pic_mutex);
             break;
+        } else {
+            pthread_mutex_unlock(&ctx->pic_wait_list[i].pic_mutex);
         }
     }
     if (i == MAX_WAIT_DEPTH) {
         *frame = NULL;
-        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
         return -1;
     }
     if (trans_pic->pic == NULL) {
         trans_pic->pic = malloc(sizeof(VpiFrame));
     }
     *frame = trans_pic->pic;
-    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     return 0;
 }
 
@@ -3820,8 +3739,6 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
         if (buf) {
             out_buf = (VpiEncOutData *)buf->item;
             if (out_buf->end_data == HANTRO_TRUE) {
-                ctx->encode_end = 1;
-                ctx->flush_state = VPIH26X_FLUSH_ENCEND;
                 pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
                 return 1;
             }
@@ -3886,6 +3803,7 @@ int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem)
 
     pthread_mutex_lock(&ctx->h26xe_thd_mutex);
     ref = (VpiBufRef **)mem;
+
     if (ctx->rls_pic_head) {
         *ref = (VpiBufRef *)ctx->rls_pic_head->item;
         ctx->rls_pic_head->used = 0;
@@ -3894,6 +3812,7 @@ int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem)
     } else {
         *ref = NULL;
     }
+
     pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     return 0;
 }
@@ -3901,30 +3820,36 @@ int h26x_enc_get_used_pic_mem(VpiH26xEncCtx *ctx, void *mem)
 void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc)
 {
     VpiEncH26xPic * trans_pic = NULL;
+    VpiFrame *in_vpi_frame    = NULL;
     int i;
 
     //find the need_poc
     VPILOGD("%x consume pic poc %d\n", ctx, consume_poc);
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        pthread_mutex_lock(&ctx->pic_wait_list[i].pic_mutex);
         if (ctx->pic_wait_list[i].state == 1) {
             trans_pic = &ctx->pic_wait_list[i];
             if (trans_pic->poc == consume_poc) {
+                pthread_mutex_unlock(&trans_pic->pic_mutex);
                 break;
+            } else {
+                pthread_mutex_unlock(&trans_pic->pic_mutex);
             }
+        } else {
+            pthread_mutex_unlock(&ctx->pic_wait_list[i].pic_mutex);
         }
     }
     if (i == MAX_WAIT_DEPTH) {
         return;
     }
 
+    pthread_mutex_lock(&trans_pic->pic_mutex);
     trans_pic->poc               = -1;
     trans_pic->state             = 0;
     trans_pic->used              = 0;
     trans_pic->in_pass_one_queue = 0;
 
-    if (ctx->force_idr) {
-        ctx->inject_frm_cnt--;
-    }
+    in_vpi_frame = (VpiFrame *)trans_pic->pic->vpi_opaque;
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->rls_pic_list[i]->used == 0) {
             ctx->rls_pic_list[i]->item = trans_pic->pic->opaque;
@@ -3933,10 +3858,26 @@ void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc)
         }
     }
     if (i == MAX_WAIT_DEPTH) {
+        pthread_mutex_unlock(&trans_pic->pic_mutex);
         return;
     }
+    pthread_mutex_unlock(&trans_pic->pic_mutex);
+
+    pthread_mutex_lock(&in_vpi_frame->frame_mutex);
+    in_vpi_frame->used_cnt++;
+    pthread_mutex_unlock(&in_vpi_frame->frame_mutex);
+
+    if (ctx->force_idr) {
+        pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+        ctx->inject_frm_cnt--;
+        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+    }
+
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
 
     h26x_enc_buf_list_add(&ctx->rls_pic_head, ctx->rls_pic_list[i]);
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+
 }
 
 int h26x_enc_get_extradata_size(VpiH26xEncCtx *ctx, void *outdata)

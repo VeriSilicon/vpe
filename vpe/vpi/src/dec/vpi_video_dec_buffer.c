@@ -288,7 +288,10 @@ int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
                 goto err_exit;
             }
             VPILOGD("frame_index = %d\n", frame_index);
-            vpi_ctx->time_stamp_info[frame_index].pts = pkt->pts;
+            vpi_ctx->time_stamp_info[frame_index].pts       = pkt->pts;
+            vpi_ctx->time_stamp_info[frame_index].pkt_dts   = pkt->pkt_dts;
+            vpi_ctx->time_stamp_info[frame_index].decode_id =
+                                            vpi_ctx->got_package_number + 1;
             dump_dec_pts_dts(vpi_ctx);
         } else {
             VPILOGE("unknow case\n");
@@ -538,6 +541,8 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     vpi_frame->data[0]         = (uint8_t *)pic;
     vpi_frame->pic_struct_size = sizeof(struct DecPicturePpu);
     add_dec_pic_wait_consume_list(vpi_ctx, pic);
+
+    pthread_mutex_init(&vpi_frame->frame_mutex, NULL);
 
     return VPI_SUCCESS;
 }

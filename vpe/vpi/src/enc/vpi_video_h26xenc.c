@@ -1348,6 +1348,7 @@ static VpiRet h26x_encode_end(VpiH26xEncCtx *enc_ctx)
         return VPI_ERR_ENCODE;
     }
 #endif
+
     VPILOGD("cometo %s\n", __FUNCTION__);
     out_buffer = &enc_ctx->enc_pkt[0];
     setup_output_buffer(enc_ctx->hantro_encoder, out_buffer, p_enc_in);
@@ -1366,14 +1367,23 @@ static VpiRet h26x_encode_end(VpiH26xEncCtx *enc_ctx)
             VPILOGD("Can't found empty stream buffer\n");
             return VPI_ERR_ENCODE;
         }
-        out_buffer                        = &enc_ctx->outstream_pkt[i];
-        out_buffer->header_size           = p_enc_out->streamSize;
-        out_buffer->header_data           = enc_ctx->header_data;
-        out_buffer->end_data              = HANTRO_TRUE;
+        out_buffer              = &enc_ctx->outstream_pkt[i];
+        out_buffer->header_size = p_enc_out->streamSize;
+        out_buffer->header_data = enc_ctx->header_data;
+        out_buffer->end_data    = HANTRO_TRUE;
+        enc_ctx->flush_state    = VPIH26X_FLUSH_ENCEND;
+        enc_ctx->h26xe_thd_end  = 1;
+        enc_ctx->encode_end     = 1;
         enc_ctx->stream_buf_list[i]->used = 1;
         enc_ctx->stream_buf_list[i]->item = &enc_ctx->outstream_pkt[i];
+        pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
         h26x_enc_buf_list_add(&enc_ctx->stream_buf_head,
                                enc_ctx->stream_buf_list[i]);
+        if (enc_ctx->waiting_for_pkt == 1) {
+            pthread_cond_signal(&enc_ctx->h26xe_thd_cond);
+            enc_ctx->waiting_for_pkt = 0;
+        }
+        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
     } else {
         VPILOGE("VCEncStrmEnd ret is %d\n", ret);
         return VPI_ERR_ENCODE;
@@ -1454,6 +1464,7 @@ static VpiRet h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
 
     //find the need_poc
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        pthread_mutex_lock(&enc_ctx->pic_wait_list[i].pic_mutex);
         if (enc_ctx->pic_wait_list[i].state == 1) {
             p_trans = &enc_ctx->pic_wait_list[i];
             VPILOGD("ctx %p, %d, poc %d, need_poc %d\n",
@@ -1468,8 +1479,13 @@ static VpiRet h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
                     (struct DecPicture *)&pic_ppu->pictures[enc_ctx->pp_index];
                 p_trans->in_pass_one_queue = 1;
                 p_trans->used              = 1;
-                goto find_pic;
+                pthread_mutex_unlock(&p_trans->pic_mutex);
+                break;
+            } else {
+                pthread_mutex_unlock(&p_trans->pic_mutex);
             }
+        } else {
+            pthread_mutex_unlock(&enc_ctx->pic_wait_list[i].pic_mutex);
         }
     }
 
@@ -1478,7 +1494,6 @@ static VpiRet h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
         return VPI_ERR_ENCODE_WAITT_BUF;
     }
 
-find_pic:
     p_addrs->bus_luma         = pic_data->luma.bus_address;
     p_addrs->bus_chroma       = pic_data->chroma.bus_address;
     p_addrs->bus_luma_table   = pic_data->luma_table.bus_address;
@@ -1631,11 +1646,12 @@ static VpiRet h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
             VPILOGD("pkt_size %d\n", pkt_size);
             return VPI_ERR_SYSTEM;
         }
-
         enc_ctx->stream_buf_list[idx]->used = 1;
         enc_ctx->stream_buf_list[idx]->item = &enc_ctx->outstream_pkt[idx];
+        pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
         h26x_enc_buf_list_add(&enc_ctx->stream_buf_head,
                                enc_ctx->stream_buf_list[idx]);
+        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
     }
 
     return VPI_SUCCESS;
@@ -1673,10 +1689,12 @@ static VpiRet h26x_enc_call_vcflush(VpiH26xEncCtx *enc_ctx,
                 VPILOGE("process error return %d\n", ret_value);
                 goto error;
             }
+            pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
             if (enc_ctx->waiting_for_pkt == 1) {
                 pthread_cond_signal(&enc_ctx->h26xe_thd_cond);
                 enc_ctx->waiting_for_pkt = 0;
             }
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
             h26x_enc_consume_pic(enc_ctx, enc_out->indexEncoded);
             break;
         case VCENC_FRAME_ENQUEUE:
@@ -1714,8 +1732,7 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
     u32 i, tmp;
     VCEncRet retValue = 0;
     int width_chroma_align32 = 0;
-    int out_buf_index = -1;
-    int startHeaderSize = 0;
+    int buf_index = -1;
 
     /* IO buffer */
     get_free_iobuffer(cfg);
@@ -2052,7 +2069,6 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
     retValue = VCEncStrmEncode(ctx->hantro_encoder, p_enc_in, p_enc_out,
                           &h26x_enc_slice_ready, cfg->slice_ctl);
     gettimeofday(&cfg->time_frame_end, 0);
-
     if (retValue != VCENC_FRAME_ENQUEUE) {
         VPILOGD("h26x_consume_stored_pic[%d] \n", p_enc_out->indexEncoded);
         h26x_enc_consume_pic(ctx, p_enc_out->indexEncoded);
@@ -2108,10 +2124,12 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
                 VPILOGE("process error return %d\n", ret);
                 goto error;
             }
+            pthread_mutex_lock(&ctx->h26xe_thd_mutex);
             if (ctx->waiting_for_pkt == 1) {
                 pthread_cond_signal(&ctx->h26xe_thd_cond);
                 ctx->waiting_for_pkt = 0;
             }
+            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
             //Adaptive GOP size decision
             if (ctx->adaptive_gop) {
                 get_next_gop_size(cfg, p_enc_in, ctx->hantro_encoder,
@@ -2164,12 +2182,27 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
     return ret;
 
 error:
+    buf_index = h26x_enc_get_empty_stream_buffer(ctx);
+    if (buf_index == -1) {
+        VPILOGD("Can't found empty stream buffer\n");
+        return VPI_ERR_ENCODE;
+    }
+    out_buffer           = &ctx->outstream_pkt[buf_index];
+    out_buffer->end_data = HANTRO_TRUE;
+    ctx->flush_state     = VPIH26X_FLUSH_ENCEND;
+    ctx->h26xe_thd_end   = 1;
+    ctx->encode_end      = 1;
 
-    ctx->encode_end = 1;
+    ctx->stream_buf_list[buf_index]->used = 1;
+    ctx->stream_buf_list[buf_index]->item = &ctx->outstream_pkt[buf_index];
+    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+    h26x_enc_buf_list_add(&ctx->stream_buf_head,
+                           ctx->stream_buf_list[buf_index]);
     if (ctx->waiting_for_pkt == 1) {
         pthread_cond_signal(&ctx->h26xe_thd_cond);
         ctx->waiting_for_pkt = 0;
     }
+    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     VCEncSetError(ctx->hantro_encoder);
     VPILOGE("encode() fails %p\n", ctx->hantro_encoder);
     return VPI_ERR_ENCODE;
@@ -2188,7 +2221,6 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
     int *got_packet = 0;
     int i = 0;
 
-    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
     if (ctx->flush_state == VPIH26X_FLUSH_ERROR
        || ctx->flush_state == VPIH26X_FLUSH_ENCEND) {
            return VPI_SUCCESS;
@@ -2197,7 +2229,6 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
     if ((ctx->inject_frm_cnt < ctx->hold_buf_num)
        && ctx->force_idr
        && ctx->eos_received == 0) {
-        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
         return VPI_SUCCESS;
     }
 
@@ -2248,15 +2279,7 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
                 VPILOGE("h26x_encode_end error. ret = %d\n", ret);
                 goto error;
             } else if (ret == 1) {
-                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
                 return VPI_SUCCESS;
-            }
-            ctx->flush_state   = VPIH26X_FLUSH_ENCEND;
-            ctx->h26xe_thd_end = 1;
-            ctx->encode_end    = 1;
-            if (ctx->waiting_for_pkt == 1) {
-                pthread_cond_signal(&ctx->h26xe_thd_cond);
-                ctx->waiting_for_pkt = 0;
             }
             break;
 
@@ -2264,13 +2287,11 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
             break;
     }
 
-    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     return VPI_SUCCESS;
 
 error:
     ctx->flush_state = VPIH26X_FLUSH_ERROR;
     VPILOGE("%s got error, will return\n", __FUNCTION__);
-    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
     return VPI_ERR_ENCODE;
 }
 
@@ -2417,11 +2438,11 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
             }
         }
     }
+
     /*Set the number of hold buffers*/
     if (enc_ctx->force_idr) {
         if (options->lookahead_depth != 0) {
             enc_ctx->hold_buf_num = max_frames_delay;
-            max_frames_delay += 6;
         } else {
             enc_ctx->hold_buf_num =
                 enc_ctx->gop_len + 1 + enc_ctx->gop_len;
@@ -2543,6 +2564,9 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
         }
     }
     pthread_mutex_init(&enc_ctx->h26xe_thd_mutex, NULL);
+    for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+        pthread_mutex_init(&enc_ctx->pic_wait_list[i].pic_mutex, NULL);
+    }
     pthread_cond_init(&enc_ctx->h26xe_thd_cond, NULL);
     enc_ctx->h26xe_thd_end = 0;
     ret = pthread_create(&enc_ctx->h26xe_thd_handle, NULL, h26x_encode_process,
@@ -2617,6 +2641,7 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
         pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         return 0;
     }
+    pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
 
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (enc_ctx->pic_wait_list[i].pic == frame) {
@@ -2626,28 +2651,33 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
     }
 
     if (i == MAX_WAIT_DEPTH) {
-        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         return -1;
     }
 
     if (frame->opaque == NULL) {
         VPILOGD("ctx %p received empty input frame, EOF\n", enc_ctx);
-        enc_ctx->eos_received        = 1;
+        pthread_mutex_lock(&trans_pic->pic_mutex);
         trans_pic->poc               = -1;
         trans_pic->in_pass_one_queue = 0;
         trans_pic->state             = 1;
+        pthread_mutex_unlock(&trans_pic->pic_mutex);
+        enc_ctx->eos_received        = 1;
         if (enc_ctx->force_idr) {
+            pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
             enc_ctx->inject_frm_cnt = enc_ctx->hold_buf_num + 1;
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         }
     } else {
-        if (enc_ctx->first_pts_flag == 0) {
-            enc_ctx->first_pts      = frame->pts;
-            enc_ctx->first_pts_flag = 1;
-        }
+        pthread_mutex_lock(&trans_pic->pic_mutex);
         trans_pic->state             = 1;
         trans_pic->used              = 0;
         trans_pic->in_pass_one_queue = 0;
         trans_pic->poc               = enc_ctx->poc;
+        pthread_mutex_unlock(&trans_pic->pic_mutex);
+        if (enc_ctx->first_pts_flag == 0) {
+            enc_ctx->first_pts      = frame->pts;
+            enc_ctx->first_pts_flag = 1;
+        }
         /* add for IDR */
         if (frame->key_frame && enc_ctx->force_idr) {
             if (enc_ctx->poc > 0) {
@@ -2657,11 +2687,12 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
         }
         enc_ctx->poc++;
         if (enc_ctx->force_idr) {
+            pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
             enc_ctx->inject_frm_cnt++;
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         }
     }
 
-    pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
     return 0;
 }
 
@@ -2676,7 +2707,10 @@ VpiRet vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
     EWLLinearMem_t packet_mem;
 
     pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
-    buf        = enc_ctx->stream_buf_head;
+    buf = enc_ctx->stream_buf_head;
+    enc_ctx->stream_buf_head =
+            h26x_enc_buf_list_delete(enc_ctx->stream_buf_head);
+    pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
     out_buffer = (VpiEncOutData *)buf->item;
     if (vpi_packet->size != 0) {
         packet_mem.rc_busAddress = (ptr_t)vpi_packet->data;
@@ -2690,6 +2724,7 @@ VpiRet vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
                     out_buffer->header_size);
             out_buffer->header_size = 0;
         }
+
         memcpy((void *)packet_mem.rc_busAddress,
                (void *)out_buffer->outbuf_mem->rc_busAddress,
                packet_mem.size);
@@ -2756,12 +2791,7 @@ VpiRet vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
                 cfg->average_square_of_error);
     }
 
-    enc_ctx->stream_buf_head =
-            h26x_enc_buf_list_delete(enc_ctx->stream_buf_head);
     buf->used = 0;
-
-    pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
-
     return ret;
 }
 /**
@@ -2776,6 +2806,7 @@ VpiRet vpi_h26xe_close(VpiH26xEncCtx *enc_ctx)
 {
     VpiRet ret                      = VPI_SUCCESS;
     VPIH26xEncCfg *vpi_h26xe_cfg = &enc_ctx->vpi_h26xe_cfg;
+    int i;
 
     enc_ctx->h26xe_thd_end = 1;
 
@@ -2784,6 +2815,9 @@ VpiRet vpi_h26xe_close(VpiH26xEncCtx *enc_ctx)
         if (enc_ctx->hantro_encoder != NULL) {
             pthread_join(enc_ctx->h26xe_thd_handle, NULL);
             pthread_mutex_destroy(&enc_ctx->h26xe_thd_mutex);
+            for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+                pthread_mutex_destroy(&enc_ctx->pic_wait_list[i].pic_mutex);
+            }
             pthread_cond_destroy(&enc_ctx->h26xe_thd_cond);
 
             h26x_enc_outbuf_uninit(enc_ctx);
@@ -2791,5 +2825,6 @@ VpiRet vpi_h26xe_close(VpiH26xEncCtx *enc_ctx)
             h26x_enc_close_encoder(enc_ctx->hantro_encoder, vpi_h26xe_cfg);
         }
     }
+
     return ret;
 }

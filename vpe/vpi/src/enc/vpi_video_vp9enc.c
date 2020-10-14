@@ -51,7 +51,7 @@ VpiEncSetting vp9enc_options[] = {
     { "qp_min", OFFSET(qp_min), DEFAULT, 255, VPI_ENC_PARA_INT },
     { "qp_max", OFFSET(qp_max), DEFAULT, 255, VPI_ENC_PARA_INT },
     { "fixed_intra_qp", OFFSET(fixed_intra_qp), DEFAULT, 255, VPI_ENC_PARA_INT },
-    { "picRc", OFFSET(pic_rc), DEFAULT, 1, VPI_ENC_PARA_INT },
+    { "pic_rc", OFFSET(pic_rc), DEFAULT, 1, VPI_ENC_PARA_INT },
     { "mcomp_filter_type", OFFSET(mcomp_filter_type), DEFAULT, 4, VPI_ENC_PARA_INT },
     { "force8bit", OFFSET(force_8bit), 0, 1, VPI_ENC_PARA_INT },
     { "effort", OFFSET(effort), DEFAULT, 5, VPI_ENC_PARA_INT },

@@ -1275,7 +1275,7 @@ static void pp_get_next_pic(PPClient *pp, PPDecPicture *hpic)
 
     pp_c = (PPContainer *)pp_inst;
 
-    for (i = 0; i < DEC_MAX_OUT_COUNT; i++) {
+    for (i = 0; i < 4; i++) {
         if (!hpic->pictures[i].pp_enabled) {
             /* current mem alloc, the dec table is added after pic mem for each
              * ppN. */

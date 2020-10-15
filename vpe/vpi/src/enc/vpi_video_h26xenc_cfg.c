@@ -2275,3 +2275,31 @@ void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
     else
         ma->length = MOVING_AVERAGE_FRAMES;
 }
+
+int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
+{
+    FILE *fp = NULL;
+    char *cfg_str;
+
+#define MAX_LINE_SIZE 128
+
+    fp = fopen(option->pic_rc_path, "r");
+    if (fp) {
+        cfg_str = malloc(MAX_LINE_SIZE);
+        memset(cfg_str, 0, MAX_LINE_SIZE);
+        if (fgets((char *)cfg_str, MAX_LINE_SIZE, fp) != NULL) {
+            *new_bps = atoi(cfg_str);
+            VPILOGD("read new bps %d from cfg file %s\n",
+                     *new_bps, option->pic_rc_path);
+            free(cfg_str);
+            fclose(fp);
+            return 0;
+        } else {
+            free(cfg_str);
+            fclose(fp);
+            return -1;
+        }
+    } else {
+        return -1;
+    }
+}

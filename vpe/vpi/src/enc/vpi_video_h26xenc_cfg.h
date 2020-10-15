@@ -415,4 +415,5 @@ void h26x_enc_report(VpiH26xEncCtx *enc_ctx);
 void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
                        MaS *ma, AdapGopCtr *agop);
 i32 h26x_enc_ma(MaS *ma);
+int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps);
 #endif /*__VPI_VIDEO_H26XENC_CFG_H__ */

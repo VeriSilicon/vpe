@@ -1891,16 +1891,28 @@ int h26x_enc_frame(VpiH26xEncCtx *ctx)
     }
 
     /* 3. On-fly bitrate setting */
-    for (int i = 0; i < MAX_BPS_ADJUST; i++)
-        if (options->bps_adjust_frame[i] &&
-            (p_enc_in->picture_cnt == options->bps_adjust_frame[i])) {
-            cfg->rc.bitPerSecond = options->bps_adjust_bitrate[i];
-            VPILOGI("Adjusting bitrate target: %d\n", cfg->rc.bitPerSecond);
-            if ((ret = VCEncSetRateCtrl(ctx->hantro_encoder,
+    if (options->pic_rc == 1) {
+        u32 n_bps;
+        VCEncRateCtrl cur_rc;
+
+        if (get_cfg_rc_bitrate(options, &n_bps) == 0) {
+            if ((ret = VCEncGetRateCtrl(ctx->hantro_encoder,
+                                        &cur_rc)) != VCENC_OK) {
+                VPILOGE("VCEncGetRateCtrl failed\n");
+                goto error;
+            } else {
+                if (cur_rc.bitPerSecond != n_bps) {
+                    cfg->rc.bitPerSecond = n_bps;
+                    VPILOGD("Adjusting bitrate to: %d\n", cfg->rc.bitPerSecond);
+                    if ((ret = VCEncSetRateCtrl(ctx->hantro_encoder,
                                     (VCEncRateCtrl *)&cfg->rc)) != VCENC_OK) {
-                VPILOGE("VCEncSetRateCtrl() failed. ret is %d\n", ret);
+                        VPILOGE("VCEncSetRateCtrl() failed. ret is %d\n", ret);
+                    }
+                }
             }
         }
+    }
+
     /* 4. SetupROI-Map */
     if (setup_roi_map_buffer(cfg, options, p_enc_in, ctx->hantro_encoder)) {
         VPILOGE("Failed to setup ROI map buffer\n");

@@ -398,6 +398,8 @@ typedef struct {
 
     /* for edma upload filter trans raw from rc to ep, no tcache, */
     u32 b_close_dummy_regs;
+
+    char *pic_rc_path;
 } VPIH26xEncOptions;
 
 #define NOCARE (-255)

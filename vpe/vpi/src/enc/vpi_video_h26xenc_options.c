@@ -230,7 +230,7 @@ VPIH26xParamsDef h26x_enc_param_table[] = {
       { .i64 = 10000 },
       OPT_FLAG_VCE | OPT_FLAG_MULTI,
       "[VC8000E] percent variations over average bits per frame for B frame. (default [10000], 10..10000%%)." },
-    { "enable_pic_rc",
+    { "pic_rc",
       COM_SHORT,
       TYPE_INT,
       -255,

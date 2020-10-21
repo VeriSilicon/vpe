@@ -100,4 +100,6 @@ void h26x_enc_buf_list_add(H26xEncBufLink **head, H26xEncBufLink *list);
 H26xEncBufLink* h26x_enc_buf_list_delete(H26xEncBufLink *head);
 int h26x_enc_get_empty_stream_buffer(VpiH26xEncCtx *ctx);
 void h26x_enc_outbuf_uninit(VpiH26xEncCtx *enc_ctx);
+int h26x_enc_get_extradata_size(VpiH26xEncCtx *ctx, void *outdata);
+int h26x_enc_get_extradata(VpiH26xEncCtx *ctx, void *data);
 #endif /* __VPI_VIDEO_H26XENC_UTILS_H__ */

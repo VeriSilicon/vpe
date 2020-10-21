@@ -2589,6 +2589,12 @@ int vpi_h26xe_ctrl(VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
     case VPI_CMD_H26xENC_GET_FRAME_PACKET:
         ret = h26x_enc_get_frame_packet(enc_ctx, outdata);
         break;
+    case VPI_CMD_H26xENC_GET_EXTRADATA_SIZE:
+        ret = h26x_enc_get_extradata_size(enc_ctx, outdata);
+        break;
+    case VPI_CMD_H26xENC_GET_EXTRADATA:
+        ret = h26x_enc_get_extradata(enc_ctx, cmd->data);
+        break;
     default:
         break;
     }

@@ -3938,3 +3938,19 @@ void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc)
 
     h26x_enc_buf_list_add(&ctx->rls_pic_head, ctx->rls_pic_list[i]);
 }
+
+int h26x_enc_get_extradata_size(VpiH26xEncCtx *ctx, void *outdata)
+{
+    u32 *size = (u32 *)outdata;
+
+    *size = ctx->header_size;
+    return 0;
+}
+
+int h26x_enc_get_extradata(VpiH26xEncCtx *ctx, void *data)
+{
+    u8 *header_data = (u8 *)data;
+
+    memcpy(header_data, ctx->header_data, ctx->header_size);
+    return 0;
+}

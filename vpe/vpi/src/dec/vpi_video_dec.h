@@ -326,6 +326,8 @@ typedef struct VpiDecCtx {
     uint32_t retry;
 
     VpiFrame *frame;
+
+    int init_finish;
 } VpiDecCtx;
 
 VpiRet vpi_vdec_init(VpiDecCtx *, void *);

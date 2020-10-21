@@ -245,7 +245,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         VPILOGE("Unable to create dec thread\n");
         return VPI_ERR_UNKNOWN;
     }
-
+    vpi_ctx->init_finish = 1;
     return VPI_SUCCESS;
 }
 
@@ -393,9 +393,11 @@ VpiRet vpi_vdec_close(VpiDecCtx *vpi_ctx)
 
     vpi_ctx->dec_thread_finish = 1;
 
-    pthread_join(vpi_ctx->dec_thread_handle, NULL);
-    pthread_cond_destroy(&vpi_ctx->dec_thread_cond);
-    pthread_mutex_destroy(&vpi_ctx->dec_thread_mutex);
+    if (vpi_ctx->init_finish == 1) {
+        pthread_join(vpi_ctx->dec_thread_handle, NULL);
+        pthread_cond_destroy(&vpi_ctx->dec_thread_cond);
+        pthread_mutex_destroy(&vpi_ctx->dec_thread_mutex);
+    }
 
     switch (vpi_ctx->dec_fmt) {
     case Dec_H264_H10P:

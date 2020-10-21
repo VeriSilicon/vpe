@@ -29,7 +29,7 @@
 #include "transcoder.h"
 
 #define description_string	"transcoder driver"
-#define version_string		"2.45"
+#define version_string		"2.50"
 
 #define FB_VENDOR_ID		0x1d9b
 #define FB_DEVICE_ID		0xface
@@ -145,11 +145,10 @@ static int trans_close(struct inode *inode, struct file *filp)
 		return -EFAULT;
 
 	cb_mem_close(tdev, filp);
-#if 1 /* need test */
 	bigsea_close(tdev, filp);
 	vce_close(tdev, filp);
 	vcd_close(tdev, filp);
-#endif
+
 	for (i = 0; i < 2; i++) {
 		if (tdev->tcache[i].filp == filp) {
 			trans_dbg(tdev, TR_NOTICE,
@@ -308,7 +307,8 @@ static ssize_t drv_log_store(struct device *dev,
 				 size_t count)
 {
 	u32 level;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	if (count == 0)
 		return 0;
@@ -331,7 +331,8 @@ static ssize_t drv_log_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	return sprintf(buf, "%d\n", tdev->print_level);
 }
@@ -347,7 +348,8 @@ static ssize_t hw_err_store(struct device *dev,
 				const char *buf,
 				size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	int flag, ret;
 
 	if (count == 0)
@@ -368,7 +370,8 @@ static ssize_t hw_err_show(struct device *dev,
 			     struct device_attribute *attr,
 			     char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	return sprintf(buf, "0x%x\n", tdev->hw_err_flag);
 }
@@ -395,6 +398,7 @@ static int register_tranx_dev(struct pci_dev *pdev,
 {
 	int ret = 0;
 	int node;
+	struct cb_misc_tdev *mtdev = NULL;
 	struct miscdevice *trans_misc_dev = NULL;
 
 	for (node = 0; node < DEVICE_CNT; node++)
@@ -407,12 +411,13 @@ static int register_tranx_dev(struct pci_dev *pdev,
 	}
 
 	tdev->dev_name = kasprintf(GFP_KERNEL, "transcoder%d", node);
-	trans_misc_dev = kzalloc(sizeof(struct miscdevice), GFP_KERNEL);
-	if (!trans_misc_dev) {
-		trans_dbg(tdev, TR_ERR, "core: kzalloc trans_misc_dev failed\n");
+	mtdev = kzalloc(sizeof(struct miscdevice), GFP_KERNEL);
+	if (!mtdev) {
+		trans_dbg(tdev, TR_ERR, "core: kzalloc mtdev failed\n");
 		goto out;
 	}
 
+	trans_misc_dev = &mtdev->misc;
 	trans_misc_dev->minor = MISC_DYNAMIC_MINOR;
 	trans_misc_dev->fops = &trans_char_fops;
 	trans_misc_dev->name = tdev->dev_name;
@@ -425,7 +430,7 @@ static int register_tranx_dev(struct pci_dev *pdev,
 	}
 	tdev->misc_dev = trans_misc_dev;
 	pci_set_drvdata(pdev, tdev);
-	dev_set_drvdata(trans_misc_dev->this_device, tdev);
+	mtdev->tdev = tdev;
 
 	ret = sysfs_create_group(&trans_misc_dev->this_device->kobj,
 			&trans_attribute_group);
@@ -449,7 +454,7 @@ static int register_tranx_dev(struct pci_dev *pdev,
 out_dereg_misc:
 	misc_deregister(trans_misc_dev);
 out_free_misc:
-	kfree(trans_misc_dev);
+	kfree(mtdev);
 out:
 	return -EFAULT;
 }

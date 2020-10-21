@@ -504,7 +504,8 @@ static ssize_t temp_sensor_c_show(struct device *dev,
 	int i;
 	unsigned int max_temp = 0;
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -519,7 +520,8 @@ static ssize_t max_temp_c_show(struct device *dev,
 				    char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -531,7 +533,8 @@ static ssize_t throttling_time_s_show(struct device *dev,
 					      char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -543,7 +546,8 @@ static ssize_t throttling_status_show(struct device *dev,
 					      char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -580,7 +584,8 @@ static ssize_t chip_type_show(struct device *dev,
 {
 	unsigned int val;
 	char chip_type[4];
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	/* 0x00 -> TT, 0xAA -> SS, 0x55 -> FF */
 	val = read_fuse_word(CHIP_TYPE_ADDR, tdev);
@@ -606,7 +611,8 @@ static ssize_t chip_rev_show(struct device *dev,
 {
 	unsigned int val;
 	char chip_type[4];
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	/* 0x00 -> A0, 0x01 -> A1 */
 	val = read_fuse_word(CHIP_REV_ADDR, tdev);
@@ -630,7 +636,8 @@ static ssize_t chip_id_show(struct device *dev,
 				char *buf)
 {
 	unsigned int val_1, val_2;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	val_1 = read_fuse_word(CHIP_ID_ADDR, tdev);
 	val_2 = read_fuse_word(CHIP_ID_ADDR+1, tdev);
@@ -645,7 +652,8 @@ static ssize_t power_state_show(struct device *dev,
 				     char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -677,7 +685,8 @@ static ssize_t secure_keys_show(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	int i, j, pos = 0;
 	u8 key[5][32];
@@ -704,7 +713,8 @@ static ssize_t active_key_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	int i, pos = 0;
 
@@ -722,7 +732,8 @@ static ssize_t uptime_s_show(struct device *dev,
 				 char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -734,7 +745,8 @@ static ssize_t temp_threshold_lower_c_store(struct device *dev,
 						const char *buf,
 						size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	struct cb_mail_box_d2f set_info;
 	int threshold;
@@ -769,7 +781,8 @@ static ssize_t temp_threshold_lower_c_show(struct device *dev,
 						  char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -781,7 +794,8 @@ static ssize_t temp_threshold_upper_c_store(struct device *dev,
 						  const char *buf,
 						  size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	struct cb_mail_box_d2f set_info;
 	int threshold;
@@ -816,7 +830,8 @@ static ssize_t temp_threshold_upper_c_show(struct device *dev,
 						  char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -828,7 +843,8 @@ static ssize_t ddr_ecc_threshold_store(struct device *dev,
 					       const char *buf,
 					       size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	struct cb_mail_box_d2f set_info;
 	int threshold;
@@ -858,7 +874,8 @@ static ssize_t ddr_ecc_threshold_show(struct device *dev,
 					     char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -870,7 +887,8 @@ static ssize_t sram_ecc_threshold_store(struct device *dev,
 						const char *buf,
 						size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	struct cb_mail_box_d2f set_info;
 	int threshold;
@@ -900,7 +918,8 @@ static ssize_t sram_ecc_threshold_show(struct device *dev,
 						char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -912,7 +931,8 @@ static ssize_t zsp_ver_show(struct device *dev,
 				char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	char ver[5] = "";
 
@@ -926,7 +946,8 @@ static ssize_t pcie_phy_ver_show(struct device *dev,
 				       char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	char ver[5] = "";
 
@@ -940,7 +961,8 @@ static ssize_t rompatch_ver_show(struct device *dev,
 				       char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	char ver[5] = "";
 
@@ -954,7 +976,8 @@ static ssize_t ddr_ver_show(struct device *dev,
 				char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 	char ver[5] = "";
 
@@ -969,7 +992,8 @@ static ssize_t ddrbw_s0_axi_r_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -991,7 +1015,8 @@ static ssize_t ddrbw_s0_axi_w_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1013,7 +1038,8 @@ static ssize_t ddrbw_s0_dfi_r_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1035,7 +1061,8 @@ static ssize_t ddrbw_s0_dfi_w_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1057,7 +1084,8 @@ static ssize_t ddrbw_s1_axi_r_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1079,7 +1107,8 @@ static ssize_t ddrbw_s1_axi_w_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1101,7 +1130,8 @@ static ssize_t ddrbw_s1_dfi_r_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1123,7 +1153,8 @@ static ssize_t ddrbw_s1_dfi_w_MBps_show(struct device *dev,
 {
 	struct cb_mail_box_f2d *fw_info;
 	unsigned long count, timer, ddr_bw;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1144,7 +1175,8 @@ static ssize_t dram_ecc_ce_show(struct device *dev,
 				     char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1156,7 +1188,8 @@ static ssize_t sram_ecc_ce_show(struct device *dev,
 				     char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1168,7 +1201,8 @@ static ssize_t pcie_ce_aer_show(struct device *dev,
 				     char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1180,7 +1214,8 @@ static ssize_t dram_ecc_uce_show(struct device *dev,
 				       char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1192,7 +1227,8 @@ static ssize_t sram_ecc_uce_show(struct device *dev,
 				       char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1204,7 +1240,8 @@ static ssize_t pcie_uce_fatal_aer_show(struct device *dev,
 					       char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1216,7 +1253,8 @@ static ssize_t pcie_uce_unfatal_aer_show(struct device *dev,
 						 char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1228,7 +1266,8 @@ static ssize_t pvt0_mv_show(struct device *dev,
 				char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1240,7 +1279,8 @@ static ssize_t pvt1_mv_show(struct device *dev,
 				char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1252,7 +1292,8 @@ static ssize_t pvt2_mv_show(struct device *dev,
 				char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1264,7 +1305,8 @@ static ssize_t pvt3_mv_show(struct device *dev,
 				char *buf)
 {
 	struct cb_mail_box_f2d *fw_info;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct hwm_t *thwm = tdev->modules[TR_MODULE_HW_MONITOR];
 
 	fw_info = get_info_from_zsp(thwm);
@@ -1276,7 +1318,8 @@ static ssize_t reduce_strategy_store(struct device *dev,
 					    const char *buf,
 					    size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	u32 reduce;
 
 	if (count == 0)
@@ -1300,7 +1343,8 @@ static ssize_t reduce_strategy_show(struct device *dev,
 					   struct device_attribute *attr,
 					   char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 
 	return sprintf(buf, "0:75%%; 1:50%%; 2:25%%.\ncurrent:%d\n",
 		tdev->reduce_strategy);
@@ -1429,7 +1473,7 @@ irqreturn_t hw_monitor_isr(int index, void *data)
 	return IRQ_HANDLED;
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 static void heartbeat_timer_isr(unsigned long data)
 {
 	struct hwm_t *thwm = (struct hwm_t *)data;
@@ -1495,7 +1539,7 @@ int hw_monitor_init(struct cb_tranx_t *tdev)
 	}
 	spin_lock_init(&thwm->owner_lock);
 	thwm->hb_timer.expires = jiffies + HEARTBEAT_TIMEOUT * HZ;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 	thwm->hb_timer.function = (void *)heartbeat_timer_isr;
 	thwm->hb_timer.data = (unsigned long)(thwm);
 	init_timer(&thwm->hb_timer);

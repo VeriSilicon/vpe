@@ -274,7 +274,7 @@ int release_encoder(struct cb_tranx_t *tdev, u32 core)
  * core to release it, add up the time period in one second.
  * So the total used time divide one second is the utilization.
  */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 static void enc_loading_timer_isr(unsigned long data)
 {
 	struct encoder_t *tenc = (struct encoder_t *)data;
@@ -300,7 +300,8 @@ static ssize_t enc_util_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct encoder_t *tenc = tdev->modules[TR_MODULE_ENCODER];
 	unsigned long average_loading;
 
@@ -320,7 +321,8 @@ static ssize_t enc_core_status_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct encoder_t *tenc = tdev->modules[TR_MODULE_ENCODER];
 	int i, pos = 0;
 
@@ -338,7 +340,8 @@ static ssize_t enc_reserve_cnt_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct vc8000e_t *tvce = tdev->modules[TR_MODULE_VC8000E];
 	struct bigsea_t *tbigsea = tdev->modules[TR_MODULE_BIGSEA];
 	int i, pos = 0;
@@ -558,7 +561,8 @@ static ssize_t enc_s0_clk_show(struct device *dev,
 				    char *buf)
 {
 	int pos = 0;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct encoder_t *tenc = tdev->modules[TR_MODULE_ENCODER];
 
 	pos += sprintf(buf + pos, "%s  %dMHz\n",
@@ -574,7 +578,8 @@ static ssize_t enc_s1_clk_show(struct device *dev,
 				    char *buf)
 {
 	int pos = 0;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct encoder_t *tenc = tdev->modules[TR_MODULE_ENCODER];
 
 	pos += sprintf(buf + pos, "%s  %dMHz\n",
@@ -589,7 +594,8 @@ static ssize_t enc_reset_store(struct device *dev,
 				const char *buf,
 				size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	int id, ret;
 
 	if (count == 0)
@@ -614,7 +620,8 @@ static ssize_t tcache_reset_store(struct device *dev,
 				const char *buf,
 				size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	int id, ret;
 
 	if (count == 0)
@@ -699,7 +706,7 @@ int encoder_init(struct cb_tranx_t *tdev)
 	}
 
 	tenc->loading_timer.expires = jiffies + LOADING_TIME*HZ;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 	tenc->loading_timer.function = (void *)enc_loading_timer_isr;
 	tenc->loading_timer.data = (unsigned long)(tenc);
 	init_timer(&tenc->loading_timer);

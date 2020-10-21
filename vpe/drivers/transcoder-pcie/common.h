@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
+#include <linux/miscdevice.h>
 
 #include "transcoder.h"
 
@@ -155,6 +156,11 @@ struct cb_tranx_t {
 	u32 clock_adjust; /* adjust video pll frequency */
 	u32 reduce_strategy; /* reduce strategy when the temperature exceeds the threshold */
 	struct mutex reset_lock;
+};
+
+struct cb_misc_tdev {
+	struct miscdevice misc;
+	struct cb_tranx_t *tdev;
 };
 
 /* get codec utilization in one second */

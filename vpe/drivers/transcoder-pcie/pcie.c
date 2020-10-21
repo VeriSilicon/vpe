@@ -78,7 +78,8 @@ static ssize_t link_status_show(struct device *dev,
 {
 	u32 val;
 	int pos = 0;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct pci_dev *pcie_dev = tdev->pdev;
 
 	pci_read_config_dword(pcie_dev, 0x80, &val);
@@ -108,7 +109,8 @@ static ssize_t bus_id_show(struct device *dev,
 			       struct device_attribute *attr,
 			       char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct pci_dev *pcie_dev = tdev->pdev;
 
 	return sprintf(buf, "%04x:%02x:%02x.%d\n",

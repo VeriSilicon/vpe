@@ -196,8 +196,8 @@ struct dw_edma_llp {
 };
 
 void print_tc_debug_info(struct cb_tranx_t *tdev,
-                struct tcache_info *tc_info,
-                                struct dma_link_table  *new_table, int c);
+				struct tcache_info *tc_info,
+				struct dma_link_table  *new_table, int c);
 
 static inline void edma_write(struct cb_tranx_t *tdev,
 				 unsigned int addr, unsigned int val)
@@ -1286,7 +1286,7 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 	struct dma_link_table __iomem *link_table;
 	unsigned int c = tc_info->id * 3;
 
-	while(1) {
+	while (1) {
 		new_table = tc_info->table_buffer;
 		reg_1334 = tcache_read(tedma->tdev, tc_info->id, 0x1334);
 		/* if bit31 is 1, tc empty */
@@ -1331,15 +1331,15 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 							__func__, tc_info->id, tc_info->total_element_cnt, tc_info->current_index, tc_info->each_cnt);
 						tc_info->current_index -= tc_info->each_cnt; /* tranx failed, restore index for next tranx */
 						tc_info->retry_flag = 0x1;
-						usleep_range(1000,1050);
+						usleep_range(1000, 1050);
 					} else
-						usleep_range(100,105);
+						usleep_range(100, 105);
 				} else {
 					tc_info->status = TC_EDMA_DONE;
 					wake_up_interruptible_all(&tedma->queue_wait);
 					return 0;
 				}
-			}else {
+			} else {
 				tc_info->timeout_cnt++;
 				if (!tedma->wait_condition_r[c] && ((tc_info->timeout_cnt/10) >= EDMA_TIMEOUT)) { /* wait edma done, max EDMA_TIMEOUT ms */
 					trans_dbg(tedma->tdev, TR_NOTICE,
@@ -1355,14 +1355,13 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 						trans_dbg(tedma->tdev, TR_NOTICE,
 							"edma: %s_%d, wait edma done timeout:%dms, chk regs done,setup %dms timer\n",
 							__func__, tc_info->id, EDMA_TIMEOUT, (RESET_TIME+5));
-						usleep_range((RESET_TIME+5)*1000,(RESET_TIME+5)*1000+50);/* wait edma reset done */
-					}
-					else if (rv == 1) {
+						usleep_range((RESET_TIME+5)*1000, (RESET_TIME+5)*1000+50); /* wait edma reset done */
+					} else if (rv == 1) {
 						tedma->wait_condition_r[c] = 1;
 						trans_dbg(tedma->tdev, TR_NOTICE,
 							"edma: %s_%d, wait edma done timeout:%dms, lose irq,setup 100us timer\n",
 							__func__, tc_info->id, EDMA_TIMEOUT);
-						usleep_range(100,150);
+						usleep_range(100, 150);
 					} else {
 						ctl = edma_read(tdev, DMA_CHN(c)+DMA_CH_CTL1_RD_OFF);
 						tc_info->status = TC_EDMA_ERROR;
@@ -1393,7 +1392,7 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 					print_tc_debug_info(tdev, tc_info, new_table, c);
 					return -EFAULT;
 				} else
-					usleep_range(100,105);
+					usleep_range(100, 105);
 			}
 		} else {
 			tc_info->chk_rc2ep_err++;
@@ -1404,7 +1403,7 @@ static int tcache_process_loop(struct tcache_info *tc_info)
 					__func__, tc_info->id);
 				return -EFAULT;
 			}
-			usleep_range(1000,1050);
+			usleep_range(1000, 1050);
 		}
 	}
 	return 0;
@@ -1485,7 +1484,7 @@ static int edma_tranx_tcache_mode(struct trans_pcie_edma *edma_info,
 		min(tedma->tc_info[edma_info->slice].each_cnt, tedma->tc_info[edma_info->slice].total_element_cnt);
 	tedma->tc_info[edma_info->slice].status = TC_EDMA_RUNNING;
 	tedma->tc_info[edma_info->slice].cur_element_cnt = edma_info->element_size;
-	tcache_write(tedma->tdev,edma_info->slice, 0x131d, 0x3);
+	tcache_write(tedma->tdev, edma_info->slice, 0x131d, 0x3);
 #endif
 	rv = edma_tranx_rc2ep(new_table, edma_info, tdev, 1, c, 0);
 #ifndef ENABLE_HANDSHAKE
@@ -1504,7 +1503,7 @@ static int edma_tranx_tcache_mode(struct trans_pcie_edma *edma_info,
 		rv = edma_tranx_rc2ep(new_table, edma_info, tdev, 1, c, 1);
 	}
 
-	writel(0x1,tvcd->core[edma_info->slice*2].hwregs + 0x4);
+	writel(0x1, tvcd->core[edma_info->slice*2].hwregs + 0x4);
 
 	if (!rv)
 		rv = tcache_process_loop(&tedma->tc_info[edma_info->slice]);
@@ -1517,7 +1516,7 @@ out:
 	return rv;
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 static void pcie_bw_timer_isr(unsigned long data)
 {
 	struct edma_t *tedma = (struct edma_t *)data;
@@ -1630,7 +1629,8 @@ static ssize_t pcie_r_bw_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
 
 	return sprintf(buf, "%d\n", tedma->edma_perf.ep2rc_per);
@@ -1641,7 +1641,8 @@ static ssize_t pcie_w_bw_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct edma_t *tedma = tdev->modules[TR_MODULE_EDMA];
 
 	return sprintf(buf, "%d\n", tedma->edma_perf.rc2ep_per);
@@ -1652,7 +1653,8 @@ static ssize_t edma_reset_store(struct device *dev,
 				const char *buf,
 				size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	int dir, ret;
 
 	if (count == 0)
@@ -1931,7 +1933,7 @@ int edma_init(struct cb_tranx_t *tdev)
 	atomic64_set(&tedma->edma_perf.rc2ep_size, 0);
 
 	tedma->perf_timer.expires = jiffies + PCIE_BW_TIMER;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 	tedma->perf_timer.function = (void *)pcie_bw_timer_isr;
 	tedma->perf_timer.data = (unsigned long)(tedma);
 	init_timer(&tedma->perf_timer);

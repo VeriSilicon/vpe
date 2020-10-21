@@ -611,7 +611,8 @@ static ssize_t mem_info_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	int pos = 0;
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct memory_t *tmem = tdev->modules[TR_MODULE_MEMORY];
 	struct mem_block *s0_bk = tmem->mem_s0_bk;
 	struct mem_block *s1_bk = tmem->mem_s1_bk;

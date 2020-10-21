@@ -965,7 +965,7 @@ static void vc8000d_release_core(struct vc8000d_t *tvcd,
  * Calculate the utilization of decoder in one second.
  * So the total used time divide one second is the utilization.
  */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 static void dec_loading_timer_isr(unsigned long data)
 {
 	struct vc8000d_t *tvcd = (struct vc8000d_t *)data;
@@ -991,7 +991,8 @@ static ssize_t dec_util_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct vc8000d_t *tvcd = tdev->modules[TR_MODULE_VC8000D];
 	unsigned long average_loading;
 
@@ -1011,7 +1012,8 @@ static ssize_t dec_core_status_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct vc8000d_t *tvcd = tdev->modules[TR_MODULE_VC8000D];
 	int i, pos = 0;
 
@@ -1029,7 +1031,8 @@ static ssize_t dec_reserve_cnt_show(struct device *dev,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct vc8000d_t *tvcd = tdev->modules[TR_MODULE_VC8000D];
 	int i, pos = 0;
 
@@ -1048,7 +1051,8 @@ static ssize_t dec_reset_store(struct device *dev,
 				const char *buf,
 				size_t count)
 {
-	struct cb_tranx_t *tdev = dev_get_drvdata(dev);
+	struct cb_misc_tdev *mtdev = dev_get_drvdata(dev);
+	struct cb_tranx_t *tdev = mtdev->tdev;
 	struct vc8000d_t *tvcd = tdev->modules[TR_MODULE_VC8000D];
 	int id, ret;
 
@@ -1496,7 +1500,7 @@ int vc8000d_init(struct cb_tranx_t *tdev)
 	}
 
 	tvcd->loading_timer.expires = jiffies + LOADING_TIME*HZ;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
 	tvcd->loading_timer.function = (void *)dec_loading_timer_isr;
 	tvcd->loading_timer.data = (unsigned long)(tvcd);
 	init_timer(&tvcd->loading_timer);

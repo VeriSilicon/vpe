@@ -1569,6 +1569,10 @@ static int h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
                 VPILOGD("has sps header size = %d\n", p_enc_out->header_size);
                 outstrm_buf->header_data = p_enc_out->header_buffer;
                 outstrm_buf->header_size = p_enc_out->header_size;
+            } else if (p_enc_out->codingType == VCENC_INTRA_FRAME) {
+                // add SPS/PPS before IDR for RTP/UDP case
+                outstrm_buf->header_data = enc_ctx->header_data;
+                outstrm_buf->header_size = enc_ctx->header_size;
             } else {
                 outstrm_buf->header_data = NULL;
                 outstrm_buf->header_size = 0;

@@ -2334,7 +2334,10 @@ int vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     }
     enc_ctx->pp_index = i;
 
-    h26x_enc_set_options(enc_ctx, enc_cfg);
+    ret = h26x_enc_set_options(enc_ctx, enc_cfg);
+    if (ret != 0) {
+        goto error_exit;
+    }
     memset(vpi_h26xe_cfg, 0, sizeof(VPIH26xEncCfg));
 #ifdef FB_SYSLOG_ENABLE
     vpi_h26xe_cfg->log_header.module_name =

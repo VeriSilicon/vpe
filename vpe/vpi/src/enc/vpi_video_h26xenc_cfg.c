@@ -1272,8 +1272,9 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
     while (para_set != NULL) {
         ret = h26x_enc_get_params_from_cmd(vpi_h26xe_ctx, para_set->key,
                                            para_set->value);
-        if (ret!=0)
+        if (ret != 0)
             return ret;
+
         para_set = para_set->next;
     }
 
@@ -2282,6 +2283,8 @@ int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
     char *cfg_str;
 
 #define MAX_LINE_SIZE 128
+#define MAX_BPS_VALUE 60000000
+#define MIN_BPS_VALUE 10000
 
     fp = fopen(option->pic_rc_path, "r");
     if (fp) {
@@ -2293,7 +2296,12 @@ int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
                      *new_bps, option->pic_rc_path);
             free(cfg_str);
             fclose(fp);
-            return 0;
+            if (*new_bps >= MIN_BPS_VALUE &&
+                *new_bps <= MAX_BPS_VALUE) {
+                return 0;
+            } else {
+                return -1;
+            }
         } else {
             free(cfg_str);
             fclose(fp);

@@ -547,8 +547,10 @@ int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
     u8 *p                                = NULL;
 
     p_param_line = find_option(vpi_h26xe_ctx->h26x_enc_param_table, name);
-    if (!p_param_line)
+    if (!p_param_line) {
+        VPILOGE("Can't find option %s\n", name);
         return VPI_ERR_INVALID_PARAM;
+    }
 
     if (p_param_line->flag & OPT_FLAG_CTX) {
         /*p = (u8 *)ctx;*/

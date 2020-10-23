@@ -45,9 +45,9 @@
 #define OFFSET(x) offsetof(VpiEncVp9Setting, x)
 
 VpiEncSetting vp9enc_options[] = {
-    //{ "effort", OFFSET(effort), DEFAULT, 5, VPI_ENC_PARA_INT },
-    //{ "lag_in_frames", OFFSET(lag_in_frames), DEFAULT, 25, VPI_ENC_PARA_INT },
-    //{ "passes", OFFSET(passes), DEFAULT, 2, VPI_ENC_PARA_INT },
+    { "effort", OFFSET(effort), DEFAULT, 5, VPI_ENC_PARA_INT },
+    { "lag_in_frames", OFFSET(lag_in_frames), DEFAULT, 25, VPI_ENC_PARA_INT },
+    { "passes", OFFSET(passes), DEFAULT, 2, VPI_ENC_PARA_INT },
     { "intra_pic_rate", OFFSET(intra_pic_rate), 0, 0xFFFFF, VPI_ENC_PARA_INT },
     { "bitrate_window", OFFSET(bitrate_window), DEFAULT, 300, VPI_ENC_PARA_INT },
     { "qp_hdr", OFFSET(qp_hdr), DEFAULT, 255, VPI_ENC_PARA_INT },

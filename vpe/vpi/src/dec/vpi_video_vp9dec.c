@@ -70,7 +70,7 @@ VpiRet vpi_dec_vp9_init(const void **inst, struct DecConfig config,
     rv = Vp9DecInit(inst, dwl, &dec_cfg);
     if (rv) {
         VPILOGD("Vp9DecInit ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -99,7 +99,7 @@ VpiRet vpi_dec_vp9_get_info(VpiDecInst inst, struct DecSequenceInfo *info)
 
     if (rv) {
         VPILOGD("Vp9DecGetInfo ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -154,7 +154,7 @@ VpiRet vpi_dec_vp9_set_info(VpiDecInst inst, struct DecConfig config,
     rv = Vp9DecSetInfo(inst, &dec_cfg);
     if (rv) {
         VPILOGD("Vp9DecSetInfo ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -415,7 +415,7 @@ VpiRet vpi_dec_vp9_picture_consumed(VpiDecInst inst, struct DecPicturePpu pic)
     rv = Vp9DecPictureConsumed(inst, &vpic);
     if (rv) {
         VPILOGD("Vp9DecPictureConsumed ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -455,7 +455,7 @@ int vpi_decode_vp9_put_packet(VpiDecCtx *vpi_ctx, void *indata)
                            vpi_ctx->stream_mem + idx) != DWL_OK) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
             H264DecEndOfStream(vpi_ctx->dec_inst,1);
-            return -1;
+            return VPI_ERR_NO_AP_MEM;
         } else {
             VPILOGD("new alloc size %d\n", new_size);
         }
@@ -1423,7 +1423,7 @@ VpiRet vpi_dec_vp9_end_of_stream(VpiDecInst inst)
     rv = Vp9DecEndOfStream(inst);
     if (rv) {
         VPILOGD("Vp9DecEndOfStream ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -1485,7 +1485,7 @@ static VpiRet vp9_picture_consumed_noDWL(VpiDecInst inst,
     rv = Vp9DecPictureConsumed(inst, &hpic);
     if (rv) {
         VPILOGD("Vp9DecPictureConsumed ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -1576,7 +1576,7 @@ VpiRet vpi_decode_vp9_init(VpiDecCtx *vpi_ctx)
     rv = vpi_vp9_init(vpi_ctx, config, vpi_ctx->dwl_inst);
     if (rv != DEC_OK) {
         VPILOGE("DECODER INITIALIZATION FAILED\n");
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     } else {
         VPILOGD("DECODER Vp9Init Init OK\n");
     }

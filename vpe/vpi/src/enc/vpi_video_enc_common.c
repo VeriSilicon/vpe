@@ -176,9 +176,9 @@ static int set_value(VpiEncSetting *op, void *target, char *val)
     case VPI_ENC_PARA_INT:
         vali = atoi(val);
         if (vali < op->min || vali > op->max) {
-            VPILOGD("value[%d] for [%s] is not valid: [%ld-%ld]\n",
+            VPILOGE("value[%d] for [%s] is not valid: [%ld-%ld]\n",
                     op->name, vali, op->min, op->max);
-            return VPI_ERR_VALUE;
+            return VPI_ERR_ENCODER_OPITION;
         }
         *(int *) target = vali;
         VPILOGD("key matched: [%s]='%d'\n", op->name, vali);
@@ -187,9 +187,9 @@ static int set_value(VpiEncSetting *op, void *target, char *val)
     case VPI_ENC_PARA_FLOAT:
         valf = atof(val);
         if (valf < op->min || valf > op->max) {
-            VPILOGD("value[%d] for [%s] is not valid: [%f-%f]\n",
+            VPILOGE("value[%d] for [%s] is not valid: [%f-%f]\n",
                     op->name, valf, op->min, op->max);
-            return VPI_ERR_VALUE;
+            return VPI_ERR_ENCODER_OPITION;
         }
         *(float *) target = valf;
         VPILOGD("key matched: [%s]='%f'\n", op->name, valf);
@@ -248,7 +248,7 @@ int vpi_enc_parse_param(char *src, VpiEncSetting setting[], int length,
         /* Step 3, get value */
         if (i == length) {
             VPILOGE("Can't find opition %s\n", name);
-            return VPI_ERR_VALUE;
+            return VPI_ERR_SW;
         }
 
         /* Step 4, save value*/
@@ -261,7 +261,7 @@ int vpi_enc_parse_param(char *src, VpiEncSetting setting[], int length,
     return ret;
 }
 
-int vpi_enc_set_param(char *key, char *val, VpiEncSetting setting[], int length,
+VpiRet vpi_enc_set_param(char *key, char *val, VpiEncSetting setting[], int length,
                       void *output)
 {
     VpiEncSetting *op = NULL;
@@ -269,11 +269,11 @@ int vpi_enc_set_param(char *key, char *val, VpiEncSetting setting[], int length,
     int i             = 0;
 
     if (setting == NULL || output == NULL) {
-        return -1;
+        return VPI_ERR_SW;
     }
 
     if (strlen(key) == 0 || strlen(val) == 0)
-        return 0;
+        return VPI_SUCCESS;
 
     for (i = 0; i < length; i++) {
         if (!strcmp(setting[i].name, key)) {
@@ -284,7 +284,7 @@ int vpi_enc_set_param(char *key, char *val, VpiEncSetting setting[], int length,
 
     if (i == length) {
         VPILOGE("Can't find opition %s\n", key);
-        return VPI_ERR_INVALID_PARAM;
+        return VPI_ERR_ENCODER_OPITION;
     }
 
     return set_value(op, output + op->offset, val);

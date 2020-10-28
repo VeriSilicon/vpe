@@ -35,8 +35,8 @@ VpiRet vpi_vprc_init(VpiPrcCtx *vpi_ctx, void *prc_cfg)
         ret = vpi_prc_hwul_init(vpi_ctx, prc_cfg);
         break;
     default:
-        VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
-        ret = VPI_ERR_VALUE;
+        VPILOGE("Unknown/Not supported format %d", vpi_ctx->filter_type);
+        ret = VPI_ERR_SW;
     }
 
     return ret;
@@ -59,7 +59,7 @@ VpiRet vpi_vprc_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         ret = vpi_prc_hwul_process(vpi_ctx, indata, outdata);
         break;
     default:
-        VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
+        VPILOGE("Unknown/Not supported format %d", vpi_ctx->filter_type);
         break;
     }
     return ret;
@@ -82,8 +82,8 @@ VpiRet vpi_vprc_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         vpi_prc_hwul_control(vpi_ctx, indata, outdata);
         break;
     default:
-        VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
-        ret = VPI_ERR_VALUE;
+        VPILOGE("Unknown/Not supported format %d", vpi_ctx->filter_type);
+        ret = VPI_ERR_SW;
     }
 
     return ret;
@@ -106,8 +106,8 @@ int vpi_vprc_close(VpiPrcCtx *vpi_ctx)
         ret = vpi_prc_hwul_close(vpi_ctx);
         break;
     default:
-        VPILOGW("Unknown/Not supported format %d", vpi_ctx->filter_type);
-        ret = VPI_ERR_VALUE;
+        VPILOGE("Unknown/Not supported format %d", vpi_ctx->filter_type);
+        ret = VPI_ERR_SW;
     }
 
     return ret;

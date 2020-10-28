@@ -493,11 +493,10 @@ static int parse_type_arg(VPIH26xParamsDef *p_param_line, void *p)
         *((int *)p+1) = p_param_line->default_val.colon2.max;
    }
 
-
     return 0;
 }
 
-int h26x_enc_get_params(VpiH26xEncCtx *vpi_h26xe_ctx)
+VpiRet h26x_enc_get_params(VpiH26xEncCtx *vpi_h26xe_ctx)
 {
     VPIH26xParamsDef *p_param_line;
     VPIH26xEncOptions *options = (VPIH26xEncOptions *)&vpi_h26xe_ctx->options;
@@ -511,13 +510,13 @@ int h26x_enc_get_params(VpiH26xEncCtx *vpi_h26xe_ctx)
             /*p = (u8 *)ctx;*/
             VPILOGE("%s,%d, parameter's flag is OPT_FLAG_CTX! IT SHOULDN'T HAPPEN now\n",
                    __FILE__, __LINE__); /*has been move to options*/
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         } else {
             p = (u8 *)options;
         }
         p += p_param_line->offset;
         if (parse_type_arg(p_param_line, p) < 0)
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
     }
 
     return 0;
@@ -539,7 +538,7 @@ static const VPIH26xParamsDef *find_option(const VPIH26xParamsDef *po,
     return ((flag == 1) ? po : NULL);
 }
 
-int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
+VpiRet h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
                                  const char *name, char *input_value)
 {
     VPIH26xEncOptions *options = (VPIH26xEncOptions *)&vpi_h26xe_ctx->options;
@@ -549,14 +548,14 @@ int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
     p_param_line = find_option(vpi_h26xe_ctx->h26x_enc_param_table, name);
     if (!p_param_line) {
         VPILOGE("Can't find option %s\n", name);
-        return VPI_ERR_INVALID_PARAM;
+        return VPI_ERR_ENCODER_OPITION;
     }
 
     if (p_param_line->flag & OPT_FLAG_CTX) {
         /*p = (u8 *)ctx;*/
         VPILOGE("%s,%d, parameter's flag is OPT_FLAG_CTX! IT SHOULDN'T HAPPEN now\n",
                __FILE__, __LINE__); /*has been move to options*/
-        return -1;
+        return VPI_ERR_ENCODER_OPITION;
     } else {
         p = (u8 *)options;
     }
@@ -570,7 +569,7 @@ int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
                 if (value != 0 && value != DEFAULT_VALUE) {
                     VPILOGE("option %s value %ld less than min %d or not 0 nor DEFAULT_VALUE!\n",
                            p_param_line->name, value, p_param_line->min);
-                    return VPI_ERR_INVALID_PARAM;
+                    return VPI_ERR_ENCODER_OPITION;
                 }
             }
         }
@@ -578,7 +577,7 @@ int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
             if (value > p_param_line->max) {
                 VPILOGE("option %s value %ld greater than max %d!\n",
                        p_param_line->name, value, p_param_line->max);
-                return VPI_ERR_INVALID_PARAM;
+                return VPI_ERR_ENCODER_OPITION;
             }
         }
         *((int *)p) = value;
@@ -598,15 +597,15 @@ int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
         seg_num = vpi_enc_split_string((char **)&pstrs, ENC_PARAM_MAX_SEG_NUM, input_value, ":");
         if (seg_num < 0) {
             VPILOGE("error seg_num %d\n", seg_num);
-            return VPI_ERR_INVALID_PARAM;
+            return VPI_ERR_ENCODER_OPITION;
         }
         if (p_param_line->type == TYPE_COLON2 && seg_num != 2) {
            VPILOGE("seg_num %d not match TYPE_COLON2\n", seg_num);
-           return VPI_ERR_INVALID_PARAM;
+           return VPI_ERR_ENCODER_OPITION;
         }
         if (p_param_line->type == TYPE_COLON4 && seg_num != 4) {
             VPILOGE("seg_num %d not match TYPE_COLON4\n", seg_num);
-            return VPI_ERR_INVALID_PARAM;
+            return VPI_ERR_ENCODER_OPITION;
         }
         for (i = 0; i < seg_num; i++) {
             *((int *)p) = atoi(pstrs[i]);
@@ -615,6 +614,5 @@ int h26x_enc_get_params_from_cmd(VpiH26xEncCtx *vpi_h26xe_ctx,
         }
    }
 
-
-    return 0;
+   return VPI_SUCCESS;
 }

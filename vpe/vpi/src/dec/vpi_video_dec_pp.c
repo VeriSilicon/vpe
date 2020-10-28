@@ -266,7 +266,7 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
             resize_str = pstrs[1];
         } else {
             VPILOGE("resizes syntax error!\n");
-            return VPI_ERR_VALUE;
+            return VPI_ERR_SW;
         }
     }
 
@@ -274,11 +274,11 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
         VPILOGD("resize_str: %s\n", resize_str);
         seg_num = split_string(pstrs, MAX_SEG_NUM, resize_str, "()");
         if (seg_num <= 0) {
-            VPILOGD("can't find resize info!\n");
-            return VPI_ERR_VALUE;
+            VPILOGE("can't find resize info!\n");
+            return VPI_ERR_SW;
         }
     } else {
-        return VPI_ERR_VALUE;
+        return VPI_ERR_SW;
     }
 
     vpi_ctx->resize_num = 0;
@@ -302,27 +302,27 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
                         cp = p + 1;
                         VPILOGD("cp: %s\n", cp);
                     } else if (vpi_ctx->resize_num != 0) {
-                        return VPI_ERR_VALUE;
+                        return VPI_ERR_SW;
                     }
                 } else {
-                    return VPI_ERR_VALUE;
+                    return VPI_ERR_SW;
                 }
             } else {
-                return VPI_ERR_VALUE;
+                return VPI_ERR_SW;
             }
         }
         if ((p = strchr(cp, 'x')) == NULL) {
             if (cp[0] == 'd') {
                 int n = atoi(cp + 1);
                 if (n != 2 && n != 4 && n != 8) {
-                    VPILOGD("only support d2/d4/d8!\n");
-                    return VPI_ERR_VALUE;
+                    VPILOGE("only support d2/d4/d8!\n");
+                    return VPI_ERR_SW;
                 }
                 vpi_ctx->resizes[vpi_ctx->resize_num].sw = -n;
                 vpi_ctx->resizes[vpi_ctx->resize_num].sh = -n;
             } else if (vpi_ctx->resize_num != 0) {
-                VPILOGD("can't find swxsh or dn!\n");
-                return VPI_ERR_VALUE;
+                VPILOGE("can't find swxsh or dn!\n");
+                return VPI_ERR_SW;
             }
         } else {
             vpi_ctx->resizes[vpi_ctx->resize_num].sw = atoi(cp);
@@ -331,7 +331,7 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
         if (vpi_ctx->resizes[vpi_ctx->resize_num].sw == -1 &&
             vpi_ctx->resizes[vpi_ctx->resize_num].sh == -1) {
             VPILOGE("resize -1x-1 error!\n");
-            return VPI_ERR_VALUE;
+            return VPI_ERR_SW;
         }
         VPILOGD("get resize %d %d,%d,%d,%d,%dx%d\n", vpi_ctx->resize_num,
                 vpi_ctx->resizes[vpi_ctx->resize_num].x,
@@ -345,7 +345,7 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
 
     if (output_num < 1 || output_num > 4) {
         VPILOGE("outputs number error\n");
-        return VPI_ERR_VALUE;
+        return VPI_ERR_SW;
     }
 
     if (output_num == 1 && vpi_ctx->resize_num == 1 &&
@@ -366,7 +366,7 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
               vpi_ctx->resizes[0].ch == vpi_ctx->resizes[1].ch &&
               vpi_ctx->resizes[1].sw == -2 && vpi_ctx->resizes[1].sh == -2)) {
             VPILOGE("resize param error!\n");
-            return VPI_ERR_VALUE;
+            return VPI_ERR_SW;
         }
         vpi_ctx->vce_ds_enable = 1;
     } else if (output_num == vpi_ctx->resize_num + 1) {
@@ -382,14 +382,14 @@ VpiRet vpi_dec_parse_resize(VpiDecCtx *vpi_ctx, VpiDecOption *dec_cfg)
         vpi_ctx->resize_num++;
     } else if (output_num != vpi_ctx->resize_num) {
         VPILOGE("resize param error!\n");
-        return VPI_ERR_VALUE;
+        return VPI_ERR_SW;
     }
 
     if ((vpi_ctx->resizes[0].sw || vpi_ctx->resizes[0].sh) &&
         (vpi_ctx->resizes[0].sw != vpi_ctx->resizes[0].cw ||
          vpi_ctx->resizes[0].sh != vpi_ctx->resizes[0].ch)) {
         VPILOGE("resize channel 0 do not support scale!\n");
-        return VPI_ERR_VALUE;
+        return VPI_ERR_SW;
     }
 
     return VPI_SUCCESS;

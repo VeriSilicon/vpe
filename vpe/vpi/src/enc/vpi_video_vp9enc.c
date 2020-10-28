@@ -67,7 +67,7 @@ static int vpi_venc_vp9_convert_setting(VpiEncVp9Opition *in,
 {
     if (in == NULL || out == NULL) {
         VPILOGE("vpi_venc_vp9_convert_setting parameters error\n");
-        return -1;
+        return VPI_ERR_SW;
     }
 
     if ((in->bit_rate > 10000) && (in->bit_rate < 60000000)) {
@@ -97,7 +97,7 @@ static int vpi_venc_vp9_convert_setting(VpiEncVp9Opition *in,
     out->device        = in->dev_name;
     out->priority      = in->priority;
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 int vpi_encode_vp9_enc_process(VpiEncVp9Ctx *ctx)
@@ -152,7 +152,7 @@ int vpi_encode_vp9_enc_process(VpiEncVp9Ctx *ctx)
             } else {
                 VPILOGD("Input is NULL, wait new frame comein\n");
                 pthread_mutex_unlock(&ctx->enc_thread_mutex);
-                return 0;
+                return VPI_SUCCESS;
             }
         }
     } else {
@@ -196,7 +196,7 @@ int vpi_encode_vp9_enc_process(VpiEncVp9Ctx *ctx)
         }
 
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return 0;
+        return VPI_SUCCESS;
     }
 
     /* Set rate control*/
@@ -233,7 +233,7 @@ int vpi_encode_vp9_enc_process(VpiEncVp9Ctx *ctx)
     if (idx == -1) {
         VPILOGE("Can't find empty stream buffer, return\n");
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return 0;
+        return VPI_SUCCESS;
     }
 
     enc_in->pOutBuf   = ctx->outstream_mem[idx];
@@ -363,12 +363,12 @@ exit:
     VPILOGD("Total of %lu frames encoded, %lu bytes.\n", ctx->frame_count_out,
             ctx->stream_size);
     pthread_mutex_unlock(&ctx->enc_thread_mutex);
-    return 0;
+    return VPI_SUCCESS;
 
 error:
     ctx->pic_tobe_free = 0;
     pthread_mutex_unlock(&ctx->enc_thread_mutex);
-    return -1;
+    return VPI_ERR_ENCODE;
 }
 
 void *vpi_venc_vp9_process(void *param)
@@ -388,7 +388,7 @@ void *vpi_venc_vp9_process(void *param)
     return NULL;
 }
 
-int vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
+VpiRet vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
 {
     VpiEncVp9Opition *vpi_setting = (VpiEncVp9Opition *)cfg;
     VpiEncVp9Setting *cml         = &ctx->vp9_enc_cfg;
@@ -399,7 +399,7 @@ int vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
 
     if (ctx == NULL || cfg == NULL) {
         VPILOGE("vpi_venc_vp9_init parameters error\n");
-        return -1;
+        return VPI_ERR_SW;
     }
     ctx->firstframe = 0;
     ctx->api_ver    = VP9EncGetApiVersion();
@@ -470,10 +470,10 @@ int vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
 
 error:
     vpi_venc_vp9_close(ctx);
-    return -1;
+    return ret;
 }
 
-int vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
+VpiRet vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
 {
     VpiFrame *input             = (VpiFrame *)in;
     VpiPacket *output           = out;
@@ -559,7 +559,7 @@ int vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
 
     if (ctx->loop_break) {
         VPILOGE("VP9DBG loop_break=%d\n", ctx->loop_break);
-        return 0;
+        return VPI_SUCCESS;
     }
 
     /* Set rate control*/
@@ -712,14 +712,14 @@ exit:
             usedMinQp, usedMaxQp);
     VPILOGD("Total of %lu frames encoded, %lu bytes.\n", ctx->frame_count_out,
             ctx->stream_size);
-    return 0;
+    return VPI_SUCCESS;
 
 error:
     ctx->pic_tobe_free = 0;
-    return -1;
+    return VPI_ERR_ENCODE;
 }
 
-int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
+VpiRet vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
 {
     VpiCtrlCmdParam *cmd            = (VpiCtrlCmdParam *)indata;
     VpiEncVp9Setting *cml           = &ctx->vp9_enc_cfg;
@@ -728,7 +728,7 @@ int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
 
     if (ctx == NULL || indata == NULL) {
         VPILOGE("vpi_venc_vp9_control parameters error\n");
-        return -1;
+        return VPI_ERR_SW;
     }
 
     switch (cmd->cmd) {
@@ -748,12 +748,12 @@ int vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
         VPILOGE("vpi_venc_vp9_control: "
                 "vpi_venc_vp9_control Invalid typer=%d.\n",
                 cmd->cmd);
-        ret = -1;
+        ret = VPI_ERR_SW;
     }
     return ret;
 }
 
-int vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
+VpiRet vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
 {
     VpiEncVp9Pic *trans_pic = NULL;
     VpiFrame *frame = (VpiFrame *)indata;
@@ -768,7 +768,7 @@ int vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
     }
     if (i == MAX_WAIT_DEPTH) {
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return -1;
+        return VPI_ERR_SW;
     }
 
     if (frame->opaque == NULL) {
@@ -782,10 +782,10 @@ int vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
     }
 
     pthread_mutex_unlock(&ctx->enc_thread_mutex);
-    return 0;
+    return VPI_SUCCESS;
 }
 
-int vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata)
+VpiRet vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata)
 {
     VpiPacket *pkt = (VpiPacket *)outdata;
     Vp9EncBufLink *buf, *buf_next;
@@ -807,14 +807,14 @@ int vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata)
         buf->used = 0;
         buf->show = 0;
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return 0;
+        return VPI_SUCCESS;
     }
 
     // superframe
     if (buf_next == NULL) {
         VPILOGE("a show frame should exist\n");
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return -1;
+        return VPI_ERR_SW;
     }
     out_pkt_mem = buf_next->item;
     pdata += buf->item_size;
@@ -831,11 +831,11 @@ int vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata)
     } else {
         VPILOGE("invisible frame\n");
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
-        return -1;
+        return VPI_ERR_SW;
     }
     vp9enc_superframe(ctx, pkt);
     pthread_mutex_unlock(&ctx->enc_thread_mutex);
-    return 0;
+    return VPI_SUCCESS;
 }
 
 int vpi_venc_vp9_close(VpiEncVp9Ctx *ctx)
@@ -844,12 +844,12 @@ int vpi_venc_vp9_close(VpiEncVp9Ctx *ctx)
 
     if (ctx == NULL) {
         VPILOGE("vpi_vp9enc_close ctx is NULL\n");
-        return 0;
+        return VPI_SUCCESS;
     }
 
     if (ctx->initialized == 0) {
         VPILOGE("ctx->initialized=%d, no inited... \n", ctx->initialized);
-        return 0;
+        return VPI_SUCCESS;
     }
 
     ctx->enc_thread_finish = 1;
@@ -865,6 +865,7 @@ int vpi_venc_vp9_close(VpiEncVp9Ctx *ctx)
         VPILOGD("Going to release encoder: =%p\n", ctx->encoder);
         if ((ret = VP9EncRelease((VP9EncInst)ctx->encoder)) != VP9ENC_OK) {
             VPILOGE("VP9EncRelease() failed.", ret);
+            ret = VPI_ERR_ENCODE;
         }
         ctx->encoder_is_open = 0;
     }

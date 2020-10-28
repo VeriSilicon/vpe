@@ -76,25 +76,25 @@ void log_write(LogLevel level, const char *p_header, const char *p_format, ...)
     }
 }
 
-int log_setlevel(int level)
+VpiRet log_setlevel(int level)
 {
     if( level >= LOG_LEVEL_OFF && level < LOG_LEVEL_MAX)
         report_file_level = level;
-    return 0;
+    return VPI_SUCCESS;
 }
 
-int log_open(char *file_name)
+VpiRet log_open(char *file_name)
 {
     if (NULL == file_name) {
-        return -1;
+        return VPI_ERR_SW;
     }
 
     report_file = fopen(file_name, "w");
     if (!report_file) {
         printf("Failed to open report \"%s\"\n", file_name);
-        return -1;
+        return VPI_ERR_SW;
     }
-    return 0;
+    return VPI_SUCCESS;
 }
 
 void log_close()

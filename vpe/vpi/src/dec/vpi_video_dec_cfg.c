@@ -116,7 +116,7 @@ VpiRet vpi_dec_init_wrapper(VpiDecCtx *vpi_ctx)
 
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        return VPI_ERR_VALUE;
+        return VPI_ERR_DECODE_FORMAT;
     }
     return VPI_SUCCESS;
 }
@@ -245,7 +245,7 @@ int vpi_dec_cfg_by_seqeuence_info(VpiDecCtx *vpi_ctx)
         ((config->ppu_cfg[0].scale.width != config->ppu_cfg[0].crop.width) ||
          (config->ppu_cfg[0].scale.height != config->ppu_cfg[0].crop.height))) {
         VPILOGE("pp0 do not support scale!\n");
-        return -1;
+        return VPI_ERR_PP;
     }
 
     for (i = 1; i < 4; i++) {
@@ -333,7 +333,7 @@ int vpi_dec_cfg_by_seqeuence_info(VpiDecCtx *vpi_ctx)
         }
     }
     if (rv_info == DEC_INFOPARAM_ERROR) {
-        return -1;
+        return VPI_ERR_DECODE;
     }
 
     /* Adjust user cropping params based on cropping params from seq info. */
@@ -454,7 +454,7 @@ int vpi_dec_cfg_by_seqeuence_info(VpiDecCtx *vpi_ctx)
         }
     }
     if (rv_info == DEC_INFOPARAM_ERROR) {
-        return -1;
+        return VPI_ERR_DECODE;
     }
 
     if (vpi_ctx->disable_dec400) {

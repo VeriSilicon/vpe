@@ -426,7 +426,7 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
     vpi_ctx->edma_handle = TRANS_EDMA_init(vpi_cfg->device);
     if (vpi_ctx->edma_handle == NULL) {
         VPILOGE("hwupload edma_handle init failed!\n");
-        return VPI_ERR_OPEN_FILE;
+        return VPI_ERR_DEVICE;
     }
 
     frame->raw_format          = vpi_cfg->format;

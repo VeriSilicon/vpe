@@ -138,7 +138,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
     vpi_ctx->dwl_inst        = DWLInit(&vpi_ctx->dwl_init);
     if (vpi_ctx->dwl_inst == NULL) {
         VPILOGE("DWLInit# ERROR: DWL Init failed\n");
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DWL;
     } else {
         VPILOGD("DWLInit#: DWL Init OK\n");
     }
@@ -147,7 +147,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         ret = vpi_decode_h264_init(vpi_ctx);
         if (ret) {
             VPILOGE("vpi h264 decode init fail\n");
-            return ret;
+            return VPI_ERR_DECODER_INIT;
         }
 
         if (vpi_ctx->rlc_mode) {
@@ -160,13 +160,13 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         ret = vpi_decode_hevc_init(vpi_ctx);
         if (ret) {
             VPILOGE("vpi hevc decode init fail\n");
-            return ret;
+            return VPI_ERR_DECODER_INIT;
         }
     } else if (vpi_ctx->dec_fmt == Dec_VP9) {
         ret = vpi_decode_vp9_init(vpi_ctx);
         if (ret) {
             VPILOGE("vpi vp9 decode init fail\n");
-            return ret;
+            return VPI_ERR_DECODER_INIT;
         }
     }
     if (vpi_ctx->enable_mc) {
@@ -182,14 +182,14 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         vpi_ctx->strm_buf_list[i]       = malloc(sizeof(BufLink));
         if (NULL == vpi_ctx->strm_buf_list[i]) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER LIST MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         vpi_ctx->strm_buf_list[i]->mem_idx = 0xFFFFFFFF;
         vpi_ctx->strm_buf_list[i]->next    = NULL;
         if (DWLMallocLinear(vpi_ctx->dwl_inst, size, vpi_ctx->stream_mem + i) !=
             DWL_OK) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_EP_MEM;
         } else {
             VPILOGD("alloc memory for %d stream ,addr=0x%x, size is 0x%x OK\n",
                     i, vpi_ctx->stream_mem[i].virtual_address,
@@ -200,7 +200,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         vpi_ctx->frame_buf_list[i] = malloc(sizeof(BufLink));
         if (NULL == vpi_ctx->frame_buf_list[i]) {
             VPILOGE("UNABLE TO ALLOCATE FRAME BUFFER LIST\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         vpi_ctx->frame_buf_list[i]->item    = NULL;
         vpi_ctx->frame_buf_list[i]->mem_idx = 0xFFFFFFFF;
@@ -211,7 +211,7 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
         vpi_ctx->rls_strm_buf_list[i] = malloc(sizeof(BufLink));
         if (NULL == vpi_ctx->rls_strm_buf_list[i]) {
             VPILOGE("UNABLE TO ALLOCATE RELEASE STREAM BUFFER LIST MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         vpi_ctx->rls_strm_buf_list[i]->mem_idx = 0xFFFFFFFF;
         vpi_ctx->rls_strm_buf_list[i]->next    = NULL;
@@ -243,10 +243,10 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
                          vpi_ctx);
     if (ret) {
         VPILOGE("Unable to create dec thread\n");
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_SYSTEM;
     }
     vpi_ctx->init_finish = 1;
-    return VPI_SUCCESS;
+    return ret;
 }
 
 VpiRet vpi_vdec_init(VpiDecCtx *vpi_ctx, void *dec_cfg)
@@ -271,7 +271,7 @@ VpiRet vpi_vdec_init(VpiDecCtx *vpi_ctx, void *dec_cfg)
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        ret = VPI_ERR_VALUE;
+        ret = VPI_ERR_DECODER_DATA;
     }
 
     ret = vpi_dec_init_decoder(vpi_ctx, dec_cfg);
@@ -295,7 +295,7 @@ int vpi_vdec_decode(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        ret = VPI_ERR_VALUE;
+        ret = VPI_ERR_SW;
     }
     //ret = vpi_dec_decode_frame(vpi_ctx, indata, outdata);
 
@@ -318,7 +318,7 @@ int vpi_vdec_put_packet(VpiDecCtx *vpi_ctx, void *indata)
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        ret = -1;
+        ret = VPI_ERR_SW;
     }
     return ret;
 }
@@ -339,7 +339,7 @@ int vpi_vdec_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        ret = VPI_ERR_VALUE;
+        ret = VPI_ERR_SW;
     }
 
     return ret;
@@ -381,7 +381,7 @@ VpiRet vpi_vdec_control(VpiDecCtx *vpi_ctx, void *indata, void *outdata)
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        ret = VPI_ERR_VALUE;
+        ret = VPI_ERR_SW;
     }
 
     return ret;
@@ -411,7 +411,7 @@ VpiRet vpi_vdec_close(VpiDecCtx *vpi_ctx)
         break;
     default:
         VPILOGW("Unknown/Not supported format %d", vpi_ctx->dec_fmt);
-        ret = VPI_ERR_VALUE;
+        ret = VPI_ERR_SW;
     }
 
     return ret;

@@ -27,8 +27,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __VPI_ERROR_H__
-#define __VPI_ERROR_H__
+#ifndef __VPI_ERR_H__
+#define __VPI_ERR_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,37 +43,43 @@ extern "C" {
 #endif
 
 typedef enum {
-    VPI_SUCCESS = SUCCESS,
+    VPI_SUCCESS                  = SUCCESS,
+    VPI_ERR_SW                   = -1,
+    VPI_ERR_SYSTEM               = -2,
+    VPI_ERR_NO_AP_MEM            = -3,
+    VPI_ERR_NO_EP_MEM            = -4,
+    VPI_ERR_WRONG_STATE          = -5,
+    VPI_ERR_DEVICE               = -6,
 
-    VPI_ERR_UNKNOWN      = -1,
-    VPI_ERR_MALLOC       = -2,
-    VPI_ERR_WRONG_STATE  = -3,
-    VPI_ERR_OPEN_FILE    = -4,
-    VPI_ERR_WRONG_PLUGIN = -5,
-    VPI_ERR_VALUE        = -6,
-    VPI_ERR_READ_BIT     = -7,
-    VPI_ERR_TIMEOUT      = -8,
-    VPI_ERR_PERM         = -9,
-    VPI_ERR_NO_SW_RSC    = -10,
-    VPI_ERR_NO_HW_RSC    = -11,
-    VPI_ERR_IOCTL        = -12,
-    VPI_ERR_INVALID_PARAM= -13,
+    VPI_ERR_ENCODE               = -100,
+    VPI_ERR_EWL                  = -101,
+    VPI_ERR_ENCODER_INIT         = -102,
+    VPI_ERR_ENCODER_OPITION      = -103,
+    VPI_ERR_ENCODE_WAITT_BUF     = -104,
 
-    VPI_ERR_BASE = -1000,
+    VPI_ERR_DECODE               = -200,
+    VPI_ERR_DWL                  = -201,
+    VPI_ERR_DECODER_INIT         = -203,
+    VPI_ERR_DECODER_OPITION      = -204,
+    VPI_ERR_DECODER_DATA         = -205,
+    VPI_ERR_DECODE_FORMAT        = -206,
 
-    /* The error in stream processing */
-    VPI_ERR_LIST_STREAM    = VPI_ERR_BASE - 1,
-    VPI_ERR_INIT           = VPI_ERR_BASE - 2,
-    VPI_ERR_VPU_CODEC_INIT = VPI_ERR_BASE - 3,
-    VPI_ERR_STREAM         = VPI_ERR_BASE - 4,
-    VPI_ERR_FATAL_THREAD   = VPI_ERR_BASE - 5,
-    VPI_ERR_NOMEM          = VPI_ERR_BASE - 6,
-    VPI_ERR_PROTOL         = VPI_ERR_BASE - 7,
-    VPI_FAIL_SPLIT_FRAME   = VPI_ERR_BASE - 8,
-    VPI_ERR_VPUHW          = VPI_ERR_BASE - 9,
-    VPI_EOS_STREAM_REACHED = VPI_ERR_BASE - 11,
-    VPI_ERR_BUFFER_FULL    = VPI_ERR_BASE - 12,
-    VPI_ERR_DISPLAY_FULL   = VPI_ERR_BASE - 13,
+    VPI_ERR_PP                   = -300,
+    VPI_ERR_PP_INIT              = -301,
+    VPI_ERR_PP_OPITION           = -302,
+
+    VPI_ERR_SPLITER              = -400,
+    VPI_ERR_SPLITER_INIT         = -401,
+    VPI_ERR_SPLITER_OPITION      = -402,
+
+    VPI_ERR_HWDOWNLOADER         = -500,
+    VPI_ERR_HWDOWNLOADER_INIT    = -501,
+    VPI_ERR_HWDOWNLOADER_OPITION = -502,
+
+    VPI_ERR_HWUPLOADER           = -600,
+    VPI_ERR_HWUPLOADER_INIT      = -601,
+    VPI_ERR_HWUPLOADER_OPITION   = -602,
+
 } VpiRet;
 
 /* ASSERT */

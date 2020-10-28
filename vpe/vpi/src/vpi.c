@@ -34,7 +34,9 @@
 #include <sys/ioctl.h>
 
 #include "vpi_api.h"
+#include "vpi_error.h"
 #include "vpi.h"
+#include "vpi_types.h"
 #include "vpi_log_manager.h"
 #include "vpi_video_dec.h"
 #include "vpi_video_prc.h"
@@ -56,6 +58,49 @@ static VpiDevCtx *vpi_dev_ctx[MAX_DEVICE_NUM]     = {NULL};
 static int log_enabled = 0;
 static int log_cnt     = 0;
 
+typedef struct{
+    VpiRet ret;
+    char *name;
+}Vpi_Error_Name;
+
+static Vpi_Error_Name gVPIError[] = {
+    { VPI_ERR_SW, "Software" },
+    { VPI_ERR_SYSTEM, "System" },
+    { VPI_ERR_NO_AP_MEM, "No AP memory" },
+    { VPI_ERR_NO_EP_MEM, "No EP memory" },
+    { VPI_ERR_WRONG_STATE, "Wrong State" },
+    { VPI_ERR_DEVICE, "error device" },
+
+    { VPI_ERR_ENCODE, "encoding error" },
+    { VPI_ERR_EWL, "EWL error" },
+    { VPI_ERR_ENCODER_INIT, "encoder init error" },
+    { VPI_ERR_ENCODER_OPITION, "encoder opitions within '-enc_params' error" },
+    { VPI_ERR_ENCODE_WAITT_BUF, "wait buffer" },
+
+    { VPI_ERR_DECODE, "decode error" },
+    { VPI_ERR_DWL, "DWL error" },
+    { VPI_ERR_DECODER_INIT, "decoder init error" },
+    { VPI_ERR_DECODER_OPITION, "wrong decoder opition" },
+    { VPI_ERR_DECODER_DATA, "decoder data error" },
+    { VPI_ERR_DECODE_FORMAT, "decoder format error" },
+
+    { VPI_ERR_PP, "PP error" },
+    { VPI_ERR_PP_INIT, "PP init error" },
+    { VPI_ERR_PP_OPITION, "PP opition error" },
+
+    { VPI_ERR_SPLITER, "spliter error" },
+    { VPI_ERR_SPLITER_INIT, "spliter init error" },
+    { VPI_ERR_SPLITER_OPITION, "spliter opition error" },
+
+    { VPI_ERR_HWDOWNLOADER, "Hardware downloader error" },
+    { VPI_ERR_HWDOWNLOADER_INIT, "Hardware downloader init errir" },
+    { VPI_ERR_HWDOWNLOADER_OPITION, "Hardware downloader opition error" },
+
+    { VPI_ERR_HWUPLOADER, "Hardware uploader error" },
+    { VPI_ERR_HWUPLOADER_INIT, "Hardware uploader init error" },
+    { VPI_ERR_HWUPLOADER_OPITION, "Hardware uploader opition error" },
+};
+
 static int vpi_get_hw_ctx(int fd)
 {
     int i;
@@ -71,7 +116,7 @@ static int vpi_get_hw_ctx(int fd)
     return -1;
 }
 
-static int vpi_init(VpiCtx vpe_ctx, void *cfg)
+static VpiRet vpi_init(VpiCtx vpe_ctx, void *cfg)
 {
     VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)vpe_ctx;
     VpiDecCtx *dec_ctx;
@@ -84,7 +129,7 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
 
     idx = vpi_get_hw_ctx(vpe_vpi_ctx->fd);
     if (idx == -1) {
-        return -1;
+        return VPI_ERR_SW;
     }
 
     switch (vpe_vpi_ctx->plugin) {
@@ -96,6 +141,8 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_option->task_id   = vpi_hw_ctx[idx]->task_id;
         dec_option->priority  = vpi_hw_ctx[idx]->priority;
         ret                   = vpi_vdec_init(dec_ctx, dec_option);
+        if (ret)
+            return ret;
         break;
 
     case HEVCDEC_VPE:
@@ -106,6 +153,8 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_option->task_id   = vpi_hw_ctx[idx]->task_id;
         dec_option->priority  = vpi_hw_ctx[idx]->priority;
         ret                   = vpi_vdec_init(dec_ctx, cfg);
+        if (ret)
+            return ret;
         break;
 
     case VP9DEC_VPE:
@@ -116,6 +165,8 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         dec_option->task_id   = vpi_hw_ctx[idx]->task_id;
         dec_option->priority  = vpi_hw_ctx[idx]->priority;
         ret                   = vpi_vdec_init(dec_ctx, cfg);
+        if (ret)
+            return ret;
         break;
 
     case H26XENC_VPE:
@@ -125,6 +176,8 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         h26x_enc_cfg->device             = vpi_hw_ctx[idx]->device_name;
         h26x_enc_cfg->frame_ctx->task_id = vpi_hw_ctx[idx]->task_id;
         ret                              = vpi_h26xe_init(h26xenc_ctx, h26x_enc_cfg);
+        if (ret)
+            return ret;
         break;
 
     case VP9ENC_VPE:
@@ -134,6 +187,8 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         vp9_enc_cfg->dev_name         = vpi_hw_ctx[idx]->device_name;
         vp9_enc_cfg->task_id          = vpi_hw_ctx[idx]->task_id;
         ret = vpi_venc_vp9_init(vp9enc_ctx, vp9_enc_cfg);
+        if (ret)
+            return ret;
         break;
 
     case PP_VPE:
@@ -144,7 +199,9 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         prc_ctx->ppfilter.params.mem_id   = vpi_hw_ctx[idx]->task_id;
         prc_ctx->ppfilter.params.priority = vpi_hw_ctx[idx]->priority;
         if (vpi_hw_ctx[idx]) {
-            vpi_vprc_init(prc_ctx, &prc_ctx->ppfilter.params);
+            ret = vpi_vprc_init(prc_ctx, &prc_ctx->ppfilter.params);
+            if (ret)
+                return ret;
         }
         break;
 
@@ -159,7 +216,9 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         prc_ctx->filter_type = FILTER_HW_DOWNLOADER;
         if (vpi_hw_ctx[idx]) {
-            vpi_vprc_init(prc_ctx, vpi_hw_ctx[idx]->device_name);
+            ret = vpi_vprc_init(prc_ctx, vpi_hw_ctx[idx]->device_name);
+            if (ret)
+                return ret;
         }
         break;
 
@@ -172,7 +231,9 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
         hwul_cfg->priority        = vpi_hw_ctx[idx]->priority;
         hwul_cfg->device          = vpi_hw_ctx[idx]->device_name;
         if (vpi_hw_ctx[idx]) {
-            vpi_vprc_init(prc_ctx, cfg);
+            ret = vpi_vprc_init(prc_ctx, cfg);
+            if (ret)
+                return ret;
         }
         break;
     default:
@@ -180,15 +241,10 @@ static int vpi_init(VpiCtx vpe_ctx, void *cfg)
     }
 
     VPILOGD("plugin %d init finished\n", vpe_vpi_ctx->plugin);
-
-    if (ret) {
-        return -1;
-    } else {
-        return 0;
-    }
+    return ret;
 }
 
-static int vpi_decode_put_packet(VpiCtx vpe_ctx, void *indata)
+static VpiRet vpi_decode_put_packet(VpiCtx vpe_ctx, void *indata)
 {
     VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)vpe_ctx;
     VpiDecCtx *dec_ctx     = (VpiDecCtx *)vpe_vpi_ctx->ctx;
@@ -199,7 +255,7 @@ static int vpi_decode_put_packet(VpiCtx vpe_ctx, void *indata)
     case HEVCDEC_VPE:
     case VP9DEC_VPE:
         ret = vpi_vdec_put_packet(dec_ctx, indata);
-        return ret;
+        break;
     case H26XENC_VPE:
     case VP9ENC_VPE:
     case PP_VPE:
@@ -208,7 +264,7 @@ static int vpi_decode_put_packet(VpiCtx vpe_ctx, void *indata)
     case HWUPLOAD_VPE:
         VPILOGE("decode_put_packet function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     default:
         break;
@@ -221,14 +277,14 @@ static int vpi_decode_get_frame(VpiCtx vpe_ctx, void *outdata)
 {
     VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)vpe_ctx;
     VpiDecCtx *dec_ctx     = (VpiDecCtx *)vpe_vpi_ctx->ctx;
-    VpiRet ret             = VPI_SUCCESS;
+    int ret                = 0;
 
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
     case HEVCDEC_VPE:
     case VP9DEC_VPE:
         ret = vpi_vdec_get_frame(dec_ctx, outdata);
-        return ret;
+        break;
     case H26XENC_VPE:
     case VP9ENC_VPE:
     case PP_VPE:
@@ -237,7 +293,7 @@ static int vpi_decode_get_frame(VpiCtx vpe_ctx, void *outdata)
     case HWUPLOAD_VPE:
         VPILOGE("decode_get_frame function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     default:
         break;
@@ -258,7 +314,7 @@ static int vpi_decode(VpiCtx vpe_ctx, void *indata, void *outdata)
     case HEVCDEC_VPE:
     case VP9DEC_VPE:
         ret = vpi_vdec_decode(dec_ctx, indata, outdata);
-        return ret;
+        break;
     case H26XENC_VPE:
     case VP9ENC_VPE:
     case PP_VPE:
@@ -267,13 +323,13 @@ static int vpi_decode(VpiCtx vpe_ctx, void *indata, void *outdata)
     case HWUPLOAD_VPE:
         VPILOGE("decode funtion is not in current plugin %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     default:
         break;
     }
 
-    return 0;
+    return ret;
 }
 
 static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
@@ -281,7 +337,7 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
     VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)vpe_ctx;
     VpiH26xEncCtx *h26x_enc_ctx;
     VpiEncVp9Ctx *vp9_enc_ctx;
-    VpiRet ret = VPI_SUCCESS;
+    int ret = 0;
 
     switch (vpe_vpi_ctx->plugin) {
     case H264DEC_VPE:
@@ -293,7 +349,7 @@ static int vpi_encode_put_frame(VpiCtx vpe_ctx, void *indata)
     case HWUPLOAD_VPE:
         VPILOGE("encode_put_frame function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     case H26XENC_VPE:
         h26x_enc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
@@ -327,16 +383,16 @@ static int vpi_encode_get_packet(VpiCtx vpe_ctx, void *outdata)
     case HWUPLOAD_VPE:
         VPILOGE("encode_get_packet function is not in current pluging %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     case H26XENC_VPE:
         h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
         ret = vpi_h26xe_get_packet(h26xenc_ctx, outdata);
-        return ret;
+        break;
     case VP9ENC_VPE:
         vp9_enc_ctx = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
         ret = vpi_venc_vp9_get_packet(vp9_enc_ctx, outdata);
-        return ret;
+        break;
     default:
         break;
     }
@@ -361,12 +417,9 @@ static int vpi_encode(VpiCtx vpe_ctx, void *indata, void *outdata)
     case HWUPLOAD_VPE:
         VPILOGE("encode funtion is not in current plugin %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     case H26XENC_VPE:
-        //h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
-        //ret         = vpi_h26xe_encode(h26xenc_ctx, indata, outdata);
-        break;
     case VP9ENC_VPE:
         ret = vpi_venc_vp9_encode(vp9_enc_ctx, indata, outdata);
         break;
@@ -374,13 +427,7 @@ static int vpi_encode(VpiCtx vpe_ctx, void *indata, void *outdata)
         break;
     }
 
-    if (H26XENC_VPE == vpe_vpi_ctx->plugin)
-        return ret;
-    if (ret) {
-        return -1;
-    } else {
-        return 0;
-    }
+    return ret;
 }
 
 static int vpi_process(VpiCtx vpe_ctx, void *indata, void *outdata)
@@ -397,7 +444,7 @@ static int vpi_process(VpiCtx vpe_ctx, void *indata, void *outdata)
     case VP9ENC_VPE:
         VPILOGE("process funtion is not in current plugin %d",
                 vpe_vpi_ctx->plugin);
-        ret = VPI_ERR_WRONG_PLUGIN;
+        ret = VPI_ERR_SW;
         break;
     case PP_VPE:
     case SPLITER_VPE:
@@ -409,14 +456,10 @@ static int vpi_process(VpiCtx vpe_ctx, void *indata, void *outdata)
         break;
     }
 
-    if (ret) {
-        return -1;
-    } else {
-        return 0;
-    }
+    return ret;
 }
 
-static int vpe_control_interface(void *id, void *indata, void *outdata)
+static VpiRet vpe_control_interface(void *id, void *indata, void *outdata)
 {
     int device_id             = *(int *)id;
     VpiCtrlCmdParam *in_param = (VpiCtrlCmdParam *)indata;
@@ -457,7 +500,7 @@ static int vpe_control_interface(void *id, void *indata, void *outdata)
     return 0;
 }
 
-static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
+static VpiRet vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
 {
     VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
     VpiDecCtx *dec_ctx        = (VpiDecCtx *)vpe_vpi_ctx->ctx;
@@ -507,7 +550,7 @@ static int vpi_control(VpiCtx vpe_ctx, void *indata, void *outdata)
     }
 }
 
-static int vpi_close(VpiCtx vpe_ctx)
+static VpiRet vpi_close(VpiCtx vpe_ctx)
 {
     VpeVpiCtx *vpe_vpi_ctx    = (VpeVpiCtx *)vpe_ctx;
     VpiDecCtx *dec_ctx        = (VpiDecCtx *)vpe_vpi_ctx->ctx;
@@ -566,7 +609,7 @@ static VpiApi vpe_api = {
     vpi_close,
 };
 
-static int log_init(LogLevel log_level)
+static VpiRet log_init(LogLevel log_level)
 {
     char filename[512];
     time_t now;
@@ -575,7 +618,7 @@ static int log_init(LogLevel log_level)
     printf("VPE log_level = %d\n", log_level);
     log_setlevel(log_level);
     if( log_level<= LOG_LEVEL_OFF)
-        return 0;
+        return VPI_SUCCESS;
 
     time(&now);
     tm = localtime(&now);
@@ -584,10 +627,12 @@ static int log_init(LogLevel log_level)
             tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
     printf("VPE log_filename %s\n", filename);
 
-    log_open(filename);
+    if (log_open(filename) != VPI_SUCCESS)
+        return VPI_ERR_SW;
+
     log_enabled = 1;
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 
@@ -600,27 +645,27 @@ void vpi_freep(void *arg)
     free(val);
 }
 
-int vpi_get_sys_info_struct(VpiSysInfo **sys_info)
+VpiRet vpi_get_sys_info_struct(VpiSysInfo **sys_info)
 {
     *sys_info = malloc(sizeof(VpiSysInfo));
     if (*sys_info == NULL) {
         VPILOGE("Can't allocate sys info struct for APP\n");
-        return -1;
+        return VPI_ERR_NO_AP_MEM;
     }
-    return 0;
+    return VPI_SUCCESS;
 }
 
-int vpi_get_media_proc_struct(VpiMediaProc **media_proc)
+VpiRet vpi_get_media_proc_struct(VpiMediaProc **media_proc)
 {
     *media_proc = malloc(sizeof(VpiMediaProc));
     if (*media_proc == NULL) {
         VPILOGE("Can't allocate media proc struct for APP\n");
-        return -1;
+        return VPI_ERR_NO_AP_MEM;
     }
-    return 0;
+    return VPI_SUCCESS;
 }
 
-int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
+VpiRet vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
 {
     VpiDecCtx *dec_ctx;
     VpiEncVp9Ctx *vp9_enc_ctx;
@@ -633,7 +678,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
         VpiSysInfo *vpi_dev_info = (VpiSysInfo *)(*ctx);
         if (!vpi_dev_info) {
             printf("vpi dev info NULL\n");
-            return -1;
+            return VPI_ERR_SW;
         }
 
         if (vpi_dev_info->device >= 0) {
@@ -641,7 +686,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
                 if (vpi_hw_ctx[i] &&
                     vpi_hw_ctx[i]->hw_context == vpi_dev_info->device) {
                     VPILOGE("device has been created\n");
-                    return -1;
+                    return VPI_ERR_SW;
                 }
             }
             for (i = 0; i < MAX_DEVICE_NUM; i++) {
@@ -652,7 +697,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
                     if (ioctl(vpi_hw_ctx[i]->hw_context, CB_TRANX_MEM_GET_TASKID,
                               &vpi_hw_ctx[i]->task_id) < 0) {
                         VPILOGE("get task id failed!\n");
-                        return -1;
+                        return VPI_ERR_SW;
                     }
                     vpi_dev_info->task_id = vpi_hw_ctx[i]->task_id;
                     vpi_hw_ctx[i]->priority  = vpi_dev_info->priority;
@@ -668,7 +713,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
 #endif
                     if (!log_enabled) {
                         if (log_init(vpi_dev_info->sys_log_level)) {
-                            return -1;
+                            return VPI_ERR_SW;
                         }
                     }
                     log_cnt++;
@@ -679,17 +724,17 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
             }
             if (i == MAX_DEVICE_NUM) {
                 VPILOGE("No empty device\n");
-                return -1;
+                return VPI_ERR_SW;
             }
         } else {
             VPILOGE("vpi dev handle error\n");
-            return -1;
+            return VPI_ERR_SW;
         }
     }
 
     if (NULL == ctx || NULL == vpi) {
         VPILOGE("invalid input ctx %p vpi %p\n", ctx, vpi);
-        return -1;
+        return VPI_ERR_SW;
     }
 
     *ctx = NULL;
@@ -699,7 +744,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
     VpeVpiCtx *vpe_vpi_ctx = malloc(sizeof(VpeVpiCtx));
     if (NULL == vpe_vpi_ctx) {
         VPILOGE("failed to allocate vpe_vpi context\n");
-        return -1;
+        return VPI_ERR_NO_AP_MEM;
     }
     memset(vpe_vpi_ctx, 0, sizeof(VpeVpiCtx));
     vpe_vpi_ctx->dummy  = 0xFFFFFFFF;
@@ -721,7 +766,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
             vpi_codec_ctx[i] = malloc(sizeof(VpiCodecCtx));
             if (NULL == vpi_codec_ctx[i]) {
                 VPILOGE("failed to allocate vpi codec context\n");
-                return -1;
+                return VPI_ERR_NO_AP_MEM;
             }
             memset(vpi_codec_ctx[i], 0, sizeof(VpiCodecCtx));
             vpi_codec_ctx[i]->fd = fd;
@@ -731,7 +776,7 @@ int vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
     }
     if (i == MAX_DEVICE_NUM) {
         VPILOGE("Can't find valid vpi codec ctx\n");
-        return -1;
+        return VPI_ERR_SW;
     }
 
 find_codec_ctx:
@@ -796,10 +841,10 @@ find_codec_ctx:
 
     *ctx = vpe_vpi_ctx;
     *vpi = &vpe_api;
-    return 0;
+    return VPI_SUCCESS;
 }
 
-int vpi_destroy(VpiCtx ctx, int fd)
+VpiRet vpi_destroy(VpiCtx ctx, int fd)
 {
     int i;
     VpiHwCtx *hw_ctx = NULL;
@@ -811,7 +856,7 @@ int vpi_destroy(VpiCtx ctx, int fd)
         }
     }
     if (i == MAX_DEVICE_NUM) {
-        return 0;
+        return VPI_SUCCESS;
     }
 
     if (ctx == hw_ctx->sys_info) {
@@ -856,7 +901,7 @@ int vpi_destroy(VpiCtx ctx, int fd)
         }
     }
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 int vpi_open_hwdevice(const char *device)
@@ -906,4 +951,15 @@ int vpi_close_hwdevice(int fd)
 #endif
 
     return TranscodeCloseFD(fd);
+}
+
+char *vpi_error_str(int vpi_error)
+{
+    int i = 0;
+
+    for(i=0; i<sizeof(gVPIError)/sizeof(Vpi_Error_Name); i++){
+        if( gVPIError[i].ret == vpi_error)
+            return gVPIError[i].name;
+    }
+    return "VPI Common";
 }

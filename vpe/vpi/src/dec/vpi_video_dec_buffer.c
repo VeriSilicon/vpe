@@ -332,7 +332,7 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     int i;
     struct DecPicturePpu *pic = malloc(sizeof(struct DecPicturePpu));
     if (!pic) {
-        return VPI_ERR_MALLOC;
+        return VPI_ERR_NO_AP_MEM;
     }
 
     memset(pic, 0, sizeof(struct DecPicturePpu));

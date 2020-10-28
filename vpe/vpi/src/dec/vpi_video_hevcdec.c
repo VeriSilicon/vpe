@@ -73,7 +73,7 @@ VpiRet vpi_dec_hevc_init(const void **inst, struct DecConfig config,
     rv = HevcDecInit(inst, dwl, &dec_cfg);
     if (rv) {
         VPILOGD("HevcDecInit ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -100,7 +100,7 @@ VpiRet vpi_dec_hevc_get_info(VpiDecInst inst, struct DecSequenceInfo *info)
 
     if (rv) {
         VPILOGD("HevcDecGetInfo ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -182,7 +182,7 @@ VpiRet vpi_dec_hevc_set_info(VpiDecInst inst, struct DecConfig config,
     rv = HevcDecSetInfo(inst, &dec_cfg);
     if (rv) {
         VPILOGD("HevcDecSetInfo ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -398,7 +398,7 @@ VpiRet vpi_dec_hevc_picture_consumed(VpiDecInst inst, struct DecPicturePpu pic)
     rv = HevcDecPictureConsumed(inst, &hpic);
     if (rv) {
         VPILOGD("HevcDecPictureConsumed ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -410,7 +410,7 @@ VpiRet vpi_dec_hevc_end_of_stream(VpiDecInst inst)
     rv = HevcDecEndOfStream(inst);
     if (rv) {
         VPILOGD("HevcDecEndOfStream ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -427,7 +427,7 @@ VpiRet vpi_dec_hevc_use_extra_frm_buffers(const VpiDecInst inst, uint32_t num)
     rv = HevcDecUseExtraFrmBuffers(inst, num);
     if (rv) {
         VPILOGD("HevcDecUseExtraFrmBuffers ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -479,7 +479,7 @@ static VpiRet hevc_picture_consumed_noDWL(VpiDecInst inst,
     rv = HevcDecPictureConsumed(inst, &hpic);
     if (rv) {
         VPILOGD("HevcDecPictureConsumed ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -579,7 +579,7 @@ VpiRet vpi_decode_hevc_init(VpiDecCtx *vpi_ctx)
     rv = vpi_hevc_init(vpi_ctx, config, vpi_ctx->dwl_inst);
     if (rv != DEC_OK) {
         VPILOGE("DECODER INITIALIZATION FAILED\n");
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     } else {
         VPILOGD("DECODER HevcInit Init OK\n");
     }

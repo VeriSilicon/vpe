@@ -41,7 +41,7 @@ VpiRet vpi_prc_hwdw_init(VpiPrcCtx *vpi_ctx, void *cfg)
     vpi_ctx->edma_handle = TRANS_EDMA_init(device);
     if (vpi_ctx->edma_handle == NULL) {
         VPILOGE("hwdownload edma_handle init failed!\n");
-        return VPI_ERR_OPEN_FILE;
+        return VPI_ERR_DEVICE;
     }
 
     return VPI_SUCCESS;
@@ -67,7 +67,7 @@ VpiRet vpi_prc_hwdw_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         //tile4x4
         VPILOGE("picture_info.format is DEC_OUT_FRM_TILED_4X4, \
                  only support DEC_OUT_FRM_RASTER_SCAN !\n");
-        return VPI_ERR_VALUE;
+        return VPI_ERR_SW;
     }
 
     if ((pic_info->sequence_info.bit_depth_chroma == 8) &&
@@ -98,13 +98,13 @@ VpiRet vpi_prc_hwdw_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         out_frame->data[0]     = fbtrans_get_huge_pages(y_size);
         if (out_frame->data[0] == NULL) {
             VPILOGE("No memory available for the frame buffer\n");
-            return VPI_ERR_NO_HW_RSC;
+            return VPI_ERR_NO_AP_MEM;
         }
 
         out_frame->data[1] = fbtrans_get_huge_pages(uv_size);
         if (out_frame->data[1] == NULL) {
             VPILOGE("No memory available for the frame buffer\n");
-            return VPI_ERR_NO_HW_RSC;
+            return VPI_ERR_NO_AP_MEM;
         }
 
         bus_address_lum    = pic_info->luma.bus_address;
@@ -121,7 +121,7 @@ VpiRet vpi_prc_hwdw_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
             VPILOGE("APP linesize %d %d, SDK linesize %d %d\n",
                     out_frame->linesize[0], out_frame->linesize[1], linesize[0],
                     linesize[1]);
-            return VPI_ERR_VALUE;
+            return VPI_ERR_SW;
         }
 
         if (out_frame->linesize[0] == linesize[0] &&

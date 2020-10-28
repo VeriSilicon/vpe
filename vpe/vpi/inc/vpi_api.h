@@ -88,4 +88,10 @@ int vpi_open_hwdevice(const char *device);
 
 int vpi_close_hwdevice(int fd);
 
+/**
+ * @brief Get VPI error code
+ * @param error vpi error code
+ */
+char *vpi_error_str(int vpi_error);
+
 #endif

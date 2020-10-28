@@ -1097,7 +1097,7 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
         ctx->stream_buf_list[i] = malloc(sizeof(Vp9EncBufLink));
         if (NULL == ctx->stream_buf_list[i]) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER LIST MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         ctx->stream_buf_list[i]->used = 0;
         ctx->stream_buf_list[i]->show = 0;
@@ -1109,7 +1109,7 @@ static int vp9_allocate_resource(VpiEncVp9Ctx *ctx)
         ctx->rls_pic_list[i] = malloc(sizeof(Vp9EncBufLink));
         if (NULL == ctx->rls_pic_list[i]) {
             VPILOGE("UNABLE TO ALLOCATE RELEASE PIC LIST MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         ctx->rls_pic_list[i]->next = NULL;
         ctx->rls_pic_list[i]->used = 0;

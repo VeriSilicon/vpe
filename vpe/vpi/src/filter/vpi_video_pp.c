@@ -186,7 +186,7 @@ err:
     return NULL;
 }
 
-static i32 pp_mwl_malloc_linear(const void *instance, u32 size,
+static VpiRet pp_mwl_malloc_linear(const void *instance, u32 size,
                                 struct DWLLinearMem *info)
 {
     VpiMwl *mwl = (VpiMwl *)instance;
@@ -227,14 +227,14 @@ static i32 pp_mwl_malloc_linear(const void *instance, u32 size,
         ret = ioctl(mwl->fd_memalloc, CB_TRANX_MEM_ALLOC, &params);
         if (ret) {
             VPILOGD("%s", "ERROR! No linear buffer available\n");
-            return DWL_ERROR;
+            return VPI_ERR_NO_EP_MEM;
         }
 
 #ifdef PP_MEM_ERR_TEST
         if (pp_memory_check() != 0) {
             VPILOGE("[%s,%d]PP force memory error in function\n", __FUNCTION__,
                     __LINE__);
-            return DWL_ERROR;
+            return VPI_ERR_SYSTEM;
         }
 #endif
 
@@ -245,18 +245,18 @@ static i32 pp_mwl_malloc_linear(const void *instance, u32 size,
         info->virtual_address = fbtrans_get_huge_pages(info->size);
         info->bus_address_rc  = (addr_t)info->virtual_address;
         if (info->virtual_address == NULL)
-            return DWL_ERROR;
+            return VPI_ERR_NO_AP_MEM;
 
 #ifdef PP_MEM_ERR_TEST
         if (pp_memory_check() != 0) {
             VPILOGE("[%s,%d]PP force memory error in function\n", __FUNCTION__,
                     __LINE__);
-            return DWL_ERROR;
+            return VPI_ERR_SYSTEM;
         }
 #endif
     }
 
-    return DWL_OK;
+    return VPI_SUCCESS;
 }
 
 static void pp_mwl_free_linear(const void *instance, struct DWLLinearMem *info)
@@ -1412,11 +1412,12 @@ void *pp_trans_demuxer_init(VpiPPParams *params)
     return mwl;
 }
 
-static int vpi_pp_input_buf_init(VpiPPFilter *filter)
+static VpiRet vpi_pp_input_buf_init(VpiPPFilter *filter)
 {
     int height   = filter->params.height;
     int mwl_size = ((height + 63) / 64) * (2 * 1024 * 1024);
     const void *mwl;
+    VpiRet ret = VPI_SUCCESS;
 
     mwl = filter->mwl;
     if (mwl == NULL) {
@@ -1425,9 +1426,10 @@ static int vpi_pp_input_buf_init(VpiPPFilter *filter)
     }
 
     filter->buffers.buffer.mem_type = DWL_MEM_TYPE_CPU_FILE_SINK;
-    if (pp_mwl_malloc_linear(mwl, mwl_size, &filter->buffers.buffer)) {
+    ret = pp_mwl_malloc_linear(mwl, mwl_size, &filter->buffers.buffer);
+    if (ret) {
         VPILOGE("No memory available for the stream buffer\n");
-        return -1;
+        return ret;
     }
 
     VPILOGD("stream buffer %p %p, mwl malloc buffer size %d\n",
@@ -1446,7 +1448,7 @@ static int vpi_pp_input_buf_init(VpiPPFilter *filter)
     if (pp_memory_check() != 0) {
         VPILOGE("[%s,%d]PP force memory error in function\n", __FUNCTION__,
                 __LINE__);
-        return -1;
+        return VPI_ERR_SYSTEM;
     }
 #endif
 
@@ -1454,7 +1456,7 @@ static int vpi_pp_input_buf_init(VpiPPFilter *filter)
     filter->buffers.stream[0] = (u8 *)filter->buffers.buffer.virtual_address;
     filter->buffers.stream[1] = (u8 *)filter->buffers.buffer.virtual_address;
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 pp_raw_parser_inst pp_raw_parser_open(VpiPixsFmt format, int width, int height)
@@ -2092,19 +2094,19 @@ static void pp_report_pp_pic_info(struct DecPicturePpu *picture)
     VPILOGD("%s\n", info_string);
 }
 
-static int pp_output_frame(VpiPPFilter *filter, VpiFrame *out,
+static VpiRet pp_output_frame(VpiPPFilter *filter, VpiFrame *out,
                            PPDecPicture *hipc)
 {
     VpiPPParams *params       = &filter->pp_client->param;
     struct DecPicturePpu *pic = malloc(sizeof(struct DecPicturePpu));
 
     if (!pic)
-        return -1;
+        return VPI_ERR_SW;
 
 #ifdef PP_MEM_ERR_TEST
     if (pp_memory_check() != 0) {
         VPILOGE("PP force memory error in function\n");
-        goto err_exit;
+        return VPI_ERR_SYSTEM;
     }
 #endif
 
@@ -2235,13 +2237,13 @@ static int pp_output_frame(VpiPPFilter *filter, VpiFrame *out,
         if (!out->pic_info[0].enabled || !out->pic_info[2].enabled) {
             VPILOGE("When use 1/4 ds pass1 for vce, pp0 and pp1 should be "
                     "enabled!\n");
-            goto err_exit;
+            return VPI_ERR_PP_OPITION;
         }
         if (out->pic_info[1].enabled || out->pic_info[3].enabled ||
             out->pic_info[4].enabled) {
             VPILOGE("When use 1/4 ds pass1 for vce, except pp0 and pp1 should "
                     "not be enabled!\n");
-            goto err_exit;
+            return VPI_ERR_PP_OPITION;
         }
         VPILOGD("set flag to 1\n");
         out->pic_info[2].flag = 1;
@@ -2253,13 +2255,11 @@ static int pp_output_frame(VpiPPFilter *filter, VpiFrame *out,
 #ifdef PP_MEM_ERR_TEST
     if (pp_memory_check() != 0) {
         VPILOGE("PP force memory error in function\n");
-        goto err_exit;
+       return VPI_ERR_SYSTEM;
     }
 #endif
-    return 0;
 
-err_exit:
-    return -1;
+    return VPI_SUCCESS;
 }
 
 static int pp_trans_formats(VpiPixsFmt format, char **pp_format, int *in_10bit,
@@ -2351,7 +2351,7 @@ static void pp_setup_defaul_params(VpiPPParams *params)
     memset(params->ppu_cfg, 0, sizeof(params->ppu_cfg));
 }
 
-static int pp_set_params(VpiPPFilter *filter)
+static VpiRet pp_set_params(VpiPPFilter *filter)
 {
     int ret             = 0;
     int pp_index        = 0;
@@ -2384,7 +2384,7 @@ static int pp_set_params(VpiPPFilter *filter)
               filter->resizes[0].ch == filter->resizes[1].ch &&
               filter->resizes[1].sw == -2 && filter->resizes[1].sh == -2)) {
             VPILOGE("low_res param error!\n");
-            return -1;
+            return VPI_ERR_PP_OPITION;
         }
 
         filter->vce_ds_enable = 1;
@@ -2404,7 +2404,7 @@ static int pp_set_params(VpiPPFilter *filter)
 
     } else if (filter->nb_outputs != filter->low_res_num) {
         VPILOGE("low_res param error!\n");
-        return -1;
+        return VPI_ERR_PP_OPITION;
     }
 
     VPILOGD("pp decoder resizes info summay:\n");
@@ -2422,7 +2422,7 @@ static int pp_set_params(VpiPPFilter *filter)
                            &params->in_10bit, filter->force_10bit);
     if (ret < 0) {
         VPILOGE("pp_trans_formats failed ret=%d\n", ret);
-        return -1;
+        return VPI_ERR_PP_OPITION;
     }
 
     /* upload link with pp, the frame format is vpe_format,
@@ -2584,20 +2584,20 @@ static int pp_set_hwframe_res(VpiPPFilter *filter)
         if (!frame->pic_info[0].enabled || !frame->pic_info[2].enabled) {
             VPILOGE("When use 1/4 ds pass1 for vce, pp0 and pp1 should be "
                     "enabled!\n");
-            return -1;
+            return VPI_ERR_PP_OPITION;
         }
         if (frame->pic_info[1].enabled || frame->pic_info[3].enabled ||
             frame->pic_info[4].enabled) {
             VPILOGE("When use 1/4 ds pass1 for vce, except pp0 and pp1 should "
                     "not be enabled!\n");
-            return -1;
+            return VPI_ERR_PP_OPITION;
         }
         frame->pic_info[2].flag = 1;
     }
 
     frame->flag |= PP_FLAG;
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
@@ -2615,45 +2615,45 @@ static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
     filter->b_disable_tcache = cfg->b_disable_tcache;
 
     ret = pp_parse_low_res(filter);
-    if (ret < 0) {
+    if (ret != 0) {
         VPILOGE("pp_parse_low_res failed=%d!\n", ret);
-        return -1;
+        return ret;
     }
 
     ret = pp_set_params(filter);
-    if (ret < 0) {
+    if (ret != 0) {
         VPILOGE("pp_set_params failed = %d\n", ret);
-        return -1;
+        return ret;
     }
     filter->mwl = pp_trans_demuxer_init(&filter->params);
     if (!filter->mwl) {
         VPILOGE("pp_trans_demuxer_init failed = %d\n", ret);
-        return -1;
+        return VPI_ERR_PP_INIT;
     }
 
     filter->inst = pp_raw_parser_open(filter->format, filter->params.width,
                                       filter->params.height);
     if (!filter->inst) {
         VPILOGE("pp_raw_parser_open failed!\n");
-        return -1;
+        return VPI_ERR_PP_INIT;
     }
 
     filter->pp_client = pp_client_init(filter);
     if (!filter->pp_client) {
         VPILOGE("pp_client_init failed!\n");
-        return -1;
+        return VPI_ERR_PP_INIT;
     }
     pthread_mutex_init(&filter->pp_client->pp_mutex, NULL);
 
     ret = pp_set_hwframe_res(filter);
-    if (ret < 0) {
+    if (ret != 0) {
         VPILOGE("pp_set_hwframe_res failed!\n");
-        return -1;
+        return ret;
     }
 
     ret = vpi_pp_input_buf_init(filter);
-    if (ret < 0) {
-        return -1;
+    if (ret != 0) {
+        return ret;
     }
 
     return 0;
@@ -2810,7 +2810,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
 
     if (!pp || !pp->pp_inst) {
         VPILOGE("PP was not inited\n");
-        return 0;
+        return VPI_SUCCESS;
     }
 
     pp_inst = pp->pp_inst;
@@ -2883,7 +2883,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pthread_mutex_lock(&pp->pp_mutex);
     if (pp_check_buffer_number_for_trans(pp) < 0) {
         pthread_mutex_unlock(&pp->pp_mutex);
-        return -1;
+        return VPI_ERR_NO_EP_MEM;
     }
 
     pthread_mutex_unlock(&pp->pp_mutex);
@@ -2901,7 +2901,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     return ret;
 
 err_exit:
-    return -1;
+    return VPI_ERR_PP;
 }
 
 VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)

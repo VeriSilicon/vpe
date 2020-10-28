@@ -371,7 +371,7 @@ static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
     return 0;
 }
 
-static int h26x_enc_profile_check(enum VpiH26xCodecID codec,
+static VpiRet h26x_enc_profile_check(enum VpiH26xCodecID codec,
                                   const char *codec_name,
                                   char *profile, VPIH26xEncOptions *options)
 {
@@ -384,7 +384,7 @@ static int h26x_enc_profile_check(enum VpiH26xCodecID codec,
             options->profile = VCENC_HEVC_MAIN_10_PROFILE;
         } else {
             VPILOGE("unknow vce profile %s for %s\n", profile, codec_name);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     } else if (codec == CODEC_ID_H264) {
         if (strcmp(profile, "base") == 0) {
@@ -397,7 +397,7 @@ static int h26x_enc_profile_check(enum VpiH26xCodecID codec,
             options->profile = VCENC_H264_HIGH_10_PROFILE;
         } else {
             VPILOGE("unknow vce profile %s for %s\n", profile, codec_name);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     }
 
@@ -479,34 +479,40 @@ static int h26x_enc_get_profile_and_level(VpiH26xEncCtx *vpi_h26xe_ctx,
                                           VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
+    VpiRet ret               = VPI_SUCCESS;
 
     if (h26x_enc_cfg->profile) {
-        h26x_enc_profile_check(h26x_enc_cfg->codec_id,
+        ret = h26x_enc_profile_check(h26x_enc_cfg->codec_id,
                                h26x_enc_cfg->codec_name,
                                h26x_enc_cfg->profile, options);
+        if( ret)
+            return ret;
     }
 
     if (h26x_enc_cfg->level) {
-        h26x_enc_level_check(h26x_enc_cfg->codec_id, h26x_enc_cfg->codec_name,
+        ret = h26x_enc_level_check(h26x_enc_cfg->codec_id, h26x_enc_cfg->codec_name,
                              h26x_enc_cfg->level, options);
+        if( ret)
+            return ret;
     }
 
-    return 0;
+    return ret;
 }
 
 static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                                  VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
+    VpiRet ret               = VPI_SUCCESS;
 
     VPILOGD("vpi_h26xe_ctx->pp_index = %d\n", vpi_h26xe_ctx->pp_index);
     VPILOGD("pic %dx%d\n",
             h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].width,
             h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index].height);
 
-    if (h26x_enc_get_profile_and_level(vpi_h26xe_ctx, h26x_enc_cfg) != 0) {
-        return -1;
-    }
+    ret = h26x_enc_get_profile_and_level(vpi_h26xe_ctx, h26x_enc_cfg);
+    if(ret)
+        return ret;
 
     if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
             .picdata.is_interlaced == 0) {
@@ -1165,7 +1171,7 @@ static int h26x_enc_set_opt_accord_preset(enum VpiH26xCodecID codec,
     return 0;
 }
 
-static int h26x_enc_preset_params_set(VpiH26xEncCtx *vpi_h26xe_ctx,
+static VpiRet h26x_enc_preset_params_set(VpiH26xEncCtx *vpi_h26xe_ctx,
                                       VpiH26xEncCfg *h26x_enc_cfg)
 {
     VPIH26xEncOptions *options = &vpi_h26xe_ctx->options;
@@ -1272,9 +1278,8 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
     while (para_set != NULL) {
         ret = h26x_enc_get_params_from_cmd(vpi_h26xe_ctx, para_set->key,
                                            para_set->value);
-        if (ret != 0)
+        if (ret)
             return ret;
-
         para_set = para_set->next;
     }
 
@@ -1282,7 +1287,7 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
 
     /* preset params set */
     ret = h26x_enc_preset_params_set(vpi_h26xe_ctx, h26x_enc_cfg);
-    if (ret < 0) {
+    if (ret) {
         VPILOGE("h26x_enc_preset_params_set error, please check your cmd !\n");
     }
 
@@ -1290,7 +1295,7 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
 
     /* we set vce param according first decoded pic */
     ret = h26x_enc_set_vceparam(vpi_h26xe_ctx, h26x_enc_cfg);
-    if (ret != 0) {
+    if (ret) {
         VPILOGE("h26x_enc_set_vceparam error!\n");
         return ret;
     }
@@ -1623,7 +1628,7 @@ int h26x_enc_get_deviceId(char *dev)
  *Instead, the memories should be allocated from the OS the same way
  *as inside EWLMallocLinear().
  */
-int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
+VpiRet h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
 {
     VPIH26xEncOptions *cmdl      = (VPIH26xEncOptions *)&ctx->options;
     VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&ctx->vpi_h26xe_cfg;
@@ -1702,7 +1707,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                           &vpi_h26xe_cfg->edma_link_buf);
     if (ret != EWL_OK) {
         vpi_h26xe_cfg->edma_link_buf.virtualAddress = NULL;
-        return 1;
+        return VPI_ERR_NO_EP_MEM;
     }
 #else
     ret = EWLMallocHostLinear(((struct vcenc_instance *)enc)->asic.ewl,
@@ -1710,7 +1715,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                               vpi_h26xe_cfg->input_alignment,
                               &vpi_h26xe_cfg->enc_in.PrivData.edma_link_buf);
     if (ret != EWL_OK) {
-        return 1;
+        return VPI_ERR_NO_EP_MEM;
     }
     ret =
         EWLMallocHostLinear(((struct vcenc_instance *)enc)->asic.ewl,
@@ -1718,7 +1723,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                             vpi_h26xe_cfg->input_alignment,
                             &vpi_h26xe_cfg->enc_in.PassTwoHWData.edma_link_buf);
     if (ret != EWL_OK) {
-        return 1;
+        return VPI_ERR_NO_EP_MEM;
     }
 #endif
 #endif
@@ -1809,7 +1814,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
             if (ret != EWL_OK) {
                 vpi_h26xe_cfg->outbuf_mem_factory[core_idx][i_buf]
                     .virtualAddress = NULL;
-                return 1;
+                return VPI_ERR_NO_EP_MEM;
             }
 #else
             ret =
@@ -1819,7 +1824,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                                           ->outbuf_mem_factory[core_idx][i_buf]);
             if (ret != EWL_OK) {
                 /*memset(&vpi_h26xe_cfg->outbuf_mem_factory[core_idx][i_buf], 0, sizeof(EWLLinearMem_t));*/
-                return 1;
+                return VPI_ERR_NO_EP_MEM;
             }
 #endif
         }
@@ -1830,14 +1835,14 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
             fbtrans_get_huge_pages(DEFAULT_OUT_STRM_BUF_SIZE);
         if (ctx->outstream_mem[i_buf] == NULL) {
             VPILOGE("Failed to allocate output buffer size!\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
     }
     for (i_buf = 0; i_buf < MAX_OUTPUT_FIFO_DEPTH; i_buf++) {
         ctx->stream_buf_list[i_buf] = malloc(sizeof(H26xEncBufLink));
         if (NULL == ctx->stream_buf_list[i_buf]) {
             VPILOGE("UNABLE TO ALLOCATE RELEASE PIC LIST MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         ctx->stream_buf_list[i_buf]->next      = NULL;
         ctx->stream_buf_list[i_buf]->used      = 0;
@@ -1849,7 +1854,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
         ctx->rls_pic_list[i_buf] = malloc(sizeof(H26xEncBufLink));
         if (NULL == ctx->rls_pic_list[i_buf]) {
             VPILOGE("UNABLE TO ALLOCATE RELEASE PIC LIST MEMORY\n");
-            return VPI_ERR_MALLOC;
+            return VPI_ERR_NO_AP_MEM;
         }
         ctx->rls_pic_list[i_buf]->next = NULL;
         ctx->rls_pic_list[i_buf]->used = 0;
@@ -1872,7 +1877,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                         &vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0]) !=
         EWL_OK) {
         vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0].virtualAddress = NULL;
-        return 1;
+        return VPI_ERR_NO_EP_MEM;
     }
 #else
     if (EWLMallocInoutLinear(((struct vcenc_instance *)enc)->asic.ewl,
@@ -1880,7 +1885,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                              &vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0]) !=
         EWL_OK) {
         /*memset(&vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0], 0, sizeof(EWLLinearMem_t));*/
-        return 1;
+        return VPI_ERR_NO_EP_MEM;
     }
 #endif
     i32 total_size = vpi_h26xe_cfg->roi_map_delta_qpmem_factory[0].size;
@@ -1934,7 +1939,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                                          [core_idx]) != EWL_OK) {
                     vpi_h26xe_cfg->roimap_cu_ctrl_infomem_factory[core_idx]
                         .virtualAddress = NULL;
-                    return 1;
+                    return VPI_ERR_NO_EP_MEM;
                 }
                 memset(vpi_h26xe_cfg->roimap_cu_ctrl_infomem_factory[core_idx]
                            .virtualAddress,
@@ -1947,7 +1952,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                                               ->roimap_cu_ctrl_infomem_factory
                                                   [core_idx]) != EWL_OK) {
                     /*memset(&vpi_h26xe_cfg->roimap_cu_ctrl_infomem_factory[core_idx], 0, sizeof(EWLLinearMem_t));*/
-                    return 1;
+                    return VPI_ERR_NO_EP_MEM;
                 }
                 memset(vpi_h26xe_cfg->roimap_cu_ctrl_infomem_factory[core_idx]
                            .rc_virtualAddress,
@@ -1969,7 +1974,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                                              [core_idx]) != EWL_OK) {
                     vpi_h26xe_cfg->roimap_cu_ctrl_indexmem_factory[core_idx]
                         .virtualAddress = NULL;
-                    return 1;
+                    return VPI_ERR_NO_EP_MEM;
                 }
                 memset(vpi_h26xe_cfg->roimap_cu_ctrl_indexmem_factory[core_idx]
                            .virtualAddress,
@@ -1982,7 +1987,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
                                               ->roimap_cu_ctrl_indexmem_factory
                                                   [core_idx]) != EWL_OK) {
                     /*memset(&vpi_h26xe_cfg->roimap_cu_ctrl_indexmem_factory[core_idx], 0, sizeof(EWLLinearMem_t));*/
-                    return 1;
+                    return VPI_ERR_NO_EP_MEM;
                 }
                 memset(vpi_h26xe_cfg->roimap_cu_ctrl_indexmem_factory[core_idx]
                            .rc_virtualAddress,
@@ -1992,7 +1997,7 @@ int h26x_enc_alloc_res(VpiH26xEncCtx *ctx, VCEncInst enc)
         }
     }
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 /**
@@ -2125,7 +2130,7 @@ void h26x_enc_free_res(VpiH26xEncCtx *enc_ctx, VCEncInst enc)
  * h26x_enc_init_input_line_buffer
  * get line buffer params for IRQ handle, get address of input line buffer
  */
-int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
+VpiRet h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
                                     VPIH26xEncOptions *options, VCEncIn *encIn,
                                     VCEncInst inst,
                                     VPIH26xEncCfg *vpi_h26xe_cfg)
@@ -2158,7 +2163,7 @@ int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
     line_buf_cfg->crSrc        = vpi_h26xe_cfg->cr;
 
     if (VCEncInitInputLineBuffer(line_buf_cfg))
-        return -1;
+        return VPI_ERR_ENCODER_INIT;
 
     /* loopback mode */
     if (line_buf_cfg->loopBackEn && line_buf_cfg->lumBuf.buf) {
@@ -2173,7 +2178,7 @@ int h26x_enc_init_input_line_buffer(inputLineBufferCfg *line_buf_cfg,
         VCEncSetPreProcessing(inst, &pre_proc_cfg);
     }
 
-    return 0;
+    return VPI_SUCCESS;
 }
 
 /**
@@ -2210,9 +2215,9 @@ i32 h26x_enc_ma(MaS *ma)
            ma->frame_rate_denom;
 }
 
-int h26x_enc_update_statistic(VpiH26xEncCtx *enc_ctx, int *streamSize)
+VpiRet h26x_enc_update_statistic(VpiH26xEncCtx *enc_ctx, int *streamSize)
 {
-    int ret                      = 0;
+    int VpiRet                      = VPI_SUCCESS;
     VPIH26xEncOptions *options   = &enc_ctx->options;
     VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
     VCEncIn *p_enc_in = (VCEncIn *)&(vpi_h26xe_cfg->enc_in);
@@ -2248,7 +2253,7 @@ int h26x_enc_update_statistic(VpiH26xEncCtx *enc_ctx, int *streamSize)
             (vpi_h26xe_cfg->sum_square_of_error /
              vpi_h26xe_cfg->number_square_of_error);
     }
-    return ret;
+    return VpiRet;
 }
 
 void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
@@ -2277,7 +2282,7 @@ void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
         ma->length = MOVING_AVERAGE_FRAMES;
 }
 
-int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
+VpiRet get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
 {
     FILE *fp = NULL;
     char *cfg_str;
@@ -2292,22 +2297,21 @@ int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
         memset(cfg_str, 0, MAX_LINE_SIZE);
         if (fgets((char *)cfg_str, MAX_LINE_SIZE, fp) != NULL) {
             *new_bps = atoi(cfg_str);
-            VPILOGD("read new bps %d from cfg file %s\n",
-                     *new_bps, option->pic_rc_path);
+            VPILOGD("read new bps %d from cfg file %s\n", *new_bps,
+                    option->pic_rc_path);
             free(cfg_str);
             fclose(fp);
-            if (*new_bps >= MIN_BPS_VALUE &&
-                *new_bps <= MAX_BPS_VALUE) {
-                return 0;
+            if (*new_bps >= MIN_BPS_VALUE && *new_bps <= MAX_BPS_VALUE) {
+                return VPI_SUCCESS;
             } else {
-                return -1;
+                return VPI_ERR_ENCODER_OPITION;
             }
         } else {
             free(cfg_str);
             fclose(fp);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     } else {
-        return -1;
+        return VPI_ERR_ENCODER_OPITION;
     }
 }

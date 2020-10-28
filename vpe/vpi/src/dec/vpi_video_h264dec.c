@@ -90,7 +90,7 @@ VpiRet vpi_dec_h264_init(const void **inst, struct DecConfig config,
                      &mcinit_cfg);
     if (rv) {
         VPILOGD("H264DecInit ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -117,7 +117,7 @@ VpiRet vpi_dec_h264_get_info(VpiDecInst inst, struct DecSequenceInfo *info)
 
     if (rv) {
         VPILOGD("H264DecGetInfo ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -172,7 +172,7 @@ VpiRet vpi_dec_h264_set_info(VpiDecInst inst, struct DecConfig config,
     rv = H264DecSetInfo(inst, &dec_cfg);
     if (rv) {
         VPILOGD("H264DecSetInfo ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_ENCODER_INIT;
     }
     return VPI_SUCCESS;
 }
@@ -411,7 +411,7 @@ VpiRet vpi_dec_h264_picture_consumed(VpiDecInst inst, struct DecPicturePpu pic)
     rv = H264DecPictureConsumed(inst, &hpic);
     if (rv) {
         VPILOGD("H264DecPictureConsumed ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -423,7 +423,7 @@ VpiRet vpi_dec_h264_end_of_stream(VpiDecInst inst)
     rv = H264DecEndOfStream(inst, 1);
     if (rv) {
         VPILOGD("H264DecEndOfStream ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -440,7 +440,7 @@ VpiRet vpi_dec_h264_use_extra_frm_buffers(const VpiDecInst inst, uint32_t num)
     rv = H264DecUseExtraFrmBuffers(inst, num);
     if (rv) {
         VPILOGD("H264DecUseExtraFrmBuffers ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -491,7 +491,7 @@ static VpiRet h264_picture_consumed_noDWL(VpiDecInst inst,
     rv = H264DecPictureConsumed(inst, &hpic);
     if (rv) {
         VPILOGD("H264DecPictureConsumed ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_DECODE;
     }
     return VPI_SUCCESS;
 }
@@ -554,7 +554,7 @@ VpiRet vpi_decode_h264_init(VpiDecCtx *vpi_ctx)
                      DEC_EC_FAST_FREEZE, 0, flags, 0, 0, 0, &mc_init_cfg);
     if (rv) {
         VPILOGD("H264DecInit ret %s\n", dec_ret_string(rv));
-        return VPI_ERR_UNKNOWN;
+        return VPI_ERR_ENCODER_INIT;
     }
     /* configure decoder to decode both views of MVC stereo high streams  */
     if (vpi_ctx->enable_mvc) {
@@ -599,7 +599,7 @@ int vpi_decode_h264_put_packet(VpiDecCtx *vpi_ctx, void *indata)
                            vpi_ctx->stream_mem + idx) != DWL_OK) {
             VPILOGE("UNABLE TO ALLOCATE STREAM BUFFER MEMORY\n");
             H264DecEndOfStream(vpi_ctx->dec_inst,1);
-            return -1;
+            return VPI_ERR_NO_EP_MEM;
         } else {
             VPILOGD("new alloc size %d\n", new_size);
         }
@@ -613,7 +613,7 @@ int vpi_decode_h264_put_packet(VpiDecCtx *vpi_ctx, void *indata)
 
     if (vpi_packet->size > 0) {
         if (vpi_dec_set_pts_dts(vpi_ctx, vpi_packet) == -1) {
-            return -1;
+            return VPI_ERR_ENCODE;
         }
     }
     vpi_ctx->got_package_number++;

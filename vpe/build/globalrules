@@ -51,7 +51,7 @@ ifeq ($(shell uname -m),x86_64)
 endif
 
 # compiler switches
-CFLAGS  = $(ARCH) -Wall -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE \
+CFLAGS  = -Wall -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE \
           $(DEBFLAGS) $(INCLUDE) $(INCFLAGS) -fPIC
 CFLAGS += -Wmissing-field-initializers -std=gnu99
 #CFLAGS += -Wsign-compare

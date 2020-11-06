@@ -640,9 +640,12 @@ int vpi_decode_hevc_put_packet(VpiDecCtx *vpi_ctx, void *indata)
     vpi_ctx->strm_buf_list[idx]->item_size = vpi_packet->size;
     vpi_ctx->strm_buf_list[idx]->item      = (void *)vpi_packet->data;
     vpi_ctx->strm_buf_list[idx]->opaque    = vpi_packet->opaque;
+    vpi_ctx->strm_buf_list[idx]->pts       = vpi_packet->pts;
+    vpi_ctx->strm_buf_list[idx]->pkt_dts   = vpi_packet->pkt_dts;
     vpi_dec_buf_list_add(&vpi_ctx->strm_buf_head, vpi_ctx->strm_buf_list[idx]);
 
     if (vpi_packet->size > 0) {
+        VPILOGD("packet pts %ld\n", vpi_packet->pts);
         if (vpi_dec_set_pts_dts(vpi_ctx, vpi_packet) == -1) {
             pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
             return -1;
@@ -804,7 +807,7 @@ int vpi_decode_hevc_set_frame_buffer(VpiDecCtx *vpi_ctx, void *frame)
             break;
         }
     }
-    if (i == MAX_BUFFERS) {
+    if (i == vpi_ctx->frame_stored_num) {
         VPILOGE("no valid frame buffer to store buffer info\n");
         ret = -1;
     }
@@ -1130,6 +1133,7 @@ static int vpi_decode_hevc_frame_decoding(VpiDecCtx *vpi_ctx)
             /* If enough pictures decoded -> force decoding to end
                  * by setting that no more stream is available */
             /* Increment decoding number for every decoded picture */
+            vpi_dec_set_pts_decid(vpi_ctx);
             vpi_ctx->pic_decode_number++;
             vpi_ctx->dec_output.data_left = 0;
             break;
@@ -1266,9 +1270,9 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
                 vpi_dec_buf_list_add(&vpi_ctx->frame_buf_head,
                     vpi_ctx->frame_buf_list[i]);
                 vpi_ctx->pic_display_number++;
-                VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p\n",
+                VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p, pts %lld\n",
                     vpi_ctx->pic_display_number, vpi_frame->data[0],
-                    vpi_frame->data[1]);
+                    vpi_frame->data[1], vpi_frame->pts);
                 vpi_ctx->pic_rdy = 0;
             } else if (ret == DEC_END_OF_STREAM) {
                 vpi_ctx->last_pic_flag = 1;
@@ -1294,7 +1298,8 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
         vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].bus_address;
     vpi_ctx->hevc_dec_input.data_len = vpi_ctx->strm_buf_head->item_size;
     VPILOGD("decoding stream size %d\n", vpi_ctx->hevc_dec_input.data_len);
-
+    vpi_ctx->cur_pkt_pts = vpi_ctx->strm_buf_head->pts;
+    vpi_ctx->cur_pkt_dts = vpi_ctx->strm_buf_head->pkt_dts;
     if (vpi_ctx->enc_type != VPI_ENC_NONE) {
         if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
             pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
@@ -1390,9 +1395,9 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
         HevcDecGetInfo(vpi_ctx->dec_inst, &dec_info);
         vpi_decode_hevc_get_hdr_info(vpi_frame, &dec_info);
         vpi_ctx->pic_display_number++;
-        VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p\n",
+        VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p, pts %lld\n",
             vpi_ctx->pic_display_number,
-            vpi_frame->data[0], vpi_frame->data[1]);
+            vpi_frame->data[0], vpi_frame->data[1], vpi_frame->pts);
     } else if(ret == DEC_END_OF_STREAM) {
         vpi_ctx->last_pic_flag = 1;
         VPILOGD("END-OF-STREAM received\n");

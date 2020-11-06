@@ -136,6 +136,8 @@ typedef struct BufLink {
     int item_size;
     int used;
     struct BufLink *next;
+    int64_t pts;
+    int64_t pkt_dts;
 }BufLink;
 
 struct DecOutput {
@@ -323,6 +325,9 @@ typedef struct VpiDecCtx {
     struct HevcDecInput hevc_dec_input;
     struct DecOutput dec_output;
     struct Vp9DecInput vp9_dec_input;
+
+    int64_t cur_pkt_pts;
+    int64_t cur_pkt_dts;
 
     /* output file writing disable */
     uint32_t retry;

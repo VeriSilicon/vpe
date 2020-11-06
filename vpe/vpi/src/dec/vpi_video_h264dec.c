@@ -190,6 +190,7 @@ enum DecRet vpi_dec_h264_next_picture(VpiDecInst inst,
         return rv;
     }
 
+VPILOGD("picture_coding_type %d\n", hpic.pic_coding_type[0]);
     for (i = 0; i < DEC_MAX_OUT_COUNT; i++) {
         stride    = hpic.pictures[i].pic_stride;
         stride_ch = hpic.pictures[i].pic_stride_ch;
@@ -609,14 +610,18 @@ int vpi_decode_h264_put_packet(VpiDecCtx *vpi_ctx, void *indata)
     vpi_ctx->strm_buf_list[idx]->item_size = vpi_packet->size;
     vpi_ctx->strm_buf_list[idx]->item      = (void *)vpi_packet->data;
     vpi_ctx->strm_buf_list[idx]->opaque    = vpi_packet->opaque;
+    vpi_ctx->strm_buf_list[idx]->pts       = vpi_packet->pts;
+    vpi_ctx->strm_buf_list[idx]->pkt_dts   = vpi_packet->pkt_dts;
     vpi_dec_buf_list_add(&vpi_ctx->strm_buf_head, vpi_ctx->strm_buf_list[idx]);
 
     if (vpi_packet->size > 0) {
+        VPILOGD("packet pts %ld\n", vpi_packet->pts);
         if (vpi_dec_set_pts_dts(vpi_ctx, vpi_packet) == -1) {
             pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
             return VPI_ERR_ENCODE;
         }
     }
+
     vpi_ctx->got_package_number++;
     vpi_ctx->stream_mem_used[idx] = 1;
     vpi_ctx->duration = vpi_packet->duration;
@@ -777,7 +782,7 @@ int vpi_decode_h264_set_frame_buffer(VpiDecCtx *vpi_ctx, void *frame)
             break;
         }
     }
-    if (i == MAX_BUFFERS) {
+    if (i == vpi_ctx->frame_stored_num) {
         VPILOGE("no valid frame buffer to store buffer info\n");
         ret = -1;
     }
@@ -893,19 +898,16 @@ static int vpi_decode_h264_frame_decoding(VpiDecCtx *vpi_ctx)
             /* lint -esym(644,tmp_image,pic_size) variable initialized at
                  * DEC_HDRS_RDY_BUFF_NOT_EMPTY case */
             vpi_ctx->h264_dec_output.data_left = 0;
-            if (ret == DEC_PIC_DECODED) {
-                vpi_ctx->h264_dec_output.data_left = 0;
-                /* If enough pictures decoded -> force decoding to err_exit
-                     * by setting that no more stream is available */
-                if (vpi_ctx->pic_decode_number == vpi_ctx->max_num_pics) {
-                    vpi_ctx->process_end_flag        = 1;
-                    vpi_ctx->h264_dec_input.data_len = 0;
-                }
-
-                VPILOGD("DECODED PIC %d\n", vpi_ctx->pic_decode_number);
-                /* Increment decoding number for every decoded picture */
-                vpi_ctx->pic_decode_number++;
+            /* If enough pictures decoded -> force decoding to err_exit
+                 * by setting that no more stream is available */
+            if (vpi_ctx->pic_decode_number == vpi_ctx->max_num_pics) {
+                vpi_ctx->process_end_flag        = 1;
+                vpi_ctx->h264_dec_input.data_len = 0;
             }
+            VPILOGD("DECODED PIC %d\n", vpi_ctx->pic_decode_number);
+            vpi_dec_set_pts_decid(vpi_ctx);
+            /* Increment decoding number for every decoded picture */
+            vpi_ctx->pic_decode_number++;
             break;
         case DEC_STRM_PROCESSED:
         case DEC_BUF_EMPTY:
@@ -1009,9 +1011,9 @@ int vpi_decode_h264_dec_process(VpiDecCtx *vpi_ctx)
                 vpi_dec_buf_list_add(&vpi_ctx->frame_buf_head,
                     vpi_ctx->frame_buf_list[i]);
                 vpi_ctx->pic_display_number++;
-                VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p\n",
+                VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p, pts %lld\n",
                     vpi_ctx->pic_display_number, vpi_frame->data[0],
-                    vpi_frame->data[1]);
+                    vpi_frame->data[1], vpi_frame->pts);
                 vpi_ctx->pic_rdy = 0;
             } else if (ret == DEC_END_OF_STREAM) {
                 vpi_ctx->last_pic_flag = 1;
@@ -1037,6 +1039,8 @@ int vpi_decode_h264_dec_process(VpiDecCtx *vpi_ctx)
         vpi_ctx->stream_mem[vpi_ctx->strm_buf_head->mem_idx].bus_address;
     vpi_ctx->h264_dec_input.data_len = vpi_ctx->strm_buf_head->item_size;
     VPILOGD("set to stream_mem_index %d\n", vpi_ctx->strm_buf_head->mem_idx);
+    vpi_ctx->cur_pkt_pts = vpi_ctx->strm_buf_head->pts;
+    vpi_ctx->cur_pkt_dts = vpi_ctx->strm_buf_head->pkt_dts;
     if (vpi_ctx->enc_type != VPI_ENC_NONE) {
         if (vpi_dec_check_buffer_number_for_trans(vpi_ctx) == -1) {
             pthread_mutex_unlock(&vpi_ctx->dec_thread_mutex);
@@ -1132,9 +1136,9 @@ int vpi_decode_h264_dec_process(VpiDecCtx *vpi_ctx)
         vpi_dec_buf_list_add(&vpi_ctx->frame_buf_head,
             vpi_ctx->frame_buf_list[i]);
         vpi_ctx->pic_display_number++;
-        VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p\n",
+        VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p, pts %lld, dts %lld\n",
             vpi_ctx->pic_display_number,
-            vpi_frame->data[0], vpi_frame->data[1]);
+            vpi_frame->data[0], vpi_frame->data[1], vpi_frame->pts, vpi_frame->pkt_dts);
     } else if(ret == DEC_END_OF_STREAM) {
         vpi_ctx->last_pic_flag = 1;
         VPILOGD("END-OF-STREAM received\n");

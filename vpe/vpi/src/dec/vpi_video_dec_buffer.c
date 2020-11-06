@@ -234,6 +234,40 @@ static void dump_dec_pts_dts(VpiDecCtx *vpi_ctx)
     }
 }
 
+int vpi_dec_set_pts_decid(VpiDecCtx *vpi_ctx)
+{
+    int i;
+
+    if (vpi_ctx->cur_pkt_pts == VDEC_NOPTS_VALUE &&
+        vpi_ctx->cur_pkt_dts == VDEC_NOPTS_VALUE) {
+        return 0;
+    }
+
+    if (vpi_ctx->cur_pkt_pts != VDEC_NOPTS_VALUE) {
+        for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+            if (vpi_ctx->time_stamp_info[i].pts == vpi_ctx->cur_pkt_pts) {
+                vpi_ctx->time_stamp_info[i].decode_id =
+                                    vpi_ctx->pic_decode_number;
+                return 0;
+            }
+        }
+    } else {
+        if (vpi_ctx->cur_pkt_dts != VDEC_NOPTS_VALUE) {
+            for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                if (vpi_ctx->time_stamp_info[i].pkt_dts == vpi_ctx->cur_pkt_dts) {
+                    vpi_ctx->time_stamp_info[i].decode_id =
+                                        vpi_ctx->pic_decode_number;
+                    return 0;
+                }
+            }
+        }
+    }
+
+    VPILOGD("Can't find matched pts %lld, dts %lld\n",
+             vpi_ctx->cur_pkt_pts, vpi_ctx->cur_pkt_dts);
+    return -1;
+}
+
 int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
 {
     int i;
@@ -265,30 +299,91 @@ int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
     }
     empty_index = i;
 
-    vpi_ctx->time_stamp_info[empty_index].used = 1;
-    if (pkt->pts == vpi_ctx->last_pts &&
-        pkt->pts != VDEC_NOPTS_VALUE &&
-        vpi_ctx->got_package_number != 0) {
-        /* mark before same pts as -1 wait PN frame */
-        for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
-            if (vpi_ctx->time_stamp_info[i].used == 1 &&
-                vpi_ctx->time_stamp_info[i].pts == pkt->pts) {
-                frame_index = i;
-                break;
+    if (vpi_ctx->dec_fmt == Dec_VP9) {
+        if (pkt->size == 1) {
+            uint8_t marker = pkt->data[0];
+            VPILOGD("marker = 0x%x\n", marker);
+            if (marker & 0x8) {
+                /* PN frame, to find pts -1 */
+                pn_count = 0;
+                for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                    if (vpi_ctx->time_stamp_info[i].used == 1 &&
+                        vpi_ctx->time_stamp_info[i].pts == -1) {
+                        if (pn_count == 0)
+                            frame_index = i;
+                        pn_count++;
+                    }
+                }
+                if (pn_count == 0) {
+                    VPILOGE("can't find match frame\n");
+                    return 0;
+                }
+                if (pn_count > 1) {
+                    VPILOGE("can't decide match frame\n");
+                    goto err_exit;
+                }
+                VPILOGD("frame_index = %d\n", frame_index);
+                vpi_ctx->time_stamp_info[frame_index].pts       = pkt->pts;
+                vpi_ctx->time_stamp_info[frame_index].pkt_dts   = pkt->pkt_dts;
+                //vpi_ctx->time_stamp_info[frame_index].decode_id =
+                //                               vpi_ctx->got_package_number + 1;
+                dump_dec_pts_dts(vpi_ctx);
+            } else {
+                VPILOGE("unknown case\n");
+                goto err_exit;
             }
+        } else {
+            vpi_ctx->time_stamp_info[empty_index].used = 1;
+            if (pkt->pts == vpi_ctx->last_pts &&
+                pkt->pts != VDEC_NOPTS_VALUE &&
+                vpi_ctx->got_package_number != 0) {
+                /* mark before same pts as -1 wait PN frame */
+                for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                    if (vpi_ctx->time_stamp_info[i].used == 1 &&
+                        vpi_ctx->time_stamp_info[i].pts == pkt->pts) {
+                        frame_index = i;
+                        break;
+                    }
+                }
+                if (i >= MAX_PTS_DTS_DEPTH) {
+                    VPILOGE("can't find last same pts\n");
+                    goto err_exit;
+                }
+                vpi_ctx->time_stamp_info[frame_index].pts = -1;
+            }
+            vpi_ctx->time_stamp_info[empty_index].pts       = pkt->pts;
+            vpi_ctx->time_stamp_info[empty_index].pkt_dts   = pkt->pkt_dts;
+            //vpi_ctx->time_stamp_info[empty_index].decode_id =
+            //                        vpi_ctx->got_package_number + 1;
+            vpi_ctx->last_pts = pkt->pts;
         }
-        if (i >= MAX_PTS_DTS_DEPTH) {
-            VPILOGE("can't find last same pts\n");
-            goto err_exit;
+    } else if (vpi_ctx->dec_fmt == Dec_H264_H10P
+              || vpi_ctx->dec_fmt == Dec_HEVC) {
+        vpi_ctx->time_stamp_info[empty_index].used = 1;
+        if (pkt->pts == vpi_ctx->last_pts &&
+            pkt->pts != VDEC_NOPTS_VALUE &&
+            vpi_ctx->got_package_number != 0) {
+            for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                if (vpi_ctx->time_stamp_info[i].used == 1 &&
+                    vpi_ctx->time_stamp_info[i].pts == pkt->pts) {
+                    frame_index = i;
+                    break;
+                }
+            }
+            if (i >= MAX_PTS_DTS_DEPTH) {
+                VPILOGE("can't find last same pts\n");
+                goto err_exit;
+            }
+            vpi_ctx->time_stamp_info[frame_index].pts = -1;
+            vpi_ctx->time_stamp_info[frame_index].used = 0;
+            VPILOGD("clear %d pts used\n", frame_index);
         }
-        vpi_ctx->time_stamp_info[frame_index].pts  = -1;
-        vpi_ctx->time_stamp_info[frame_index].used = 0;
+        vpi_ctx->time_stamp_info[empty_index].pts       = pkt->pts;
+        vpi_ctx->time_stamp_info[empty_index].pkt_dts   = pkt->pkt_dts;
+        //vpi_ctx->time_stamp_info[empty_index].decode_id =
+        //                        vpi_ctx->got_package_number + 1;
+        vpi_ctx->last_pts = pkt->pts;
     }
-    vpi_ctx->time_stamp_info[empty_index].pts       = pkt->pts;
-    vpi_ctx->time_stamp_info[empty_index].pkt_dts   = pkt->pkt_dts;
-    vpi_ctx->time_stamp_info[empty_index].decode_id =
-                            vpi_ctx->got_package_number + 1;
-    vpi_ctx->last_pts = pkt->pts;
 
     return 0;
 
@@ -332,8 +427,9 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
 
     if (i == MAX_PTS_DTS_DEPTH) {
         VPILOGE("Can't find valid pts info\n");
-        vpi_frame->pts     = pic->pictures[0].picture_info.pic_id - 1;
-        vpi_frame->pkt_dts = pic->pictures[0].picture_info.pic_id - 1;
+        dump_dec_pts_dts(vpi_ctx);
+        vpi_frame->pts     = VDEC_NOPTS_VALUE;
+        vpi_frame->pkt_dts = VDEC_NOPTS_VALUE;
     }
 
     if (vpi_frame->pts == VDEC_NOPTS_VALUE) {

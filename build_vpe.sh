@@ -41,7 +41,8 @@ cd ffmpeg
 		./configure --enable-vpe --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
 		--disable-optimizations \
 		--disable-asm  \
-		--disable-stripping
+		--disable-stripping \
+		--disable-vaapi
 	elif [ "${dbg}" == "y" ] && [ "${mini_ffmpeg}" == "y" ]
 	then
 		./configure --disable-sdl2 --enable-vpe --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
@@ -68,7 +69,9 @@ cd ffmpeg
 		--disable-libmfx \
 		--disable-vaapi
 	else
-    ./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi"
+		./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
+		--disable-vaapi
+
 	fi
 	make -j8
 cd -

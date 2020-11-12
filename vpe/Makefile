@@ -54,7 +54,21 @@ install:
 	rm $(DRV_PATH) -rf
 	mkdir -p $(DRV_PATH)
 	cp drivers/transcoder-pcie/transcoder_pcie.ko $(DRV_PATH)
+  depmod
+  @echo "VPE installation finished!"
+
+uninstall:
+	@echo "VPE build step - uninstall"
+	$(shell if [ -d $(DLL_PATH) ]; then rm $(DLL_PATH) -rf; fi;)
+	$(shell if [ -d $(INC_PATH) ]; then rm $(INC_PATH) -rf; fi;)
+	$(shell rm /lib/firmware/transcoder_zsp_fw.bin)
+	$(shell rm 	$(PKG_PATH)/libvpi.pc)
+	$(shell rm /etc/ld.so.conf.d/vpe-x86_64.conf)
+	/sbin/ldconfig
+	$(shell rmmod transcoder_pcie)
+	$(shell rm $(DRV_PATH) -rf )
 	depmod
+  @echo "VPE uninstallation finished!"
 
 clean:
 	make -C vpi clean

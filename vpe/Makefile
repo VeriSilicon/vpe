@@ -54,8 +54,8 @@ install:
 	rm $(DRV_PATH) -rf
 	mkdir -p $(DRV_PATH)
 	cp drivers/transcoder-pcie/transcoder_pcie.ko $(DRV_PATH)
-  depmod
-  @echo "VPE installation finished!"
+	depmod
+	@echo "VPE installation finished!"
 
 uninstall:
 	@echo "VPE build step - uninstall"
@@ -68,7 +68,7 @@ uninstall:
 	$(shell rmmod transcoder_pcie)
 	$(shell rm $(DRV_PATH) -rf )
 	depmod
-  @echo "VPE uninstallation finished!"
+	@echo "VPE uninstallation finished!"
 
 clean:
 	make -C vpi clean

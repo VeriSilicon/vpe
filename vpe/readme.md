@@ -125,4 +125,15 @@ rm "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x" -rf
 mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 cp drivers/transcoder-pcie/transcoder_pcie.ko "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
 depmod
+VPE installation finished!
+```
+
+3. Uninstall
+```bash
+$sudo make uninstall
+[gyzhang@k8s-master /home/gyzhang/work/facebook/opensource/vpe]$sudo make uninstall
+VPE build step - uninstall
+/sbin/ldconfig
+depmod
+VPE uninstallation finished!
 ```

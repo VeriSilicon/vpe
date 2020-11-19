@@ -410,6 +410,7 @@ typedef struct {
 typedef enum {
     TYPE_NOARG,
     TYPE_INT,
+    TYPE_UINT,
     TYPE_FLOAT,
     TYPE_STRING,
     TYPE_COLON2,

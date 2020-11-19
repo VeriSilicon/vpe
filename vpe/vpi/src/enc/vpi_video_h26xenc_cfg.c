@@ -306,26 +306,7 @@ static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
     options->skip_frame_poc          = 0;
 
     /* HDR10 */
-    options->hdr10_display_enable = 0;
-    options->hdr10_dx0            = 0;
-    options->hdr10_dy0            = 0;
-    options->hdr10_dx1            = 0;
-    options->hdr10_dy1            = 0;
-    options->hdr10_dx2            = 0;
-    options->hdr10_dy2            = 0;
-    options->hdr10_wx             = 0;
-    options->hdr10_wy             = 0;
-    options->hdr10_maxluma        = 0;
-    options->hdr10_minluma        = 0;
-
-    options->hdr10_lightlevel_enable = 0;
-    options->hdr10_maxlight          = 0;
-    options->hdr10_avglight          = 0;
-
     options->hdr10_color_enable = 0;
-    options->hdr10_primary      = 9;
-    options->hdr10_transfer     = 0;
-    options->hdr10_matrix       = 9;
 
     options->pic_order_cnt_type         = 0;
     options->log2_max_pic_order_cnt_lsb = 16;
@@ -1271,6 +1252,39 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
 
     vpi_h26xe_ctx->h26x_enc_param_table =
         (VPIH26xParamsDef *)&h26x_enc_param_table[0];
+
+    /* HDR10 */
+    options->hdr10_primary  = h26x_enc_cfg->colour_primaries;
+    options->hdr10_transfer = h26x_enc_cfg->transfer_characteristics;
+    options->hdr10_matrix   = h26x_enc_cfg->matrix_coeffs;
+    if (options->hdr10_transfer == VPICOL_TRC_ARIB_STD_B67 ||
+        options->hdr10_transfer == VPICOL_TRC_SMPTEST2084 ||
+        options->hdr10_transfer == VPICOL_TRC_BT2020_10 ) {
+        options->hdr10_color_enable = 1;
+    } else {
+        options->hdr10_color_enable = 0;
+    }
+
+    if (options->hdr10_color_enable == 0) {
+        options->hdr10_transfer =
+                h26x_enc_cfg->frame_ctx->hdr_info.transfer_characteristics;
+        options->hdr10_primary =
+                h26x_enc_cfg->frame_ctx->hdr_info.colour_primaries;
+        options->hdr10_matrix =
+                h26x_enc_cfg->frame_ctx->hdr_info.matrix_coefficients;
+        if (options->hdr10_transfer == VPICOL_TRC_ARIB_STD_B67 ||
+            options->hdr10_transfer == VPICOL_TRC_SMPTEST2084 ||
+            options->hdr10_transfer == VPICOL_TRC_BT2020_10 ) {
+            options->hdr10_color_enable = 1;
+        } else {
+            options->hdr10_color_enable = 0;
+        }
+    }
+
+    VPILOGD("hdr10_primary %d, hdr10_transfer %d, hdr10_matrix %d\n",
+             options->hdr10_primary, options->hdr10_transfer, options->hdr10_matrix);
+    VPILOGD("hdr10_color_enable  %d\n", options->hdr10_color_enable);
+
     h26x_enc_get_params(vpi_h26xe_ctx);
     h26x_enc_params_value_print(vpi_h26xe_ctx);
 
@@ -1284,6 +1298,35 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
     }
 
     h26x_enc_params_value_print(vpi_h26xe_ctx);
+
+    if (options->hdr10_display_enable == 0) {
+        options->hdr10_display_enable =
+            h26x_enc_cfg->frame_ctx->hdr_info.hdr10_display_enable;
+        if (options->hdr10_display_enable == 1) {
+            options->hdr10_dx0 = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_dx0;
+            options->hdr10_dy0 = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_dy0;
+            options->hdr10_dx1 = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_dx1;
+            options->hdr10_dy1 = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_dy1;
+            options->hdr10_dx2 = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_dx2;
+            options->hdr10_dy2 = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_dy2;
+            options->hdr10_wx  = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_wx;
+            options->hdr10_wy  = h26x_enc_cfg->frame_ctx->hdr_info.hdr10_wy;
+            options->hdr10_maxluma =
+                    h26x_enc_cfg->frame_ctx->hdr_info.hdr10_maxluma;
+            options->hdr10_minluma =
+                    h26x_enc_cfg->frame_ctx->hdr_info.hdr10_minluma;
+        }
+    }
+    if (options->hdr10_lightlevel_enable == 0) {
+        options->hdr10_lightlevel_enable =
+            h26x_enc_cfg->frame_ctx->hdr_info.hdr10_lightlevel_enable;
+        if (options->hdr10_lightlevel_enable == 1) {
+            options->hdr10_maxlight =
+                    h26x_enc_cfg->frame_ctx->hdr_info.hdr10_maxlight;
+            options->hdr10_avglight =
+                    h26x_enc_cfg->frame_ctx->hdr_info.hdr10_avglight;
+        }
+    }
 
     /* preset params set */
     ret = h26x_enc_preset_params_set(vpi_h26xe_ctx, h26x_enc_cfg);

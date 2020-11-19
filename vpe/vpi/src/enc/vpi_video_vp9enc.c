@@ -757,12 +757,13 @@ VpiRet vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
 {
     VpiEncVp9Pic *trans_pic = NULL;
     VpiFrame *frame = (VpiFrame *)indata;
-    int i;
+    int i, pic_num;
 
     pthread_mutex_lock(&ctx->enc_thread_mutex);
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->pic_wait_list[i].pic == frame) {
             trans_pic = &ctx->pic_wait_list[i];
+            pic_num = i;
             break;
         }
     }
@@ -779,6 +780,17 @@ VpiRet vpi_venc_vp9_put_frame(VpiEncVp9Ctx *ctx, void *indata)
         trans_pic->state = 1;
         trans_pic->used  = 0;
         trans_pic->poc   = ctx->poc;
+        for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+            VpiFrame *wait_frame, *input_frame;
+            if (ctx->pic_wait_list[i].state == 1 && i != pic_num) {
+                wait_frame = ctx->pic_wait_list[i].pic;
+                if (wait_frame->data[0] == frame->data[0]) {
+                    input_frame = (VpiFrame *)frame->vpi_opaque;
+                    input_frame->nb_outputs++;
+                    break;
+                }
+            }
+        }
     }
 
     pthread_mutex_unlock(&ctx->enc_thread_mutex);

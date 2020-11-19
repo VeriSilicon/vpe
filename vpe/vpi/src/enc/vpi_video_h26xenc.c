@@ -671,15 +671,9 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
 
         coding_cfg.Hdr10Color.hdr10_color_enable = options->hdr10_color_enable;
         if (options->hdr10_color_enable) {
-            coding_cfg.Hdr10Color.hdr10_matrix  = options->hdr10_matrix;
-            coding_cfg.Hdr10Color.hdr10_primary = options->hdr10_primary;
-
-            if (options->hdr10_transfer == 1)
-                coding_cfg.Hdr10Color.hdr10_transfer = VCENC_HDR10_ST2084;
-            else if (options->hdr10_transfer == 2)
-                coding_cfg.Hdr10Color.hdr10_transfer = VCENC_HDR10_STDB67;
-            else
-                coding_cfg.Hdr10Color.hdr10_transfer = VCENC_HDR10_BT2020;
+            coding_cfg.Hdr10Color.hdr10_matrix   = options->hdr10_matrix;
+            coding_cfg.Hdr10Color.hdr10_primary  = options->hdr10_primary;
+            coding_cfg.Hdr10Color.hdr10_transfer = options->hdr10_transfer;
         }
 
         coding_cfg.RpsInSliceHeader = options->rps_in_slice_header;
@@ -2626,7 +2620,7 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
 {
     VpiEncH26xPic *trans_pic = NULL;
     VpiFrame *frame = (VpiFrame *)indata;
-    int i;
+    int i, pic_num;
 
     pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
     if (enc_ctx->flush_state == VPIH26X_FLUSH_ERROR) {
@@ -2646,6 +2640,7 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (enc_ctx->pic_wait_list[i].pic == frame) {
             trans_pic = &enc_ctx->pic_wait_list[i];
+            pic_num = i;
             break;
         }
     }
@@ -2677,6 +2672,19 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
         if (enc_ctx->first_pts_flag == 0) {
             enc_ctx->first_pts      = frame->pts;
             enc_ctx->first_pts_flag = 1;
+        }
+        for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+            VpiFrame *wait_frame, *input_frame;
+            if (enc_ctx->pic_wait_list[i].state == 1 && i != pic_num) {
+                wait_frame = enc_ctx->pic_wait_list[i].pic;
+                if (wait_frame->data[0] == frame->data[0]) {
+                    pthread_mutex_lock(&trans_pic->pic_mutex);
+                    input_frame = (VpiFrame *)frame->vpi_opaque;
+                    input_frame->nb_outputs++;
+                    pthread_mutex_unlock(&trans_pic->pic_mutex);
+                    break;
+                }
+            }
         }
         /* add for IDR */
         if (frame->key_frame && enc_ctx->force_idr) {

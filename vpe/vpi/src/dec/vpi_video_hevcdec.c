@@ -1180,10 +1180,38 @@ static int vpi_decode_hevc_frame_decoding(VpiDecCtx *vpi_ctx)
     return 0;
 }
 
+static void vpi_decode_hevc_get_hdr_info(VpiFrame *vpi_frame,
+                                         struct HevcDecInfo *info)
+{
+    vpi_frame->hdr_info.transfer_characteristics = info->transfer_characteristics;
+    vpi_frame->hdr_info.matrix_coefficients = info->matrix_coefficients;
+    vpi_frame->hdr_info.colour_primaries = info->colour_primaries;
+
+    vpi_frame->hdr_info.hdr10_display_enable =
+            info->hdr_info.hdr10_display_enable;
+    vpi_frame->hdr_info.hdr10_dx0 = info->hdr_info.hdr10_dx0;
+    vpi_frame->hdr_info.hdr10_dy0 = info->hdr_info.hdr10_dy0;
+    vpi_frame->hdr_info.hdr10_dx1 = info->hdr_info.hdr10_dx1;
+    vpi_frame->hdr_info.hdr10_dy1 = info->hdr_info.hdr10_dy1;
+    vpi_frame->hdr_info.hdr10_dx2 = info->hdr_info.hdr10_dx2;
+    vpi_frame->hdr_info.hdr10_dy2 = info->hdr_info.hdr10_dy2;
+    vpi_frame->hdr_info.hdr10_wx  = info->hdr_info.hdr10_wx;
+    vpi_frame->hdr_info.hdr10_wy  = info->hdr_info.hdr10_wy;
+
+    vpi_frame->hdr_info.hdr10_maxluma = info->hdr_info.hdr10_maxluma;
+    vpi_frame->hdr_info.hdr10_minluma = info->hdr_info.hdr10_minluma;
+
+    vpi_frame->hdr_info.hdr10_lightlevel_enable =
+            info->hdr_info.hdr10_lightlevel_enable;
+    vpi_frame->hdr_info.hdr10_maxlight = info->hdr_info.hdr10_maxlight;
+    vpi_frame->hdr_info.hdr10_avglight = info->hdr_info.hdr10_avglight;
+}
+
 int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
 {
     VpiFrame *vpi_frame        = NULL;
     VpiPacket vpi_packet       = {0};
+    struct HevcDecInfo dec_info;
     int ret;
     int i;
 
@@ -1359,6 +1387,8 @@ int vpi_decode_hevc_dec_process(VpiDecCtx *vpi_ctx)
         vpi_dec_output_frame(vpi_ctx, vpi_frame, &vpi_ctx->pic);
         vpi_dec_buf_list_add(&vpi_ctx->frame_buf_head,
             vpi_ctx->frame_buf_list[i]);
+        HevcDecGetInfo(vpi_ctx->dec_inst, &dec_info);
+        vpi_decode_hevc_get_hdr_info(vpi_frame, &dec_info);
         vpi_ctx->pic_display_number++;
         VPILOGD("******** %d got frame :data[0]=%p,data[1]=%p\n",
             vpi_ctx->pic_display_number,

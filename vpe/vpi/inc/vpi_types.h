@@ -215,6 +215,28 @@ typedef struct VpiPicInfo{
     VpiPicData picdata; /* add for get init param*/
 } VpiPicInfo;
 
+typedef struct VpiHdrInfo {
+    uint32_t transfer_characteristics;
+    uint32_t matrix_coefficients;
+    uint32_t colour_primaries;
+
+    uint32_t hdr10_display_enable;
+    uint32_t hdr10_dx0;
+    uint32_t hdr10_dy0;
+    uint32_t hdr10_dx1;
+    uint32_t hdr10_dy1;
+    uint32_t hdr10_dx2;
+    uint32_t hdr10_dy2;
+    uint32_t hdr10_wx;
+    uint32_t hdr10_wy;
+    uint32_t hdr10_maxluma;
+    uint32_t hdr10_minluma;
+
+    uint32_t hdr10_lightlevel_enable;
+    uint32_t hdr10_maxlight;
+    uint32_t hdr10_avglight;
+} VpiHdrInfo;
+
 typedef struct VpiFrame {
     int task_id;
     int src_width;
@@ -252,6 +274,9 @@ typedef struct VpiFrame {
     VpiPixsFmt raw_format;
     void (*vpe_frame_free)(void *opaque, uint8_t *data);
     pthread_mutex_t frame_mutex;
+
+    /* for HDR */
+    VpiHdrInfo hdr_info;
 } VpiFrame;
 
 typedef struct VpiSysInfo {
@@ -346,6 +371,9 @@ typedef struct VpiH26xEncCfg {
 
     /*VPE H26x encoder public parameters with -enc_params*/
     VpiEncParamSet *param_list;
+    int colour_primaries;
+    int transfer_characteristics;
+    int matrix_coeffs;
 } VpiH26xEncCfg;
 
 typedef struct VpiHWUploadCfg{

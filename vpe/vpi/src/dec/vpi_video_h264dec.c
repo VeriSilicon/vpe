@@ -689,6 +689,10 @@ int vpi_decode_h264_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
     if (vpi_ctx->output_num == 0) {
         // the first frame
         memcpy(vpi_ctx->frame, vpi_frame, sizeof(VpiFrame));
+        vpi_ctx->frame->hdr_info.transfer_characteristics =
+                    VPICOL_TRC_UNSPECIFIED;
+        vpi_ctx->frame->hdr_info.colour_primaries    = VPICOL_PRI_UNSPECIFIED;
+        vpi_ctx->frame->hdr_info.matrix_coefficients = VPICOL_SPC_UNSPECIFIED;
         vpi_ctx->output_num++;
     }
     for (i = 0; i < MAX_BUFFERS; i++) {

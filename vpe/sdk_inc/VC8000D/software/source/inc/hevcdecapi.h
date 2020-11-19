@@ -85,6 +85,25 @@ struct HevcCropParams {
   u32 crop_out_height;
 };
 
+struct HevcHdrInfo {
+  /* HDR10 */
+  u32 hdr10_display_enable;
+  u32 hdr10_dx0;
+  u32 hdr10_dy0;
+  u32 hdr10_dx1;
+  u32 hdr10_dy1;
+  u32 hdr10_dx2;
+  u32 hdr10_dy2;
+  u32 hdr10_wx;
+  u32 hdr10_wy;
+  u32 hdr10_maxluma;
+  u32 hdr10_minluma;
+
+  u32 hdr10_lightlevel_enable;
+  u32 hdr10_maxlight;
+  u32 hdr10_avglight;
+};
+
 /* stream info filled by HevcDecGetInfo */
 struct HevcDecInfo {
   u32 pic_width;   /* decoded picture width in pixels */
@@ -107,6 +126,8 @@ struct HevcDecInfo {
 
   /* for HDR */
   u32 transfer_characteristics;
+  u32 colour_primaries;
+  struct HevcHdrInfo hdr_info;
 };
 
 /* Output structure for HevcDecNextPicture */

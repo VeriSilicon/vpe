@@ -317,9 +317,9 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
             coding_cfg.enableCabac = options->enable_cabac;
         if (options->cabac_init_flag != DEFAULT)
             coding_cfg.cabacInitFlag = options->cabac_init_flag;
-        coding_cfg.videoFullRange = 0;
+        coding_cfg.vuiVideoFullRange = 0;
         if (options->video_range != DEFAULT)
-            coding_cfg.videoFullRange = options->video_range;
+            coding_cfg.vuiVideoFullRange = options->video_range;
 
         coding_cfg.disableDeblockingFilter = (options->disable_deblocking != 0);
         coding_cfg.tc_Offset               = options->tc_offset;
@@ -670,13 +670,23 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
                 coding_cfg.Hdr10LightLevel.hdr10_avglight = options->hdr10_avglight;
             }
 
-            coding_cfg.Hdr10Color.hdr10_color_enable = options->hdr10_color_enable;
-            if (options->hdr10_color_enable) {
-                coding_cfg.Hdr10Color.hdr10_matrix   = options->hdr10_matrix;
-                coding_cfg.Hdr10Color.hdr10_primary  = options->hdr10_primary;
-                coding_cfg.Hdr10Color.hdr10_transfer = options->hdr10_transfer;
+            coding_cfg.vuiColorDescription.vuiColorDescripPresentFlag =
+                    options->vui_color_flag;
+            if (options->vui_color_flag) {
+                coding_cfg.vuiColorDescription.vuiMatrixCoefficients =
+                        options->vui_matrix_coefficients;
+                coding_cfg.vuiColorDescription.vuiColorPrimaries =
+                        options->vui_color_primaries;
+                coding_cfg.vuiColorDescription.vuiTransferCharacteristics =
+                        options->vui_transfer_characteristics;
             }
         }
+
+        coding_cfg.vuiVideoFormat                = options->vui_video_format;
+        coding_cfg.vuiVideoSignalTypePresentFlag = options->vui_video_signal_type_en;
+        coding_cfg.sampleAspectRatioHeight       = options->vui_aspect_ratio_width;
+        coding_cfg.sampleAspectRatioWidth        = options->vui_aspect_ratio_height;
+
         coding_cfg.RpsInSliceHeader = options->rps_in_slice_header;
 
         if ((ret = VCEncSetCodingCtrl(encoder, &coding_cfg)) != VCENC_OK) {
@@ -1465,6 +1475,30 @@ static VpiRet h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
             VPILOGD("ctx %p, %d, poc %d, need_poc %d\n",
                      enc_ctx, i, p_trans->poc, poc_need);
             if (p_trans->poc == poc_need) {
+                /* add to get new vui info */
+                if (poc_need == 0) {
+                    VCEncCodingCtrl coding_cfg;
+                    if (VCEncGetCodingCtrl(enc_ctx->hantro_encoder, &coding_cfg) != VCENC_OK) {
+                        VPILOGE("VCEncGetCodingCtrl failed\n");
+                        return -1;
+                    } else {
+                        if (cfg->color_range == VPICOL_RANGE_JPEG) {
+                            options->video_range = 1;
+                        } else {
+                            options->video_range = 0;
+                        }
+
+                        options->vui_video_signal_type_en |= options->video_range;
+                        coding_cfg.vuiVideoSignalTypePresentFlag = options->vui_video_signal_type_en;
+                        coding_cfg.vuiVideoFullRange = options->video_range;
+
+                        if (VCEncSetCodingCtrl(enc_ctx->hantro_encoder, &coding_cfg) != VCENC_OK) {
+                            VPILOGE("VCEncSetCodingCtrl failed\n");
+                            return -1;
+                        }
+                    }
+                }
+
                 pic_ppu = (struct DecPicturePpu *)p_trans->pic->data[0];
                 if (pic_ppu == NULL) {
                     VPILOGE("enc get frame[%d] error\n", poc_need);
@@ -1520,8 +1554,12 @@ static VpiRet h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
                 p_addrs->bus_luma_table_ds, p_addrs->bus_chroma_table_ds);
     }
 
-    *pts          = p_trans->pic->pts;
-    p_enc_in->pts = p_trans->pic->pts;
+    if (p_trans->pic->pts == VID_NOPTS_VALUE) {
+        p_enc_in->pts = p_trans->poc;
+    } else {
+        p_enc_in->pts = p_trans->pic->pts;
+    }
+    *pts = p_enc_in->pts;
 
     return VPI_SUCCESS;
 }
@@ -1587,10 +1625,43 @@ static VpiRet h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
         outstrm_buf->resend_header = p_enc_out->resendSPS;
         outstrm_buf->stream_size   = p_enc_out->streamSize; //streamSize; //pEncOut->streamSize;
         outstrm_buf->pts           = p_enc_out->pts; //tb->input_pic_cnt; //pEncOut->pts;
-        outstrm_buf->dts           = cfg->picture_enc_cnt - 1 - 8; //tb->picture_enc_cnt; //pEncOut->dts;
-        if (enc_ctx->first_pts_flag) {
-            outstrm_buf->dts += enc_ctx->first_pts;
+        outstrm_buf->coding_type   = p_enc_out->codingType;
+
+        if (cfg->first_pts != VID_NOPTS_VALUE) {
+            if ((p_enc_out->indexEncoded == 0) || (p_enc_out->codingType == VCENC_INTRA_FRAME)) {
+                outstrm_buf->dts = p_enc_out->pts - 8;
+                if (p_enc_out->indexEncoded && (outstrm_buf->dts <= cfg->last_out_dts)) {
+                    outstrm_buf->dts = cfg->last_out_dts + 1;
+                }
+            } else {
+                outstrm_buf->dts = cfg->last_out_dts + 1;
+            }
+
+            if (outstrm_buf->dts >= cfg->first_pts) {
+                if (cfg->pts_offset == 0) {
+                    cfg->pts_offset = cfg->picture_enc_cnt - 1;
+                }
+                outstrm_buf->dts += cfg->pts_fix[ ((cfg->picture_enc_cnt-1)-cfg->pts_offset) % 100];
+                if (outstrm_buf->dts > outstrm_buf->pts) {
+                    outstrm_buf->dts = cfg->last_out_dts + 1;
+                }
+            }
+            if (cfg->last_out_dts && outstrm_buf->dts <= cfg->last_out_dts) {
+                outstrm_buf->dts =  cfg->last_out_dts + 1;
+            }
+        } else {
+            if (p_enc_out->indexEncoded == 0) {
+                outstrm_buf->dts = p_enc_out->pts - 8;
+            } else {
+                outstrm_buf->dts = cfg->last_out_dts + 1;
+            }
         }
+        cfg->last_out_dts = outstrm_buf->dts;
+        VPILOGD("out_buffer->pts = %ld, out_buffer->dts = %ld, poc @%d\n",
+                 outstrm_buf->pts, outstrm_buf->dts, p_enc_out->indexEncoded);
+        VPILOGD("pts %ld, dts %ld, poc @%d\n",
+                 (outstrm_buf->pts*1000)/30, (outstrm_buf->dts*1000)/30,
+                  p_enc_out->indexEncoded);
 
         for (i = 0; i < 3; i++) {
             outstrm_buf->ssim[i] = p_enc_out->ssim[i];
@@ -1618,11 +1689,6 @@ static VpiRet h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
 
             enc_ctx->stream_buf_list[idx]->item_size = new_size;
             outstrm_buf->outbuf_mem->size = new_size;
-        }
-        if (pkt_size != 0 &&
-            outstrm_buf->header_size != 0 &&
-            outstrm_buf->resend_header != HANTRO_TRUE) {
-            pkt_size -= outstrm_buf->header_size;
         }
 
         VPILOGI("src %p, dst %p\n",
@@ -1807,6 +1873,9 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
     if (!addrs.bus_luma) {
         VPILOGD("get EOS\n");
         return VPI_SUCCESS;
+    }
+    if (p_enc_in->poc == 0) {
+        p_enc_in->resendSPS = p_enc_in->resendPPS = p_enc_in->resendVPS = 1;
     }
 
     if (cfg->enc_index == 0
@@ -2627,7 +2696,8 @@ int vpi_h26xe_ctrl(VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
 VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
 {
     VpiEncH26xPic *trans_pic = NULL;
-    VpiFrame *frame = (VpiFrame *)indata;
+    VpiFrame *frame          = (VpiFrame *)indata;
+    VPIH26xEncCfg *cfg       = &enc_ctx->vpi_h26xe_cfg;
     int i, pic_num;
 
     pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
@@ -2644,6 +2714,13 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
         return 0;
     }
     pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+
+    /* add to get new vui info */
+    if (cfg->enc_first_frame == 0) {
+        cfg->enc_first_frame = 1;
+        cfg->color_range     = frame->color_range;
+        VPILOGD("pict->color_range = %d\n", frame->color_range);
+    }
 
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (enc_ctx->pic_wait_list[i].pic == frame) {
@@ -2677,10 +2754,6 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
         trans_pic->in_pass_one_queue = 0;
         trans_pic->poc               = enc_ctx->poc;
         pthread_mutex_unlock(&trans_pic->pic_mutex);
-        if (enc_ctx->first_pts_flag == 0) {
-            enc_ctx->first_pts      = frame->pts;
-            enc_ctx->first_pts_flag = 1;
-        }
         for (i = 0; i < MAX_WAIT_DEPTH; i++) {
             VpiFrame *wait_frame, *input_frame;
             if (enc_ctx->pic_wait_list[i].state == 1 && i != pic_num) {
@@ -2701,6 +2774,17 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
                 store_idr_poc(enc_ctx, enc_ctx->poc);
             }
         }
+        if (enc_ctx->poc == 0) {
+            cfg->first_pts  = frame->pts;
+            cfg->pts_fix[0] = 0;
+        } else {
+            cfg->pts_fix[enc_ctx->poc%100] = frame->pts - (cfg->last_in_pts+1);
+        }
+        VPILOGD("last_in_pts %ld, pts %ld, tb->pts_fix[%d] = %d, poc @%d\n",
+                 cfg->last_in_pts, frame->pts, enc_ctx->poc % 100,
+                 cfg->pts_fix[enc_ctx->poc % 100], enc_ctx->poc);
+        cfg->last_in_pts = frame->pts;
+
         enc_ctx->poc++;
         if (enc_ctx->force_idr) {
             pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
@@ -2753,10 +2837,12 @@ VpiRet vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
 
     vpi_packet->pts     = out_buffer->pts;
     vpi_packet->pkt_dts = out_buffer->dts;
+    vpi_packet->flags   = (out_buffer->coding_type == VCENC_INTRA_FRAME) ?
+                           VPI_PKT_FLAG_KEY : 0;
     enc_ctx->output_pic_cnt++;
-    VPILOGD("enc pts %ld, dts %ld, cnt %d, size %d\n",
+    VPILOGD("enc pts %ld, dts %ld, cnt %d, size %d, flags %d\n",
              vpi_packet->pts, vpi_packet->pkt_dts,
-             enc_ctx->output_pic_cnt, vpi_packet->size);
+             enc_ctx->output_pic_cnt, vpi_packet->size, vpi_packet->flags);
 
     enc_ctx->total_bits += out_buffer->stream_size * 8;
 
@@ -2799,7 +2885,7 @@ VpiRet vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
                    options->bit_per_second)) * 100 / options->bit_per_second);
         cfg->average_square_of_error =
                     (cfg->sum_square_of_error/cfg->number_square_of_error);
-        VPILOGI("    RateControl(movingBitrate=%d MaxOvertarget=%d%% "
+        VPILOGD("    RateControl(movingBitrate=%d MaxOvertarget=%d%% "
                     "MaxUndertarget=%d%% AveDeviationPerframe=%f%%)\n",
                 h26x_enc_ma(&enc_ctx->ma),
                 cfg->max_error_over_target * 100 / options->bit_per_second,

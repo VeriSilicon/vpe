@@ -237,6 +237,15 @@ typedef struct {
 
     struct timeval time_frame_start;
     struct timeval time_frame_end;
+
+    int64_t first_pts;
+    int64_t last_out_dts;
+    int enc_first_frame;
+    int64_t last_in_pts;
+    int64_t pts_fix[100];
+    int     pts_offset;
+
+    int color_range;
 } VPIH26xEncCfg;
 
 #define MOVING_AVERAGE_FRAMES 120
@@ -294,6 +303,7 @@ typedef struct {
   double ssim[3];
   u32 max_slice_stream_size;
   i32 index_encoded;
+  VCEncPictureCodingType coding_type;
 } VpiEncOutData;
 
 typedef enum VpiFlushState {
@@ -329,8 +339,6 @@ typedef struct {
     int no_input_pict;
     int find_pict;
     int pp_index;
-    int64_t first_pts;
-    int first_pts_flag;
     VCEncOut enc_out;
     VCEncGopPicConfig gop_pic_cfg[MAX_GOP_PIC_CONFIG_NUM];
     VCEncGopPicConfig gop_pic_cfg_pass2[MAX_GOP_PIC_CONFIG_NUM];

@@ -89,7 +89,6 @@ extern "C" {
 
 #define MAX_BUFFERS 78
 #define MAX_WAIT_FOR_CONSUME_BUFFERS 100
-#define VDEC_NOPTS_VALUE ((int64_t)UINT64_C(0x8000000000000000))
 /* one extra stream buffer so that we can decode ahead,
  * and be ready when core has finished
  */

@@ -305,8 +305,15 @@ static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
     options->skip_frame_enabled_flag = 0;
     options->skip_frame_poc          = 0;
 
-    /* HDR10 */
-    options->hdr10_color_enable = 0;
+    options->vui_color_flag               = 0;
+    options->vui_color_primaries          = 9;
+    options->vui_transfer_characteristics = 0;
+    options->vui_matrix_coefficients      = 9;
+
+    options->vui_video_format         = 5;
+    options->vui_video_signal_type_en = 0;
+    options->vui_aspect_ratio_width   = 0;
+    options->vui_aspect_ratio_height  = 0;
 
     options->pic_order_cnt_type         = 0;
     options->log2_max_pic_order_cnt_lsb = 16;
@@ -1254,36 +1261,66 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
         (VPIH26xParamsDef *)&h26x_enc_param_table[0];
 
     /* HDR10 */
-    options->hdr10_primary  = h26x_enc_cfg->colour_primaries;
-    options->hdr10_transfer = h26x_enc_cfg->transfer_characteristics;
-    options->hdr10_matrix   = h26x_enc_cfg->matrix_coeffs;
-    if (options->hdr10_transfer == VPICOL_TRC_ARIB_STD_B67 ||
-        options->hdr10_transfer == VPICOL_TRC_SMPTEST2084 ||
-        options->hdr10_transfer == VPICOL_TRC_BT2020_10 ) {
-        options->hdr10_color_enable = 1;
-    } else {
-        options->hdr10_color_enable = 0;
+    if (h26x_enc_cfg->colour_primaries != VPICOL_PRI_UNSPECIFIED) {
+        options->vui_color_primaries = h26x_enc_cfg->colour_primaries;
+    }
+    if (h26x_enc_cfg->transfer_characteristics != VPICOL_TRC_UNSPECIFIED) {
+        options->vui_transfer_characteristics =
+                h26x_enc_cfg->transfer_characteristics;
+    }
+    if (h26x_enc_cfg->matrix_coeffs != VPICOL_SPC_UNSPECIFIED) {
+        options->vui_matrix_coefficients = h26x_enc_cfg->matrix_coeffs;
+    }
+    if (h26x_enc_cfg->color_range == VPICOL_RANGE_JPEG)
+        options->video_range = 1;
+    else
+        options->video_range = 0;
+
+    if (options->vui_color_primaries ||
+        options->vui_transfer_characteristics ||
+        options->vui_matrix_coefficients) {
+        options->vui_color_flag = 1;
     }
 
-    if (options->hdr10_color_enable == 0) {
-        options->hdr10_transfer =
-                h26x_enc_cfg->frame_ctx->hdr_info.transfer_characteristics;
-        options->hdr10_primary =
-                h26x_enc_cfg->frame_ctx->hdr_info.colour_primaries;
-        options->hdr10_matrix =
-                h26x_enc_cfg->frame_ctx->hdr_info.matrix_coefficients;
-        if (options->hdr10_transfer == VPICOL_TRC_ARIB_STD_B67 ||
-            options->hdr10_transfer == VPICOL_TRC_SMPTEST2084 ||
-            options->hdr10_transfer == VPICOL_TRC_BT2020_10 ) {
-            options->hdr10_color_enable = 1;
-        } else {
-            options->hdr10_color_enable = 0;
+    if (options->vui_color_flag ||
+        options->vui_video_format ||
+        (options->video_range && (options->video_range != DEFAULT))) {
+        options->vui_video_signal_type_en = 1;
+    }
+
+    if (options->vui_color_flag == 0) {
+        if (h26x_enc_cfg->frame_ctx->hdr_info.transfer_characteristics
+                != VPICOL_PRI_UNSPECIFIED) {
+            options->vui_transfer_characteristics =
+                    h26x_enc_cfg->frame_ctx->hdr_info.transfer_characteristics;
+        }
+        if (h26x_enc_cfg->frame_ctx->hdr_info.colour_primaries
+                != VPICOL_TRC_UNSPECIFIED) {
+            options->vui_color_primaries =
+                    h26x_enc_cfg->frame_ctx->hdr_info.colour_primaries;
+        }
+        if (h26x_enc_cfg->frame_ctx->hdr_info.matrix_coefficients
+                != VPICOL_SPC_UNSPECIFIED) {
+            options->vui_matrix_coefficients =
+                    h26x_enc_cfg->frame_ctx->hdr_info.matrix_coefficients;
+        }
+        if (options->vui_color_primaries ||
+            options->vui_transfer_characteristics ||
+            options->vui_matrix_coefficients) {
+            options->vui_color_flag = 1;
         }
     }
 
-    VPILOGD("hdr10_primary %d, hdr10_transfer %d, hdr10_matrix %d\n",
-             options->hdr10_primary, options->hdr10_transfer, options->hdr10_matrix);
-    VPILOGD("hdr10_color_enable  %d\n", options->hdr10_color_enable);
+    VPILOGD("cfg vui_color_primaries %d, vui_transfer_characteristics %d, vui_matrix_coefficients %d\n",
+             h26x_enc_cfg->colour_primaries, h26x_enc_cfg->transfer_characteristics, h26x_enc_cfg->matrix_coeffs);
+    VPILOGD("vui_color_primaries %d, vui_transfer_characteristics %d, vui_matrix_coefficients %d\n",
+             options->vui_color_primaries, options->vui_transfer_characteristics, options->vui_matrix_coefficients);
+    VPILOGD("vui_color_flag  %d\n", options->vui_color_flag);
+
+    /* refresh vui input */
+    options->vui_aspect_ratio_width  = h26x_enc_cfg->aspect_ratio_num;
+    options->vui_aspect_ratio_height = h26x_enc_cfg->aspect_ration_den;
+    VPILOGD("sar_w = %d, sar_h = %d\n", options->vui_aspect_ratio_width, options->vui_aspect_ratio_height);
 
     h26x_enc_get_params(vpi_h26xe_ctx);
     h26x_enc_params_value_print(vpi_h26xe_ctx);

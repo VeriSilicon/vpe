@@ -170,6 +170,7 @@ typedef struct VpiPacket {
     int64_t pkt_dts;
     void *opaque;
     int64_t duration;
+    int flags;
 } VpiPacket;
 
 typedef struct VpiCrop{
@@ -273,6 +274,7 @@ typedef struct VpiFrame {
 
     /* for HDR */
     VpiHdrInfo hdr_info;
+    int color_range;
 } VpiFrame;
 
 typedef struct VpiSysInfo {
@@ -370,6 +372,9 @@ typedef struct VpiH26xEncCfg {
     int colour_primaries;
     int transfer_characteristics;
     int matrix_coeffs;
+    int color_range;
+    int aspect_ratio_num;
+    int aspect_ration_den;
 } VpiH26xEncCfg;
 
 typedef struct VpiHWUploadCfg{

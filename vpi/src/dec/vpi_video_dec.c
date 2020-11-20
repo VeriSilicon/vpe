@@ -244,8 +244,8 @@ static VpiRet vpi_dec_init_decoder(VpiDecCtx *vpi_ctx, void *cfg)
     vpi_ctx->first_pts           = -1;
 
     for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
-        vpi_ctx->time_stamp_info[i].pts     = VDEC_NOPTS_VALUE;
-        vpi_ctx->time_stamp_info[i].pkt_dts = VDEC_NOPTS_VALUE;
+        vpi_ctx->time_stamp_info[i].pts     = VID_NOPTS_VALUE;
+        vpi_ctx->time_stamp_info[i].pkt_dts = VID_NOPTS_VALUE;
         vpi_ctx->time_stamp_info[i].used    = 0;
     }
     vpi_ctx->waiting_for_dpb = 0;

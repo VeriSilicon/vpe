@@ -238,12 +238,12 @@ int vpi_dec_set_pts_decid(VpiDecCtx *vpi_ctx)
 {
     int i;
 
-    if (vpi_ctx->cur_pkt_pts == VDEC_NOPTS_VALUE &&
-        vpi_ctx->cur_pkt_dts == VDEC_NOPTS_VALUE) {
+    if (vpi_ctx->cur_pkt_pts == VID_NOPTS_VALUE &&
+        vpi_ctx->cur_pkt_dts == VID_NOPTS_VALUE) {
         return 0;
     }
 
-    if (vpi_ctx->cur_pkt_pts != VDEC_NOPTS_VALUE) {
+    if (vpi_ctx->cur_pkt_pts != VID_NOPTS_VALUE) {
         for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
             if (vpi_ctx->time_stamp_info[i].pts == vpi_ctx->cur_pkt_pts) {
                 vpi_ctx->time_stamp_info[i].decode_id =
@@ -252,7 +252,7 @@ int vpi_dec_set_pts_decid(VpiDecCtx *vpi_ctx)
             }
         }
     } else {
-        if (vpi_ctx->cur_pkt_dts != VDEC_NOPTS_VALUE) {
+        if (vpi_ctx->cur_pkt_dts != VID_NOPTS_VALUE) {
             for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
                 if (vpi_ctx->time_stamp_info[i].pkt_dts == vpi_ctx->cur_pkt_dts) {
                     vpi_ctx->time_stamp_info[i].decode_id =
@@ -272,11 +272,11 @@ void vpi_dec_clear_unused_pts(VpiDecCtx *vpi_ctx)
 {
     int i;
 
-    if (vpi_ctx->cur_pkt_pts == VDEC_NOPTS_VALUE &&
-        vpi_ctx->cur_pkt_dts == VDEC_NOPTS_VALUE) {
+    if (vpi_ctx->cur_pkt_pts == VID_NOPTS_VALUE &&
+        vpi_ctx->cur_pkt_dts == VID_NOPTS_VALUE) {
         return;
     }
-    if (vpi_ctx->cur_pkt_pts != VDEC_NOPTS_VALUE) {
+    if (vpi_ctx->cur_pkt_pts != VID_NOPTS_VALUE) {
         for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
             if (vpi_ctx->time_stamp_info[i].pts == vpi_ctx->cur_pkt_pts) {
                 vpi_ctx->time_stamp_info[i].used = -1;
@@ -284,7 +284,7 @@ void vpi_dec_clear_unused_pts(VpiDecCtx *vpi_ctx)
             }
         }
     } else {
-        if (vpi_ctx->cur_pkt_dts != VDEC_NOPTS_VALUE) {
+        if (vpi_ctx->cur_pkt_dts != VID_NOPTS_VALUE) {
             for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
                 if (vpi_ctx->time_stamp_info[i].pkt_dts == vpi_ctx->cur_pkt_dts) {
                     vpi_ctx->time_stamp_info[i].used = -1;
@@ -365,7 +365,7 @@ int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
         } else {
             vpi_ctx->time_stamp_info[empty_index].used = 1;
             if (pkt->pts == vpi_ctx->last_pts &&
-                pkt->pts != VDEC_NOPTS_VALUE &&
+                pkt->pts != VID_NOPTS_VALUE &&
                 vpi_ctx->got_package_number != 0) {
                 /* mark before same pts as -1 wait PN frame */
                 for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
@@ -380,6 +380,8 @@ int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
                     goto err_exit;
                 }
                 vpi_ctx->time_stamp_info[frame_index].pts = -1;
+                vpi_ctx->time_stamp_info[frame_index].used = 0;
+                VPILOGD("clear %d pts used\n", frame_index);
             }
             vpi_ctx->time_stamp_info[empty_index].pts       = pkt->pts;
             vpi_ctx->time_stamp_info[empty_index].pkt_dts   = pkt->pkt_dts;
@@ -391,7 +393,7 @@ int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
               || vpi_ctx->dec_fmt == Dec_HEVC) {
         vpi_ctx->time_stamp_info[empty_index].used = 1;
         if (pkt->pts == vpi_ctx->last_pts &&
-            pkt->pts != VDEC_NOPTS_VALUE &&
+            pkt->pts != VID_NOPTS_VALUE &&
             vpi_ctx->got_package_number != 0) {
             for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
                 if (vpi_ctx->time_stamp_info[i].used == 1 &&
@@ -458,11 +460,11 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     if (i == MAX_PTS_DTS_DEPTH) {
         VPILOGE("Can't find valid pts info\n");
         dump_dec_pts_dts(vpi_ctx);
-        vpi_frame->pts     = VDEC_NOPTS_VALUE;
-        vpi_frame->pkt_dts = VDEC_NOPTS_VALUE;
+        vpi_frame->pts     = VID_NOPTS_VALUE;
+        vpi_frame->pkt_dts = VID_NOPTS_VALUE;
     }
 
-    if (vpi_frame->pts == VDEC_NOPTS_VALUE) {
+    if (vpi_frame->pts == VID_NOPTS_VALUE) {
         vpi_frame->pts = vpi_ctx->pts;
     } else {
         vpi_ctx->pts = vpi_frame->pts;

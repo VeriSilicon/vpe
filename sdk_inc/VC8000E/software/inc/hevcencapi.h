@@ -318,11 +318,11 @@ extern "C"
 
   typedef struct
   {
-	  u8 hdr10_color_enable;
-	  u8 hdr10_primary;
-	  VCEncHDRTransferType hdr10_transfer;
-	  u8 hdr10_matrix;
-  }Hdr10ColorVui;
+	  u8 vuiColorDescripPresentFlag;
+	  u8 vuiColorPrimaries;
+	  u8 vuiTransferCharacteristics;
+	  u8 vuiMatrixCoefficients;
+  }VuiColorDescription;
 
   typedef struct
   {
@@ -513,7 +513,7 @@ extern "C"
                               * period SEI messages into the stream,
                               * [0,1]
                               */
-    u32 videoFullRange;  /* Input video signal sample range, [0,1]
+    u32 vuiVideoFullRange;  /* Input video signal sample range, [0,1]
                               * 0 = Y range in [16..235],
                               * Cb&Cr range in [16..240]
                               * 1 = Y, Cb and Cr range in [0..255]
@@ -643,7 +643,9 @@ extern "C"
 	/* for HDR10 */
 	Hdr10DisplaySei    Hdr10Display;
 	Hdr10LightLevelSei Hdr10LightLevel;
-	Hdr10ColorVui      Hdr10Color;
+	VuiColorDescription vuiColorDescription;
+  u32                 vuiVideoSignalTypePresentFlag;
+  u32                 vuiVideoFormat;
 
 	u32 RpsInSliceHeader;
   } VCEncCodingCtrl;
@@ -842,7 +844,7 @@ extern "C"
     i32 indexTobeEncode;
     bool forceIDR;
     int64_t pts;
-    int64_t dts;
+    //int64_t dts;
   } VCEncIn;
 
 

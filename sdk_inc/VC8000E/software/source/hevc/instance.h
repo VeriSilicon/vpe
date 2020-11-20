@@ -132,7 +132,9 @@ struct vcenc_instance
   VCEncSliceReadyCallBackFunc sliceReadyCbFunc;
   void *pAppData[MAX_CORE_NUM];         /* User given application specific data */
   u32 frameCnt;
-  u32 videoFullRange;
+  u32 vuiVideoSignalTypePresentFlag;
+  u32 vuiVideoFormat;
+  u32 vuiVideoFullRange;
   u32 sarWidth;
   u32 sarHeight;
   i32 fieldOrder;     /* 1=top first, 0=bottom first */
@@ -230,9 +232,9 @@ struct vcenc_instance
   u32 ref_alignment;
   u32 ref_ch_alignment;
 
-  Hdr10DisplaySei    Hdr10Display;
-  Hdr10LightLevelSei Hdr10LightLevel;
-  Hdr10ColorVui      Hdr10Color;
+  Hdr10DisplaySei     Hdr10Display;
+  Hdr10LightLevelSei  Hdr10LightLevel;
+  VuiColorDescription vuiColorDescription;
 
   u32 RpsInSliceHeader;
   HWRPS_CONFIG sHwRps;

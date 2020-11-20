@@ -357,10 +357,15 @@ typedef struct {
     u32 hdr10_maxlight;
     u32 hdr10_avglight;
 
-    u32 hdr10_color_enable;
-    u32 hdr10_primary;
-    u32 hdr10_transfer;
-    u32 hdr10_matrix;
+    u32 vui_color_flag;
+    u32 vui_color_primaries;
+    u32 vui_transfer_characteristics;
+    u32 vui_matrix_coefficients;
+
+    u32 vui_video_format;
+    u32 vui_video_signal_type_en;
+    u32 vui_aspect_ratio_width;
+    u32 vui_aspect_ratio_height;
 
     u32 rps_in_slice_header;
     u32 p010_ref_enable;

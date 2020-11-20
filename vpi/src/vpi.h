@@ -110,6 +110,39 @@ enum VPIColorSpace {
     VPICOL_SPC_NB                ///< Not part of ABI
 };
 
+/**
+ * MPEG vs JPEG YUV range.
+ */
+enum VPIColorRange {
+    VPICOL_RANGE_UNSPECIFIED = 0,
+    VPICOL_RANGE_MPEG        = 1, ///< the normal 219*2^(n-8) "MPEG" YUV ranges
+    VPICOL_RANGE_JPEG        = 2, ///< the normal     2^n-1   "JPEG" YUV ranges
+    VPICOL_RANGE_NB               ///< Not part of ABI
+};
+
+#define VPI_PKT_FLAG_KEY     0x0001 ///< The packet contains a keyframe
+#define VPI_PKT_FLAG_CORRUPT 0x0002 ///< The packet content is corrupted
+/**
+ * Flag is used to discard packets which are required to maintain valid
+ * decoder state but are not required for output and should be dropped
+ * after decoding.
+ **/
+#define VPI_PKT_FLAG_DISCARD   0x0004
+/**
+ * The packet comes from a trusted source.
+ *
+ * Otherwise-unsafe constructs such as arbitrary pointers to data
+ * outside the packet may be followed.
+ */
+#define VPI_PKT_FLAG_TRUSTED   0x0008
+/**
+ * Flag is used to indicate packets that contain frames that can
+ * be discarded by the decoder.  I.e. Non-reference frames.
+ */
+#define VPI_PKT_FLAG_DISPOSABLE 0x0010
+
+#define VID_NOPTS_VALUE ((int64_t)UINT64_C(0x8000000000000000))
+
 typedef struct VpiBufRef VpiBufRef;
 
 typedef struct VpeVpiCtx {

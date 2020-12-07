@@ -272,10 +272,12 @@ typedef struct VpiFrame {
     VpiPixsFmt raw_format;
     void (*vpe_frame_free)(void *opaque, uint8_t *data);
     pthread_mutex_t frame_mutex;
-
     /* for HDR */
     VpiHdrInfo hdr_info;
     int color_range;
+    uint16_t cfg_width;
+    uint16_t cfg_height;
+    uint8_t cfg_res;
 } VpiFrame;
 
 typedef struct VpiSysInfo {

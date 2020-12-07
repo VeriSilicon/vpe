@@ -55,8 +55,8 @@
  *  @Params: p_enc place where to save the new encoder instance
  *  @Return: 0 for success, -1 for error
  */
-static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc,
-                                 VPIH26xEncCfg *vpi_h26xe_cfg)
+static VpiRet h26x_enc_open_encoder(VpiH26xEncCtx *enc_ctx, VPIH26xEncOptions *options,
+                                    VCEncInst *p_enc, VPIH26xEncCfg *vpi_h26xe_cfg)
 {
     VCEncRet ret = -1;
     VpiRet vpi_ret = VPI_SUCCESS;
@@ -97,6 +97,7 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
 
     cfg.frameRateDenom = options->output_rate_denom;
     cfg.frameRateNum   = options->output_rate_numer;
+    VPILOGD("frameRateDenom %d, frameRateNum %d\n", cfg.frameRateDenom, cfg.frameRateNum);
 
     /* intra tools in sps and pps */
     cfg.strongIntraSmoothing = options->strong_intra_smoothing_enabled_flag;
@@ -144,7 +145,7 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
     if ((cfg.bitDepthLuma != 8 && cfg.bitDepthLuma != 10) ||
         (cfg.bitDepthChroma != 8 && cfg.bitDepthChroma != 10) ||
         cfg.bitDepthLuma != cfg.bitDepthChroma) {
-        VPILOGE("UNSUPPORT bitdepth!\n");
+        VPILOGE("UNSUPPORT bitdepth %d %d!\n", cfg.bitDepthLuma, cfg.bitDepthChroma);
         return VPI_ERR_ENCODER_OPITION;
     }
 
@@ -249,53 +250,59 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
 #endif
 #endif
     VPILOGD("\n+++ cfg.w = %d, cfg.h = %d\n", cfg.width, cfg.height);
-#ifdef CHECK_MEM_LEAK_TRANS
-    cfg.perf = EWLcalloc(1, sizeof(ENCPERF));
-#else
-    cfg.perf = calloc(1, sizeof(ENCPERF));
-#endif
-    if (cfg.perf) {
-        ENCPERF *perf       = cfg.perf;
-        vpi_h26xe_cfg->perf = perf;
-        VPILOGD("calloc perf = %p\n", perf);
-        pthread_mutex_init(&perf->hwcycle_acc_mutex, NULL);
-#ifdef FB_PERFORMANCE_STATIC
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehw);
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehwp1);
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vce_dummy_0);
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vce_dummy_1);
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, CU_ANAL);
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehw_total);
-        PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vce_total);
-#endif
-    }
 
-    param.clientType = IS_H264(options->codec_format) ?
-                           EWL_CLIENT_TYPE_H264_ENC :
-                           EWL_CLIENT_TYPE_HEVC_ENC;
+    if (enc_ctx->resolution_change == 0 &&
+        enc_ctx->fps_change == 0) {
+#ifdef CHECK_MEM_LEAK_TRANS
+        cfg.perf = EWLcalloc(1, sizeof(ENCPERF));
+#else
+        cfg.perf = calloc(1, sizeof(ENCPERF));
+#endif
+        if (cfg.perf) {
+            ENCPERF *perf       = cfg.perf;
+            vpi_h26xe_cfg->perf = perf;
+            VPILOGD("calloc perf = %p\n", perf);
+            pthread_mutex_init(&perf->hwcycle_acc_mutex, NULL);
+#ifdef FB_PERFORMANCE_STATIC
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehw);
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehwp1);
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vce_dummy_0);
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vce_dummy_1);
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, CU_ANAL);
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vcehw_total);
+            PERFORMANCE_STATIC_INIT(vpi_h26xe_cfg, perf, vce_total);
+#endif
+        }
+
+        param.clientType = IS_H264(options->codec_format) ?
+                               EWL_CLIENT_TYPE_H264_ENC :
+                               EWL_CLIENT_TYPE_HEVC_ENC;
 
 #ifdef DRV_NEW_ARCH
-    param.device   = vpi_h26xe_cfg->device;
-    param.priority = vpi_h26xe_cfg->priority;
-    param.mem_id   = vpi_h26xe_cfg->mem_id;
-    param.pass     = 0;
+        param.device   = vpi_h26xe_cfg->device;
+        param.priority = vpi_h26xe_cfg->priority;
+        param.mem_id   = vpi_h26xe_cfg->mem_id;
+        param.pass     = 0;
 #endif
-    param.perf      = cfg.perf;
-    param.ewl_index = vpi_h26xe_cfg->enc_index;
-    if ((vpi_h26xe_cfg->ewl = EWLInit(&param)) == NULL) {
-        VPILOGE("OpenEncoder: EWL Initialization failed!\n");
-        return VPI_ERR_ENCODER_INIT;
-    }
-    VPILOGD("ewl is outside initialized.\n");
-
-    /* this is for 2 pass */
-    if (options->lookahead_depth != 0) {
-        param.pass = 1;
-        if ((vpi_h26xe_cfg->two_pass_ewl = EWLInit(&param)) == NULL) {
-            VPILOGE("OpenEncoder: EWL for 2 pass Initialization failed!\n");
+        param.perf      = cfg.perf;
+        param.ewl_index = vpi_h26xe_cfg->enc_index;
+        if ((vpi_h26xe_cfg->ewl = EWLInit(&param)) == NULL) {
+            VPILOGE("OpenEncoder: EWL Initialization failed!\n");
             return VPI_ERR_ENCODER_INIT;
         }
-        VPILOGD("2 pass ewl is outside initialized.\n");
+        VPILOGD("ewl is outside initialized.\n");
+
+        /* this is for 2 pass */
+        if (options->lookahead_depth != 0) {
+            param.pass = 1;
+            if ((vpi_h26xe_cfg->two_pass_ewl = EWLInit(&param)) == NULL) {
+                VPILOGE("OpenEncoder: EWL for 2 pass Initialization failed!\n");
+                return VPI_ERR_ENCODER_INIT;
+            }
+            VPILOGD("2 pass ewl is outside initialized.\n");
+        }
+    } else {
+        cfg.perf = vpi_h26xe_cfg->perf;
     }
 
     if ((ret = VCEncInit(&cfg, p_enc, vpi_h26xe_cfg->ewl,
@@ -1018,7 +1025,7 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
  *
  *  @Params: encoder the instance to be released
  */
-static VpiRet h26x_enc_close_encoder(VCEncInst encoder,
+static VpiRet h26x_enc_close_encoder(VpiH26xEncCtx *ctx, VCEncInst encoder,
                                    VPIH26xEncCfg *vpi_h26xe_cfg)
 {
     VCEncRet ret;
@@ -1036,36 +1043,39 @@ static VpiRet h26x_enc_close_encoder(VCEncInst encoder,
         }
     }
 
-    if (vpi_h26xe_cfg->ewl) {
-        EWLRelease(vpi_h26xe_cfg->ewl);
-        vpi_h26xe_cfg->ewl = NULL;
-    }
+    if (ctx->resolution_change == 0 &&
+        ctx->fps_change == 0) {
+        if (vpi_h26xe_cfg->ewl) {
+            EWLRelease(vpi_h26xe_cfg->ewl);
+            vpi_h26xe_cfg->ewl = NULL;
+        }
 
-    if (vpi_h26xe_cfg->two_pass_ewl) {
-        EWLRelease(vpi_h26xe_cfg->two_pass_ewl);
-        vpi_h26xe_cfg->two_pass_ewl = NULL;
-    }
+        if (vpi_h26xe_cfg->two_pass_ewl) {
+            EWLRelease(vpi_h26xe_cfg->two_pass_ewl);
+            vpi_h26xe_cfg->two_pass_ewl = NULL;
+        }
 
-    if (vpi_h26xe_cfg->perf) {
-        ENCPERF *perf = vpi_h26xe_cfg->perf;
-        pthread_mutex_destroy(&perf->hwcycle_acc_mutex);
+        if (vpi_h26xe_cfg->perf) {
+            ENCPERF *perf = vpi_h26xe_cfg->perf;
+            pthread_mutex_destroy(&perf->hwcycle_acc_mutex);
 #ifdef FB_PERFORMANCE_STATIC
-        PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vcehwp1);
-        PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vcehwp1);
-        PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vcehw);
-        PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vcehw);
-        PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, CU_ANAL);
-        PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, CU_ANAL);
-        PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vcehw_total);
-        PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vcehw_total);
-        PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vce_total);
-        PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vce_total);
+            PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vcehwp1);
+            PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vcehwp1);
+            PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vcehw);
+            PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vcehw);
+            PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, CU_ANAL);
+            PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, CU_ANAL);
+            PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vcehw_total);
+            PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vcehw_total);
+            PERFORMANCE_STATIC_REPORT(vpi_h26xe_cfg, perf, vce_total);
+            PERFORMANCE_STATIC_VERBOSE(vpi_h26xe_cfg, perf, vce_total);
 #endif
 #ifdef CHECK_MEM_LEAK_TRANS
-        EWLfree(vpi_h26xe_cfg->perf);
+            EWLfree(vpi_h26xe_cfg->perf);
 #else
-        free(vpi_h26xe_cfg->perf);
+            free(vpi_h26xe_cfg->perf);
 #endif
+        }
     }
 
     return vpi_ret;
@@ -1205,11 +1215,9 @@ static int calc_next_coding_type(VpiH26xEncCtx *ctx)
         if (ctx->next_poc == 0) {
             p_enc_in->gopSize = 1;
         }
-
         if (p_enc_in->gopPicIdx == p_enc_in->gopSize - 1) {
             ctx->next_gop_start = vpi_h26xe_cfg->input_pic_cnt;
             int length          = ctx->next_idr_poc - ctx->next_gop_start;
-
             if (length > ctx->gop_len) {
             } else {
                 if ((length >= 1) && (length <= ctx->gop_len)) {
@@ -1307,6 +1315,7 @@ static VpiRet h26x_enc_call_vcstart(VpiH26xEncCtx *enc_ctx,
     h26x_cfg_init_pic(vpi_h26xe_cfg, options, &enc_ctx->ma, &enc_ctx->agop);
     h26x_enc_init_pic_config(p_enc_in, vpi_h26xe_cfg, options);
     enc_ctx->next_gop_size = p_enc_in->gopSize;
+    enc_ctx->total_bits    = 0;
 
     /* Video, sequence and picture parameter sets */
     *stream_size = 0;
@@ -1367,28 +1376,42 @@ static VpiRet h26x_encode_end(VpiH26xEncCtx *enc_ctx)
 #endif
 
     if (ret == VCENC_OK) {
-        i = h26x_enc_get_empty_stream_buffer(enc_ctx);
-        if (i == -1) {
-            VPILOGD("Can't found empty stream buffer\n");
-            return VPI_ERR_ENCODE;
+        if (enc_ctx->resolution_change == 1 ||
+            enc_ctx->fps_change == 1) {
+            enc_ctx->flush_state = VPIH26X_FLUSH_RESTART_ENCODER;
+        } else {
+            i = h26x_enc_get_empty_stream_buffer(enc_ctx);
+            if (i == -1) {
+                VPILOGD("Can't found empty stream buffer\n");
+                return VPI_ERR_ENCODE;
+            }
+            out_buffer              = &enc_ctx->outstream_pkt[i];
+            out_buffer->header_size = p_enc_out->streamSize;
+            if (enc_ctx->res_fps_change) {
+                if (out_buffer->header_size) {
+                    out_buffer->header_data = malloc(out_buffer->header_size);
+                    memcpy(out_buffer->header_data, enc_ctx->header_data,
+                              out_buffer->header_size);
+                }
+            } else {
+                out_buffer->header_data = enc_ctx->header_data;
+            }
+            out_buffer->end_data    = HANTRO_TRUE;
+            enc_ctx->flush_state    = VPIH26X_FLUSH_ENCEND;
+            enc_ctx->h26xe_thd_end  = 1;
+
+            enc_ctx->encode_end     = 1;
+            enc_ctx->stream_buf_list[i]->used = 1;
+            enc_ctx->stream_buf_list[i]->item = &enc_ctx->outstream_pkt[i];
+            pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+            h26x_enc_buf_list_add(&enc_ctx->stream_buf_head,
+                                   enc_ctx->stream_buf_list[i]);
+            if (enc_ctx->waiting_for_pkt == 1) {
+                pthread_cond_signal(&enc_ctx->h26xe_thd_cond);
+                enc_ctx->waiting_for_pkt = 0;
+            }
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         }
-        out_buffer              = &enc_ctx->outstream_pkt[i];
-        out_buffer->header_size = p_enc_out->streamSize;
-        out_buffer->header_data = enc_ctx->header_data;
-        out_buffer->end_data    = HANTRO_TRUE;
-        enc_ctx->flush_state    = VPIH26X_FLUSH_ENCEND;
-        enc_ctx->h26xe_thd_end  = 1;
-        enc_ctx->encode_end     = 1;
-        enc_ctx->stream_buf_list[i]->used = 1;
-        enc_ctx->stream_buf_list[i]->item = &enc_ctx->outstream_pkt[i];
-        pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
-        h26x_enc_buf_list_add(&enc_ctx->stream_buf_head,
-                               enc_ctx->stream_buf_list[i]);
-        if (enc_ctx->waiting_for_pkt == 1) {
-            pthread_cond_signal(&enc_ctx->h26xe_thd_cond);
-            enc_ctx->waiting_for_pkt = 0;
-        }
-        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
     } else {
         VPILOGE("VCEncStrmEnd ret is %d\n", ret);
         return VPI_ERR_ENCODE;
@@ -1474,44 +1497,52 @@ static VpiRet h26x_enc_send_pic(VpiH26xEncCtx *enc_ctx, int poc_need,
             p_trans = &enc_ctx->pic_wait_list[i];
             VPILOGD("ctx %p, %d, poc %d, need_poc %d\n",
                      enc_ctx, i, p_trans->poc, poc_need);
-            if (p_trans->poc == poc_need) {
-                /* add to get new vui info */
-                if (poc_need == 0) {
-                    VCEncCodingCtrl coding_cfg;
-                    if (VCEncGetCodingCtrl(enc_ctx->hantro_encoder, &coding_cfg) != VCENC_OK) {
-                        VPILOGE("VCEncGetCodingCtrl failed\n");
-                        return -1;
-                    } else {
-                        if (cfg->color_range == VPICOL_RANGE_JPEG) {
-                            options->video_range = 1;
-                        } else {
-                            options->video_range = 0;
-                        }
-
-                        options->vui_video_signal_type_en |= options->video_range;
-                        coding_cfg.vuiVideoSignalTypePresentFlag = options->vui_video_signal_type_en;
-                        coding_cfg.vuiVideoFullRange = options->video_range;
-
-                        if (VCEncSetCodingCtrl(enc_ctx->hantro_encoder, &coding_cfg) != VCENC_OK) {
-                            VPILOGE("VCEncSetCodingCtrl failed\n");
+            if ((enc_ctx->resolution_change == 1 &&
+                (enc_ctx->pic_wait_list[i].new_flag & RESOLUTION_CHANGE_FLAG)) ||
+                (enc_ctx->fps_change == 1 &&
+                (enc_ctx->pic_wait_list[i].new_flag & FPS_CHANGE_FLAG))){
+                VPILOGD("related to next GOP after restart\n");
+                pthread_mutex_unlock(&enc_ctx->pic_wait_list[i].pic_mutex);
+            } else {
+                if (p_trans->poc == poc_need) {
+                    /* add to get new vui info */
+                    if (poc_need == 0) {
+                        VCEncCodingCtrl coding_cfg;
+                        if (VCEncGetCodingCtrl(enc_ctx->hantro_encoder, &coding_cfg) != VCENC_OK) {
+                            VPILOGE("VCEncGetCodingCtrl failed\n");
                             return -1;
+                        } else {
+                            if (cfg->color_range == VPICOL_RANGE_JPEG) {
+                                options->video_range = 1;
+                            } else {
+                                options->video_range = 0;
+                            }
+
+                            options->vui_video_signal_type_en |= options->video_range;
+                            coding_cfg.vuiVideoSignalTypePresentFlag = options->vui_video_signal_type_en;
+                            coding_cfg.vuiVideoFullRange = options->video_range;
+
+                            if (VCEncSetCodingCtrl(enc_ctx->hantro_encoder, &coding_cfg) != VCENC_OK) {
+                                VPILOGE("VCEncSetCodingCtrl failed\n");
+                                return -1;
+                            }
                         }
                     }
-                }
 
-                pic_ppu = (struct DecPicturePpu *)p_trans->pic->data[0];
-                if (pic_ppu == NULL) {
-                    VPILOGE("enc get frame[%d] error\n", poc_need);
-                    return VPI_ERR_ENCODE;
+                    pic_ppu = (struct DecPicturePpu *)p_trans->pic->data[0];
+                    if (pic_ppu == NULL) {
+                        VPILOGE("enc get frame[%d] error\n", poc_need);
+                        return VPI_ERR_ENCODE;
+                    }
+                    pic_data =
+                        (struct DecPicture *)&pic_ppu->pictures[enc_ctx->pp_index];
+                    p_trans->in_pass_one_queue = 1;
+                    p_trans->used              = 1;
+                    pthread_mutex_unlock(&p_trans->pic_mutex);
+                    break;
+                } else {
+                    pthread_mutex_unlock(&p_trans->pic_mutex);
                 }
-                pic_data =
-                    (struct DecPicture *)&pic_ppu->pictures[enc_ctx->pp_index];
-                p_trans->in_pass_one_queue = 1;
-                p_trans->used              = 1;
-                pthread_mutex_unlock(&p_trans->pic_mutex);
-                break;
-            } else {
-                pthread_mutex_unlock(&p_trans->pic_mutex);
             }
         } else {
             pthread_mutex_unlock(&enc_ctx->pic_wait_list[i].pic_mutex);
@@ -1605,17 +1636,39 @@ static VpiRet h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
         }
         outstrm_buf = &enc_ctx->outstream_pkt[idx];
         if (cfg->picture_enc_cnt == 1) {
-            outstrm_buf->header_data    = enc_ctx->header_data; //ctx->outPkt->data;
-            outstrm_buf->header_size    = enc_ctx->header_size; //ctx->outPkt->size;
+            outstrm_buf->header_size = enc_ctx->header_size; //ctx->outPkt->size;
+            if (enc_ctx->res_fps_change) {
+                if (outstrm_buf->header_size) {
+                    outstrm_buf->header_data = malloc(outstrm_buf->header_size);
+                    memcpy(outstrm_buf->header_data, enc_ctx->header_data,
+                                            outstrm_buf->header_size);
+                }
+            } else {
+                outstrm_buf->header_data = enc_ctx->header_data;
+            }
         } else {
             if (p_enc_out->resendSPS) {
                 VPILOGD("has sps header size = %d\n", p_enc_out->header_size);
-                outstrm_buf->header_data = p_enc_out->header_buffer;
                 outstrm_buf->header_size = p_enc_out->header_size;
+                if (enc_ctx->res_fps_change) {
+                    if (outstrm_buf->header_size) {
+                        outstrm_buf->header_data = malloc(outstrm_buf->header_size);
+                        memcpy(outstrm_buf->header_data, p_enc_out->header_buffer, outstrm_buf->header_size);
+                    }
+                } else {
+                    outstrm_buf->header_data = p_enc_out->header_buffer;
+                }
             } else if (p_enc_out->codingType == VCENC_INTRA_FRAME) {
                 // add SPS/PPS before IDR for RTP/UDP case
-                outstrm_buf->header_data = enc_ctx->header_data;
                 outstrm_buf->header_size = enc_ctx->header_size;
+                if (enc_ctx->res_fps_change) {
+                    if (outstrm_buf->header_size) {
+                        outstrm_buf->header_data = malloc(outstrm_buf->header_size);
+                        memcpy(outstrm_buf->header_data, enc_ctx->header_data, outstrm_buf->header_size);
+                    }
+                } else {
+                    outstrm_buf->header_data = enc_ctx->header_data;
+                }
             } else {
                 outstrm_buf->header_data = NULL;
                 outstrm_buf->header_size = 0;
@@ -1662,6 +1715,8 @@ static VpiRet h26x_enc_process_frame(VpiH26xEncCtx *enc_ctx,
         VPILOGD("pts %ld, dts %ld, poc @%d\n",
                  (outstrm_buf->pts*1000)/30, (outstrm_buf->dts*1000)/30,
                   p_enc_out->indexEncoded);
+
+        enc_ctx->act_enc_cnt++;
 
         for (i = 0; i < 3; i++) {
             outstrm_buf->ssim[i] = p_enc_out->ssim[i];
@@ -1834,8 +1889,8 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
                         + cfg->first_pic;
 
     p_enc_in->indexTobeEncode = ctx->next_poc;
-    VPILOGD("ctx->next_poc = %d, ctx->delta_poc = %d\n",
-             ctx->next_poc, ctx->delta_poc);
+    VPILOGD("ctx->next_poc = %d, ctx->delta_poc = %d, cfg->first_pic = %d\n",
+             ctx->next_poc, ctx->delta_poc, cfg->first_pic);
 
     if (ctx->flush_state == VPIH26X_FLUSH_IDLE) {
         ret = h26x_enc_send_pic(ctx, ctx->next_poc, &addrs, &pict_pts);
@@ -1863,7 +1918,6 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
         return VPI_ERR_ENCODE;
     }
   //p_enc_in->pts = pict_pts; //??? need or not
-
     if (cfg->last_pic > 0 && ctx->next_poc > cfg->last_pic) {
         VPILOGE("next_poc = %d, exceed lastPic %d\n",
                  ctx->next_poc, cfg->last_pic);
@@ -1930,9 +1984,7 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
     VPILOGD("TSLumaMem->busAddr = %p\n", cfg->ts_lumamem->busAddress);
     VPILOGD("TSChromaMem->busAd = %p\n", cfg->ts_chromamem->busAddress);
 #endif
-
     ctx->frame_cnt_total++;
-
     format_customized_yuv(cfg, options, &ret);
     if (ret) {
         VPILOGE("Format customized yuv failed\n");
@@ -2128,7 +2180,6 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
 
     out_buffer = &ctx->enc_pkt[0];
     setup_output_buffer(ctx->hantro_encoder, out_buffer, p_enc_in);
-
     gettimeofday(&cfg->time_frame_start, 0);
     retValue = VCEncStrmEncode(ctx->hantro_encoder, p_enc_in, p_enc_out,
                           &h26x_enc_slice_ready, cfg->slice_ctl);
@@ -2221,8 +2272,8 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
                      ctx->next_gop_size);
 
             calc_next_coding_type(ctx);
-            VPILOGD("pEncIn->gopSize = %d, tb->nextGopSize = %d\n",
-                     p_enc_in->gopSize, cfg->next_gop_size);
+            VPILOGD("pEncIn->gopSize = %d, tb->nextGopSize = %d, next_coding_type %d\n",
+                     p_enc_in->gopSize, cfg->next_gop_size, ctx->next_coding_type);
 
             if (ctx->p_user_data) {
             /* We want the user data to be written only once so
@@ -2232,6 +2283,7 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
                 EWLfree(ctx->p_user_data);
                 ctx->p_user_data = NULL;
             }
+
             break;
         case VCENC_OUTPUT_BUFFER_OVERFLOW:
             cfg->enc_in.picture_cnt++;
@@ -2272,6 +2324,232 @@ error:
     return VPI_ERR_ENCODE;
 }
 
+int vpi_h26xe_restart(VpiH26xEncCtx *ctx)
+{
+    VCEncOut *enc_out            = (VCEncOut *)&ctx->enc_out;
+    VCEncInst *hantro_encoder    = &ctx->hantro_encoder;
+    VPIH26xEncOptions *options   = &ctx->options;
+    VPIH26xEncCfg *vpi_h26xe_cfg = (VPIH26xEncCfg *)&ctx->vpi_h26xe_cfg;
+    int ret;
+    u32 alignment    = 0;
+    u32 picture_size = 0;
+    u32 luma_size    = 0, chroma_size = 0;
+
+    h26x_enc_close_encoder(ctx, ctx->hantro_encoder, vpi_h26xe_cfg);
+    if (ctx->header_data) {
+        free(ctx->header_data);
+    }
+
+    if (ctx->restart_flag & RESOLUTION_CHANGE_FLAG) {
+        ctx->pp_index            = 2;
+        options->enc_index       = 1;
+        vpi_h26xe_cfg->enc_index = 1;
+        ctx->res_enable          = 1;
+    } else {
+        if (ctx->res_enable == 1) {
+            ctx->pp_index            = 2;
+            options->enc_index       = 1;
+            vpi_h26xe_cfg->enc_index = 1;
+        } else {
+            if (ctx->restart_flag & FPS_CHANGE_FLAG) {
+                ctx->pp_index            = 0;
+                options->enc_index       = 0;
+                vpi_h26xe_cfg->enc_index = 0;
+            }
+        }
+    }
+
+    ctx->eos_received = 0;
+    vpi_h26xe_cfg->input_pic_cnt = 0;
+    vpi_h26xe_cfg->picture_enc_cnt = 0;
+    vpi_h26xe_cfg->enc_in.picture_cnt = 0;
+    ctx->cfg_width = 0;
+    ctx->cfg_height = 0;
+
+    if (ctx->resolution_change == 1) {
+        ctx->cur_width = ctx->new_width;
+        ctx->cur_height = ctx->new_height;
+        ctx->new_width = 0;
+        ctx->new_height = 0;
+    }
+    if (ctx->fps_change == 1) {
+        options->output_rate_numer = ctx->rc_output_rate_numer;
+        options->output_rate_denom = ctx->rc_output_rate_denom;
+        options->input_rate_numer = options->output_rate_numer;
+        options->input_rate_denom = options->output_rate_denom;
+        ctx->rc_output_rate_numer = 0;
+        ctx->rc_output_rate_denom = 0;
+    }
+
+    options->width = options->lum_width_src  = ctx->cur_width;
+    options->height = options->lum_height_src = ctx->cur_height;
+
+
+    alignment =
+        (options->format_customized_type != -1 ? 0 :
+                                              vpi_h26xe_cfg->input_alignment);
+
+    get_aligned_pic_size_byformat(options->input_format, options->lum_width_src,
+                                  options->lum_height_src, alignment, &luma_size,
+                                  &chroma_size, &picture_size);
+
+    vpi_h26xe_cfg->luma_size   = luma_size;
+    vpi_h26xe_cfg->chroma_size = chroma_size;
+
+    /* get default bitrate or limit bitrate */
+    {
+        u32 width, height;
+        width = options->width;
+        height = options->height;
+
+        {
+            u32 original_bits_perframe;
+            original_bits_perframe  = (width * height * 3) / 2;
+            original_bits_perframe *= 8;
+            if (options->bit_depth_luma > 8) {
+                original_bits_perframe *= 2;
+            }
+            if (options->bit_per_second > original_bits_perframe / 2) {
+                options->bit_per_second = original_bits_perframe / 2;
+                options->bit_per_second =
+                    ((options->bit_per_second + 100000 - 1) / 100000) * 100000;
+                VPILOGD("limit bitrate to %d\n", options->bit_per_second);
+            }
+        }
+    }
+
+    ctx->encoder_is_start = HANTRO_FALSE;
+    ctx->encoder_is_end   = HANTRO_FALSE;
+    ctx->trans_flush_pic  = HANTRO_FALSE;
+    ctx->flush_state      = VPIH26X_FLUSH_IDLE;
+    ctx->picture_cnt_bk   = 0;
+
+    /* get GOP configuration */
+    vpi_h26xe_cfg->gop_size = MIN(options->gop_size, MAX_GOP_SIZE);
+    if (vpi_h26xe_cfg->gop_size == 0 && options->gop_lowdelay) {
+        vpi_h26xe_cfg->gop_size = 4;
+    }
+
+    memset(&(vpi_h26xe_cfg->enc_in.gopConfig), 0, sizeof(VCEncGopConfig));
+    memset(ctx->gop_pic_cfg, 0, sizeof(ctx->gop_pic_cfg));
+    vpi_h26xe_cfg->enc_in.gopConfig.pGopPicCfg = ctx->gop_pic_cfg;
+    memset(ctx->gop_pic_special_cfg, 0,
+           sizeof(ctx->gop_pic_special_cfg));
+    vpi_h26xe_cfg->enc_in.gopConfig.pGopPicSpecialCfg =
+        ctx->gop_pic_special_cfg;
+    if ((ret = init_gop_configs(vpi_h26xe_cfg->gop_size, options,
+                                &(vpi_h26xe_cfg->enc_in.gopConfig),
+                                vpi_h26xe_cfg->enc_in.gopConfig.gopCfgOffset,
+                                HANTRO_FALSE)) != 0) {
+        VPILOGE("%s,%s,%d, init_gop_configs error", __FILE__, __FUNCTION__,
+                __LINE__);
+        return VPI_ERR_ENCODER_OPITION;
+    }
+    if (options->lookahead_depth) {
+        memset(ctx->gop_pic_cfg_pass2, 0,
+               sizeof(ctx->gop_pic_cfg_pass2));
+        vpi_h26xe_cfg->enc_in.gopConfig.pGopPicCfg = ctx->gop_pic_cfg_pass2;
+        vpi_h26xe_cfg->enc_in.gopConfig.size       = 0;
+        memset(ctx->gop_pic_special_cfg, 0,
+               sizeof(ctx->gop_pic_special_cfg));
+        vpi_h26xe_cfg->enc_in.gopConfig.pGopPicSpecialCfg =
+            ctx->gop_pic_special_cfg;
+        if ((ret =
+                 init_gop_configs(vpi_h26xe_cfg->gop_size, options,
+                                  &(vpi_h26xe_cfg->enc_in.gopConfig),
+                                  vpi_h26xe_cfg->enc_in.gopConfig.gopCfgOffset,
+                                  HANTRO_TRUE)) != 0) {
+            return VPI_ERR_ENCODER_OPITION;
+        }
+        vpi_h26xe_cfg->enc_in.gopConfig.pGopPicCfgPass1 = ctx->gop_pic_cfg;
+        vpi_h26xe_cfg->enc_in.gopConfig.pGopPicCfg =
+            vpi_h26xe_cfg->enc_in.gopConfig.pGopPicCfgPass2 =
+                ctx->gop_pic_cfg_pass2;
+    }
+    VPILOGD("lookahead_depth %d, gop_size %d\n",
+             options->lookahead_depth, options->gop_size);
+    if ((ret = h26x_enc_open_encoder(ctx, options, hantro_encoder, vpi_h26xe_cfg)) !=
+        0) {
+        return ret;
+    }
+
+    vpi_h26xe_cfg->first_pic         = options->first_pic;
+    vpi_h26xe_cfg->last_pic          = options->last_pic;
+    vpi_h26xe_cfg->input_rate_numer  = options->input_rate_numer;
+    vpi_h26xe_cfg->input_rate_denom  = options->input_rate_denom;
+    vpi_h26xe_cfg->output_rate_numer = options->output_rate_numer;
+    vpi_h26xe_cfg->output_rate_denom = options->output_rate_denom;
+    vpi_h26xe_cfg->width             = options->width;
+    vpi_h26xe_cfg->height            = options->height;
+
+    vpi_h26xe_cfg->enc_in.gopConfig.idr_interval = vpi_h26xe_cfg->idr_interval;
+    vpi_h26xe_cfg->enc_in.gopConfig.gdrDuration  = options->gdr_duration;
+    vpi_h26xe_cfg->enc_in.gopConfig.firstPic     = vpi_h26xe_cfg->first_pic;
+    vpi_h26xe_cfg->enc_in.gopConfig.lastPic      = vpi_h26xe_cfg->last_pic;
+    vpi_h26xe_cfg->enc_in.gopConfig.outputRateNumer =
+        vpi_h26xe_cfg->output_rate_numer; /* Output frame rate numerator */
+    vpi_h26xe_cfg->enc_in.gopConfig.outputRateDenom =
+        vpi_h26xe_cfg->output_rate_denom; /* Output frame rate denominator */
+    vpi_h26xe_cfg->enc_in.gopConfig.inputRateNumer =
+        vpi_h26xe_cfg->input_rate_numer; /* Input frame rate numerator */
+    vpi_h26xe_cfg->enc_in.gopConfig.inputRateDenom =
+        vpi_h26xe_cfg->input_rate_denom; /* Input frame rate denominator */
+    vpi_h26xe_cfg->enc_in.gopConfig.gopLowdelay = options->gop_lowdelay;
+    vpi_h26xe_cfg->enc_in.gopConfig.interlacedFrame =
+        vpi_h26xe_cfg->interlaced_frame;
+    /* Set the test ID for internal testing, the SW must be compiled with
+     * testing flags
+     */
+    VCEncSetTestId(*hantro_encoder, options->test_id);
+
+    /*Init the IDR POC array*/
+    ctx->inject_frm_cnt = 0;
+    ctx->gop_len =
+        (vpi_h26xe_cfg->gop_size == 0) ? 8 : vpi_h26xe_cfg->gop_size;
+
+    idr_poc_array_init(ctx);
+
+    if (ctx->encoder_is_start == HANTRO_FALSE) {
+        ctx->encoder_is_start = HANTRO_TRUE;
+
+        ret = h26x_enc_start(ctx, enc_out);
+        if (ret != 0) {
+            ret = VPI_ERR_ENCODE;
+        } else {
+            ctx->inject_frm_cnt = 1; /*IDR need store data ahead*/
+            ret = VPI_SUCCESS;
+        }
+    }
+
+    if (ctx->restart_flag & RESOLUTION_CHANGE_FLAG) {
+        ctx->resolution_change = 0;
+        ctx->restart_flag &= ~RESOLUTION_CHANGE_FLAG;
+        VPILOGD("resolution change done, ctx->restart_flag %d\n", ctx->restart_flag);
+        if (ctx->restart_flag & FPS_NEXT_CHANGE_FLAG) {
+            ctx->fps_change = 1;
+            ctx->eos_received = 1;
+            ctx->restart_flag = FPS_CHANGE_FLAG;
+            VPILOGD("will do fps change restart\n");
+        }
+    } else {
+        if (ctx->restart_flag & FPS_CHANGE_FLAG) {
+            ctx->fps_change = 0;
+            ctx->restart_flag &= ~FPS_CHANGE_FLAG;
+            VPILOGD("fps change done\n");
+            if (ctx->restart_flag & RESOLUTION_NEXT_CHANGE_FLAG) {
+                ctx->resolution_change = 1;
+                ctx->eos_received = 1;
+                ctx->restart_flag = RESOLUTION_CHANGE_FLAG;
+                VPILOGD("will do res change restart\n");
+            }
+        }
+    }
+
+    VPILOGD("restart result %d\n", ret);
+
+    return ret;
+}
+
 VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
 {
     VPIH26xEncOptions *options = &ctx->options;
@@ -2284,6 +2562,7 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
     int flush_ret = 0;
     int *got_packet = 0;
     int i = 0;
+    u32 new_fps_numer = 0, new_fps_demon = 0;
 
     if (ctx->flush_state == VPIH26X_FLUSH_ERROR
        || ctx->flush_state == VPIH26X_FLUSH_ENCEND) {
@@ -2311,7 +2590,12 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
 
             if (ctx->trans_flush_pic == HANTRO_TRUE
                  && ctx->eos_received == 1) {
-                ctx->flush_state = VPIH26X_FLUSH_PREPARE;
+                if (ctx->fps_change_fist_frame == 0) {
+                    ctx->flush_state = VPIH26X_FLUSH_PREPARE;
+                } else {
+                    ctx->flush_state = VPIH26X_FLUSH_FINISH;
+                    ctx->fps_change_fist_frame = 0;
+                }
             }
             break;
 
@@ -2346,11 +2630,16 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
                 return VPI_SUCCESS;
             }
             break;
-
+        case VPIH26X_FLUSH_RESTART_ENCODER:
+            ret = vpi_h26xe_restart(ctx);
+            break;
         default:
             break;
     }
 
+    if (ctx->res_fps_change) {
+        h26x_set_new_res(ctx);
+    }
     return VPI_SUCCESS;
 
 error:
@@ -2407,7 +2696,18 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
         ret = VPI_ERR_ENCODE;
         goto error_exit;
     }
+
     enc_ctx->pp_index = i;
+    enc_ctx->cur_width = enc_cfg->frame_ctx->pic_info[enc_ctx->pp_index].width;
+    enc_ctx->cur_height = enc_cfg->frame_ctx->pic_info[enc_ctx->pp_index].height;
+    VPILOGD("%p pp_index %d\n", enc_ctx, enc_ctx->pp_index);
+    VPILOGD("cur_width %d, cur_height %d\n",
+               enc_ctx->cur_width, enc_ctx->cur_height);
+
+    enc_ctx->ctx_frame = enc_cfg->frame_ctx;
+    enc_ctx->cfg_width = 0;
+    enc_ctx->cfg_height = 0;
+    enc_ctx->res_enable = 0;
 
     ret = h26x_enc_set_options(enc_ctx, enc_cfg);
     if (ret != 0) {
@@ -2430,6 +2730,13 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     enc_ctx->trans_flush_pic  = HANTRO_FALSE;
     enc_ctx->flush_state      = VPIH26X_FLUSH_IDLE;
     enc_ctx->picture_cnt_bk   = 0;
+    enc_ctx->act_enc_cnt      = 0;
+    enc_ctx->res_fps_change   = options->pic_rc;
+
+    for (i = 0; i< 120; i++) {
+        enc_ctx->enc_enable[i] = -1;
+    }
+    enc_ctx->fps_change_flag = 0;
 
     vpi_h26xe_cfg->enc_index = options->enc_index;
 
@@ -2539,7 +2846,7 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
 
     VPILOGD(" hantro_encoder[%p], *hantro_encoder[%p]\n", hantro_encoder,
             *hantro_encoder);
-    if ((ret = h26x_enc_open_encoder(options, hantro_encoder, vpi_h26xe_cfg)) !=
+    if ((ret = h26x_enc_open_encoder(enc_ctx, options, hantro_encoder, vpi_h26xe_cfg)) !=
         0) {
         goto error_exit;
     }
@@ -2643,7 +2950,7 @@ error_exit:
     if (*hantro_encoder) {
         h26x_enc_outbuf_uninit(enc_ctx);
         h26x_enc_free_res(enc_ctx, *hantro_encoder);
-        h26x_enc_close_encoder(*hantro_encoder, vpi_h26xe_cfg);
+        h26x_enc_close_encoder(enc_ctx, *hantro_encoder, vpi_h26xe_cfg);
         *hantro_encoder = NULL;
     }
 
@@ -2695,10 +3002,17 @@ int vpi_h26xe_ctrl(VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
 
 VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
 {
+    VPIH26xEncOptions *options = &enc_ctx->options;
+    VPIH26xEncCfg *cfg = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
     VpiEncH26xPic *trans_pic = NULL;
     VpiFrame *frame          = (VpiFrame *)indata;
-    VPIH26xEncCfg *cfg       = &enc_ctx->vpi_h26xe_cfg;
     int i, pic_num;
+    struct DecPicturePpu *pic = NULL;
+    int width, height;
+    u32 new_fps_numer = 0, new_fps_demon = 0;
+    u8 fps, new_fps, cur_fps;
+    VpiFrame *in_vpi_frame    = NULL;
+    int ret;
 
     pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
     if (enc_ctx->flush_state == VPIH26X_FLUSH_ERROR) {
@@ -2711,6 +3025,11 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
         }
         h26x_enc_buf_list_add(&enc_ctx->rls_pic_head, enc_ctx->rls_pic_list[i]);
         pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+
+        in_vpi_frame = (VpiFrame *)frame->vpi_opaque;
+        pthread_mutex_lock(&in_vpi_frame->frame_mutex);
+        in_vpi_frame->used_cnt++;
+        pthread_mutex_unlock(&in_vpi_frame->frame_mutex);
         return 0;
     }
     pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
@@ -2748,17 +3067,37 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
             pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         }
     } else {
+        if (enc_ctx->res_fps_change) {
+            ret = h26x_enc_get_res_fps_info(enc_ctx, frame);
+            if (ret != 0) {
+                return 0;
+            }
+        }
         pthread_mutex_lock(&trans_pic->pic_mutex);
         trans_pic->state             = 1;
         trans_pic->used              = 0;
         trans_pic->in_pass_one_queue = 0;
         trans_pic->poc               = enc_ctx->poc;
+        trans_pic->new_flag          = 0;
+
+        if (enc_ctx->res_fps_change) {
+            if ((enc_ctx->fps_change == 1) ||
+                (enc_ctx->restart_flag & FPS_NEXT_CHANGE_FLAG)) {
+                trans_pic->new_flag |= FPS_CHANGE_FLAG;
+            }
+            if ((enc_ctx->resolution_change == 1) ||
+                (enc_ctx->restart_flag & RESOLUTION_NEXT_CHANGE_FLAG)) {
+                trans_pic->new_flag |= RESOLUTION_CHANGE_FLAG;
+            }
+        }
+
         pthread_mutex_unlock(&trans_pic->pic_mutex);
         for (i = 0; i < MAX_WAIT_DEPTH; i++) {
             VpiFrame *wait_frame, *input_frame;
             if (enc_ctx->pic_wait_list[i].state == 1 && i != pic_num) {
                 wait_frame = enc_ctx->pic_wait_list[i].pic;
                 if (wait_frame->data[0] == frame->data[0]) {
+                    // The frame is been pushed again
                     pthread_mutex_lock(&trans_pic->pic_mutex);
                     input_frame = (VpiFrame *)frame->vpi_opaque;
                     input_frame->nb_outputs++;
@@ -2844,6 +3183,12 @@ VpiRet vpi_h26xe_get_packet(VpiH26xEncCtx *enc_ctx, void *outdata)
              vpi_packet->pts, vpi_packet->pkt_dts,
              enc_ctx->output_pic_cnt, vpi_packet->size, vpi_packet->flags);
 
+    if (enc_ctx->res_fps_change) {
+        if (out_buffer->header_data) {
+            free(out_buffer->header_data);
+        }
+    }
+
     enc_ctx->total_bits += out_buffer->stream_size * 8;
 
     cfg->validencoded_framenumber++;
@@ -2924,7 +3269,7 @@ VpiRet vpi_h26xe_close(VpiH26xEncCtx *enc_ctx)
 
             h26x_enc_outbuf_uninit(enc_ctx);
             h26x_enc_free_res(enc_ctx, enc_ctx->hantro_encoder);
-            h26x_enc_close_encoder(enc_ctx->hantro_encoder, vpi_h26xe_cfg);
+            h26x_enc_close_encoder(enc_ctx, enc_ctx->hantro_encoder, vpi_h26xe_cfg);
         }
     }
 

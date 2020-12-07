@@ -67,11 +67,17 @@
 
 #define DEFAULT_OUT_STRM_BUF_SIZE 0x200000
 
+#define RESOLUTION_CHANGE_FLAG      1
+#define FPS_CHANGE_FLAG             2
+#define RESOLUTION_NEXT_CHANGE_FLAG 4
+#define FPS_NEXT_CHANGE_FLAG        8
+
 typedef struct {
     int state;
     int in_pass_one_queue;
     int used;
     int poc;
+    int new_flag;
     VpiFrame *pic;
     pthread_mutex_t pic_mutex;
 } VpiEncH26xPic;
@@ -313,6 +319,7 @@ typedef enum VpiFlushState {
     VPIH26X_FLUSH_ENCDATA,
     VPIH26X_FLUSH_FINISH,
     VPIH26X_FLUSH_ENCEND,
+    VPIH26X_FLUSH_RESTART_ENCODER,
     VPIH26X_FLUSH_ERROR = -1,
 } VpiFlushState;
 
@@ -394,6 +401,32 @@ typedef struct {
     void* outstream_mem[MAX_OUTPUT_FIFO_DEPTH];
     VpiEncOutData outstream_pkt[MAX_OUTPUT_FIFO_DEPTH];
     u8 outstrm_num;
+
+    /* Resolution/FPS Change case */
+    u16 cur_width;
+    u16 cur_height;
+    u16 new_width;
+    u16 new_height;
+    u8 resolution_change;
+    i32 act_enc_cnt;
+
+    VpiFrame *ctx_frame;
+    u16 cfg_width;
+    u16 cfg_height;
+
+    i32 original_rate_numer;
+    i32 original_rate_denom;
+    i32 rc_output_rate_numer;
+    i32 rc_output_rate_denom;
+    u8 fps_change;
+    i8 enc_enable[120];
+    u8 fps_change_flag;
+    u32 pkt_input_cnt;
+    u8 fps_change_fist_frame;
+
+    u8 restart_flag;
+    u8 res_enable;
+    u32 res_fps_change;
 } VpiH26xEncCtx;
 
 enum {
@@ -423,5 +456,7 @@ void h26x_enc_report(VpiH26xEncCtx *enc_ctx);
 void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
                        MaS *ma, AdapGopCtr *agop);
 i32 h26x_enc_ma(MaS *ma);
-int get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps);
+VpiRet get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps);
+VpiRet get_cfg_rc_fps(VPIH26xEncOptions *option, u32 *new_fps_numer, u32 *new_fps_denom);
+void h26x_set_new_res(VpiH26xEncCtx *ctx);
 #endif /*__VPI_VIDEO_H26XENC_CFG_H__ */

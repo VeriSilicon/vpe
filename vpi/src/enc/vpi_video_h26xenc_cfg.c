@@ -129,6 +129,8 @@ static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
         h26x_enc_cfg->input_rate_denom; /*avctx->framerate.den;*/
     VPILOGD("options->input_rate_numer = %d, options->input_rate_denom = %d\n",
             options->input_rate_numer, options->input_rate_denom);
+    vpi_h26xe_ctx->original_rate_numer = h26x_enc_cfg->input_rate_numer;
+    vpi_h26xe_ctx->original_rate_denom = h26x_enc_cfg->input_rate_denom;
 
     options->output_rate_numer = DEFAULT;
     options->output_rate_denom = DEFAULT;
@@ -2359,36 +2361,251 @@ void h26x_cfg_init_pic(VPIH26xEncCfg *cfg, VPIH26xEncOptions *options,
         ma->length = MOVING_AVERAGE_FRAMES;
 }
 
+static int rc_split_string(char **tgt, int max, char *src, char *split)
+{
+    int count   = 0;
+    char *currp = src;
+    char *p;
+    char c;
+    int i    = 0;
+    int last = 0;
+
+    while ((c = *currp++) != 0x0A) {
+        if ((p = strchr(split, c)) == NULL) {
+            if (count < max) {
+                tgt[count][i++] = c;
+            } else {
+                VPILOGE("the split count exceeds max num\n");
+                return -1;
+            }
+            last = 1;
+        } else {
+            if (last == 1) {
+                tgt[count][i] = '\0';
+                count++;
+                i = 0;
+            }
+            last = 0;
+        }
+    }
+    if (last == 1) {
+        tgt[count][i] = '\0';
+        count++;
+    }
+
+    return count;
+}
+
 VpiRet get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
 {
     FILE *fp = NULL;
     char *cfg_str;
-
+    char *valid_str;
+    char *p;
+    VpiRet ret;
 #define MAX_LINE_SIZE 128
 #define MAX_BPS_VALUE 60000000
 #define MIN_BPS_VALUE 10000
+#define BPS_MAX_SEG_NUM 1
+    char strs[BPS_MAX_SEG_NUM][256];
+    char *rc_strs[BPS_MAX_SEG_NUM];
+    int seg_num = 0;
+    int i;
+
+    for (i = 0; i < BPS_MAX_SEG_NUM; i++)
+        rc_strs[i] = &strs[i][0];
 
     fp = fopen(option->pic_rc_path, "r");
     if (fp) {
         cfg_str = malloc(MAX_LINE_SIZE);
         memset(cfg_str, 0, MAX_LINE_SIZE);
-        if (fgets((char *)cfg_str, MAX_LINE_SIZE, fp) != NULL) {
-            *new_bps = atoi(cfg_str);
-            VPILOGD("read new bps %d from cfg file %s\n", *new_bps,
-                    option->pic_rc_path);
-            free(cfg_str);
-            fclose(fp);
-            if (*new_bps >= MIN_BPS_VALUE && *new_bps <= MAX_BPS_VALUE) {
-                return VPI_SUCCESS;
-            } else {
-                return VPI_ERR_ENCODER_OPITION;
+        while (fgets((char *)cfg_str, MAX_LINE_SIZE, fp) != NULL) {
+            valid_str = strstr(cfg_str, "bps:");
+            if (valid_str) {
+                valid_str += 4;
+                seg_num =
+                    rc_split_string((char **)&rc_strs, BPS_MAX_SEG_NUM, valid_str, "()");
+                if (seg_num <= 0) {
+                    VPILOGE("can't find rate control info!\n");
+                    free(cfg_str);
+                    fclose(fp);
+                    return VPI_ERR_ENCODER_OPITION;
+                }
+                *new_bps = atoi(rc_strs[0]);
+                VPILOGD("read new bps %d from cfg file %s\n", *new_bps,
+                        option->pic_rc_path);
+                free(cfg_str);
+                fclose(fp);
+                if (*new_bps >= MIN_BPS_VALUE && *new_bps <= MAX_BPS_VALUE) {
+                    return VPI_SUCCESS;
+                } else {
+                    return VPI_ERR_ENCODER_OPITION;
+                }
             }
-        } else {
-            free(cfg_str);
-            fclose(fp);
-            return VPI_ERR_ENCODER_OPITION;
         }
+        free(cfg_str);
+        fclose(fp);
+        return VPI_ERR_ENCODER_OPITION;
     } else {
         return VPI_ERR_ENCODER_OPITION;
+    }
+}
+
+VpiRet get_cfg_rc_fps(VPIH26xEncOptions *option, u32 *new_fps_numer, u32 *new_fps_denom)
+{
+    FILE *fp = NULL;
+    char *cfg_str;
+    char *valid_str;
+    char *p;
+    VpiRet ret;
+#define FPS_MAX_SEG_NUM 2
+    char strs[FPS_MAX_SEG_NUM][256];
+    char *rc_strs[FPS_MAX_SEG_NUM];
+    int seg_num = 0;
+    int i;
+
+#define MAX_LINE_SIZE 128
+#define MAX_FPS_NUMER_VALUE 1048575
+#define MIN_FPS_NUMER_VALUE 1
+
+    for (i = 0; i < FPS_MAX_SEG_NUM; i++)
+        rc_strs[i] = &strs[i][0];
+
+    fp = fopen(option->pic_rc_path, "r");
+    if (fp) {
+        cfg_str = malloc(MAX_LINE_SIZE);
+        memset(cfg_str, 0, MAX_LINE_SIZE);
+        while (fgets((char *)cfg_str, MAX_LINE_SIZE, fp) != NULL) {
+            VPILOGD("cfg_str %s", cfg_str);
+            valid_str = strstr(cfg_str, "fps:");
+            if (valid_str) {
+                valid_str += 4;
+                seg_num =
+                    rc_split_string((char **)&rc_strs, FPS_MAX_SEG_NUM, valid_str, "()");
+                if (seg_num <= 0) {
+                    VPILOGE("can't find rate control info!\n");
+                    free(cfg_str);
+                    fclose(fp);
+                    return VPI_ERR_ENCODER_OPITION;
+                }
+
+                *new_fps_numer = atoi(rc_strs[0]);
+                *new_fps_denom = atoi(rc_strs[1]);
+                VPILOGD("read new fps numer %d, denom %d from cfg file %s\n",
+                          *new_fps_numer, *new_fps_denom, option->pic_rc_path);
+
+                free(cfg_str);
+                fclose(fp);
+                if (*new_fps_numer >= MIN_FPS_NUMER_VALUE && *new_fps_numer <= MAX_FPS_NUMER_VALUE) {
+                    if (*new_fps_denom >= 1 && *new_fps_denom <= *new_fps_numer) {
+                        ret = VPI_SUCCESS;
+                    } else {
+                        ret = VPI_ERR_ENCODER_OPITION;
+                    }
+                } else {
+                    ret = VPI_ERR_ENCODER_OPITION;
+                }
+                return ret;
+            }
+        }
+        free(cfg_str);
+        fclose(fp);
+        ret = VPI_ERR_ENCODER_OPITION;
+
+    } else {
+        ret = VPI_ERR_ENCODER_OPITION;
+    }
+    return ret;
+}
+
+static VpiRet get_cfg_rc_res(VPIH26xEncOptions *option, u32 *new_width, u32 *new_height)
+{
+    FILE *fp = NULL;
+    char *cfg_str;
+    char *valid_str;
+    char *p;
+    VpiRet ret;
+#define MAX_SEG_NUM 2
+    char strs[MAX_SEG_NUM][256];
+    char *rc_strs[MAX_SEG_NUM];
+    int seg_num = 0;
+    int i;
+
+#define MAX_LINE_SIZE 128
+#define MAX_WIDTH_VALUE 4096
+#define MIN_WIDTH_VALUE 64
+#define MAX_HEIGHT_VALUE 2048
+#define MIN_HEIGHT_VALUE 64
+
+    for (i = 0; i < MAX_SEG_NUM; i++)
+        rc_strs[i] = &strs[i][0];
+
+    fp = fopen(option->pic_rc_path, "r");
+    if (fp) {
+        cfg_str = malloc(MAX_LINE_SIZE);
+        memset(cfg_str, 0, MAX_LINE_SIZE);
+        while (fgets((char *)cfg_str, MAX_LINE_SIZE, fp) != NULL) {
+            VPILOGD("cfg_str %s", cfg_str);
+            valid_str = strstr(cfg_str, "res:");
+            if (valid_str) {
+                valid_str += 4;
+                seg_num =
+                    rc_split_string((char **)&rc_strs, MAX_SEG_NUM, valid_str, "()");
+                if (seg_num <= 0) {
+                    VPILOGE("can't find rate control info!\n");
+                    free(cfg_str);
+                    fclose(fp);
+                    return VPI_ERR_ENCODER_OPITION;
+                }
+
+                *new_width = atoi(rc_strs[0]);
+                *new_height = atoi(rc_strs[1]);
+                VPILOGD("read new width %d, height %d from cfg file %s\n",
+                          *new_width, *new_height, option->pic_rc_path);
+
+                free(cfg_str);
+                fclose(fp);
+                if (*new_width >= MIN_WIDTH_VALUE && *new_width <= MAX_WIDTH_VALUE) {
+                    if (*new_height >= MIN_HEIGHT_VALUE && *new_height <= MAX_HEIGHT_VALUE) {
+                        ret = VPI_SUCCESS;
+                    } else {
+                        ret = VPI_ERR_ENCODER_OPITION;
+                    }
+                } else {
+                    ret = VPI_ERR_ENCODER_OPITION;
+                }
+                return ret;
+            }
+        }
+        free(cfg_str);
+        fclose(fp);
+        ret = VPI_ERR_ENCODER_OPITION;
+    } else {
+        ret = VPI_ERR_ENCODER_OPITION;
+    }
+    return ret;
+}
+
+void h26x_set_new_res(VpiH26xEncCtx *ctx)
+{
+    VPIH26xEncOptions *options = &ctx->options;
+    VpiFrame *frame_ctx = ctx->ctx_frame;
+    u32 new_width  = 0;
+    u32 new_height = 0;
+
+    // get new resolution
+    if (get_cfg_rc_res(options, &new_width, &new_height) != 0) {
+        return;
+    }
+
+    if (new_width == ctx->cur_width && new_height == ctx->cur_height) {
+        return;
+    }
+    if (ctx->cfg_width == 0 && ctx->cfg_height == 0) {
+        ctx->cfg_width = new_width;
+        ctx->cfg_height = new_height;
+        frame_ctx->cfg_width = new_width;
+        frame_ctx->cfg_height = new_height;
+        frame_ctx->cfg_res = 1;
     }
 }

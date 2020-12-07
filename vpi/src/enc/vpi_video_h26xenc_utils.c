@@ -48,6 +48,7 @@
 #include "vpi_video_h26xenc.h"
 #include "vpi.h"
 #include "hugepage_api.h"
+#include "dectypes.h"
 #ifdef INTERNAL_TEST
 #include "sw_test_id.h"
 #endif
@@ -3753,7 +3754,9 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
                 pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
                 return 1;
             } else {
-                if (ctx->eos_received == 0) {
+                if (ctx->eos_received == 0 ||
+                    ctx->resolution_change == 1 ||
+                    ctx->fps_change == 1) {
                     pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
                     return -1;
                 } else {
@@ -3898,5 +3901,175 @@ int h26x_enc_get_extradata(VpiH26xEncCtx *ctx, void *data)
     u8 *header_data = (u8 *)data;
 
     memcpy(header_data, ctx->header_data, ctx->header_size);
+    return 0;
+}
+
+int h26x_enc_get_res_fps_info(VpiH26xEncCtx *enc_ctx, VpiFrame *frame)
+{
+    VPIH26xEncOptions *options = &enc_ctx->options;
+    VPIH26xEncCfg *cfg         = (VPIH26xEncCfg *)&enc_ctx->vpi_h26xe_cfg;
+    int width, height;
+    u32 new_fps_numer = 0, new_fps_demon = 0;
+    u8 fps, new_fps, cur_fps;
+    struct DecPicturePpu *pic = NULL;
+    VpiFrame *in_vpi_frame    = (VpiFrame *)frame->vpi_opaque;
+    int i;
+
+    if (in_vpi_frame->nb_outputs != 1) {
+        // multi output, not support res/fp dynamic change
+        return 0;
+    }
+
+    fps = enc_ctx->original_rate_numer / enc_ctx->original_rate_denom;
+    pic = (struct DecPicturePpu *)frame->data[0];
+    width = pic->pictures[2].pic_width;
+    height = pic->pictures[2].pic_height;
+    if (enc_ctx->cur_width != width ||
+          enc_ctx->cur_height != height) {
+        if (width >= 128 && height >= 128) {
+            if (enc_ctx->new_width == 0 &&
+                enc_ctx->new_height == 0) {
+                VPILOGD("received different resolution %dx%d\n", width, height);
+                VPILOGD("original res %dx%d\n", enc_ctx->cur_width,
+                                                enc_ctx->cur_height);
+                enc_ctx->new_width = width;
+                enc_ctx->new_height = height;
+                enc_ctx->poc = 0;
+                if (enc_ctx->restart_flag == 0) {
+                    enc_ctx->restart_flag = RESOLUTION_CHANGE_FLAG;
+                    enc_ctx->eos_received = 1;
+                    enc_ctx->resolution_change = 1;
+                } else {
+                    enc_ctx->restart_flag |= RESOLUTION_NEXT_CHANGE_FLAG;
+                }
+                VPILOGD("enc_ctx->restart_flag %d\n", enc_ctx->restart_flag);
+            }
+        }
+    }
+        if (get_cfg_rc_fps(options, &new_fps_numer, &new_fps_demon) == 0) {
+            if (new_fps_numer != options->output_rate_numer ||
+                new_fps_demon != options->output_rate_denom) {
+                if (enc_ctx->rc_output_rate_numer == 0 ||
+                    enc_ctx->rc_output_rate_denom == 0) {
+                    VPILOGD("current fps: %d/%d\n", options->output_rate_numer,
+                                                    options->output_rate_denom);
+                    VPILOGD("need change to new fps: %d/%d\n", new_fps_numer,
+                                                               new_fps_demon);
+                    new_fps = new_fps_numer / new_fps_demon;
+                    cur_fps = options->output_rate_numer / options->output_rate_denom;
+                    if (new_fps > fps) {
+                        VPILOGD("new_fps %d is bigger than fps %d\n",
+                                  new_fps, fps);
+                    } else {
+                        if (new_fps == fps) {
+                            enc_ctx->fps_change_flag = 0;
+                        } else {
+                            u8 delta = fps - new_fps;
+                            u8 ratio = fps/delta;
+                            u8 flag = ratio - 1;
+                            u8 disable_cnt = 0;
+                            u8 enable_cnt = 0;
+                            u8 done = 0;
+
+                            if (new_fps >= fps/2) {
+                                ratio = fps / delta;
+                                flag = ratio - 1;
+                                enc_ctx->enc_enable[0] = 1;
+                                enable_cnt = 1;
+                                for (i = 1; i < fps; i++) {
+                                    if (done == 0) {
+                                        if (i % ratio == flag) {
+                                            enc_ctx->enc_enable[i] = 0;
+                                            disable_cnt++;
+                                        } else {
+                                            enc_ctx->enc_enable[i] = 1;
+                                            enable_cnt++;
+                                        }
+                                        if (disable_cnt == delta) {
+                                            done = 1;
+                                        }
+                                    } else {
+                                        enc_ctx->enc_enable[i] = 1;
+                                        enable_cnt++;
+                                    }
+                                }
+                            } else {
+                                ratio = fps / new_fps;
+                                enc_ctx->enc_enable[0] = 1;
+                                enable_cnt = 1;
+                                for (i = 1; i < fps; i++) {
+                                    if (done == 0) {
+                                        if (i % ratio == 0) {
+                                            enc_ctx->enc_enable[i] = 1;
+                                            enable_cnt++;
+                                        } else {
+                                            enc_ctx->enc_enable[i] = 0;
+                                            disable_cnt++;
+                                        }
+                                        if (enable_cnt == new_fps) {
+                                            done = 1;
+                                        }
+                                    } else {
+                                        enc_ctx->enc_enable[i] = 0;
+                                        disable_cnt++;
+                                    }
+                                }
+                            }
+                            for (i = 0; i < fps; i++) {
+                                VPILOGD("%d, enable %d\n", i, enc_ctx->enc_enable[i]);
+                            }
+                            enc_ctx->fps_change_flag = 1;
+                            enc_ctx->pkt_input_cnt = 0;
+                        }
+                        enc_ctx->poc = 0;
+                        enc_ctx->rc_output_rate_numer = new_fps_numer;
+                        enc_ctx->rc_output_rate_denom = new_fps_demon;
+                        if (cfg->input_pic_cnt == 0) {
+                            // fps change happens at the first frame
+                            enc_ctx->fps_change_fist_frame = 1;
+                        }
+                        if (enc_ctx->restart_flag == 0) {
+                            enc_ctx->restart_flag = FPS_CHANGE_FLAG;
+                            enc_ctx->eos_received = 1;
+                            enc_ctx->fps_change = 1;
+                        } else {
+                            enc_ctx->restart_flag |= FPS_NEXT_CHANGE_FLAG;
+                        }
+                    }
+                }
+            }
+        }
+
+    if (enc_ctx->fps_change_flag == 1) {
+        u8 num;
+        num = enc_ctx->pkt_input_cnt % fps;
+        VPILOGD("%d fps_change frame received\n", enc_ctx->pkt_input_cnt);
+        enc_ctx->pkt_input_cnt++;
+        if (enc_ctx->enc_enable[num] == 0) {
+            //release
+            pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+            VPILOGD("%d fps_change will be discard\n", enc_ctx->pkt_input_cnt-1);
+            for (i = 0; i < MAX_WAIT_DEPTH; i++) {
+                if (enc_ctx->rls_pic_list[i]->used == 0) {
+                    enc_ctx->rls_pic_list[i]->item = frame->opaque;
+                    enc_ctx->rls_pic_list[i]->used = 1;
+                    break;
+                }
+            }
+            if (i == MAX_WAIT_DEPTH) {
+                VPILOGE("No empty rls pic\n");
+                pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+                return -1;
+            }
+            h26x_enc_buf_list_add(&enc_ctx->rls_pic_head, enc_ctx->rls_pic_list[i]);
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+
+            pthread_mutex_lock(&in_vpi_frame->frame_mutex);
+            in_vpi_frame->used_cnt++;
+            pthread_mutex_unlock(&in_vpi_frame->frame_mutex);
+
+            return 1;
+        }
+    }
     return 0;
 }

@@ -145,6 +145,8 @@ LIBS += -lg2h264 -lg2hevc -lg2vp9 -lpp -lg2common -ldwlg2 -lhugetlbfs -lh2enc -l
 
 TARGET = libvpi.so
 
+CFLAGS += -DSUPPORT_RESOLUTION_CHANGE
+
 all: $(OBJS)
 	$(CC) $(DEBFLAGS) -shared -o $(TARGET) $(OBJS) $(LDFLAGS) $(LIBS)
 

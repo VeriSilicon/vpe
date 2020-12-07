@@ -79,6 +79,9 @@ typedef struct VpiMwl {
 } VpiMwl;
 
 extern int TCACHE_config(TCACHE_HANDLE thd, TCACHE_PARAM *pParam);
+#ifdef SUPPORT_RESOLUTION_CHANGE
+static int vpi_prc_pp_restart(VpiPrcCtx *ctx);
+#endif
 
 #ifdef PP_MEM_ERR_TEST
 static int pp_memory_err_cnt    = 0;
@@ -318,6 +321,26 @@ static int pp_split_string(char **tgt, int max, char *src, char *split)
 
     return count;
 }
+
+#ifdef SUPPORT_RESOLUTION_CHANGE
+static void pp_set_res(char *res, uint16_t w, uint16_t h)
+{
+    char width[32], height[32];
+
+    if (!res) {
+        return;
+    }
+
+    sprintf(width, "%d", w);
+    sprintf(height, "%d", h);
+    strcpy(res, "(");
+    strcat(res, width);
+    strcat(res, "x");
+    strcat(res, height);
+    strcat(res, ")");
+    VPILOGD("set res %s\n", res);
+}
+#endif
 
 static int pp_parse_low_res(VpiPPFilter *filter)
 {
@@ -1076,7 +1099,7 @@ static int pp_calc_pic_size(PPClient *pp)
     return 0;
 }
 
-static int pp_buf_init(PPClient *pp)
+static int pp_buf_init(PPClient *pp, int one_channel)
 {
     u32 i;
     PPInst pp_inst        = pp->pp_inst;
@@ -1157,6 +1180,18 @@ static int pp_buf_init(PPClient *pp)
 #ifdef SUPPORT_DEC400
     pp->dec_table_offset = pp->out_buf_size;
     pp->out_buf_size += DEC400_PPn_TABLE_OFFSET(4);
+#endif
+
+    if (pp->res_change == 1) {
+        pp->res_change = 0;
+        return 0;
+    }
+
+#ifdef SUPPORT_RESOLUTION_CHANGE
+    if (one_channel == 1) {
+        // for one original res, add one channel for res change
+        pp->out_buf_size *= 2;
+    }
 #endif
 
 #ifdef SUPPORT_TCACHE
@@ -2175,8 +2210,14 @@ static int pp_config_init(VpiPPFilter *filter)
     }
 
     pp_client->disable_tcache   = filter->b_disable_tcache;
+
     pp_client->max_frames_delay = in_frame->max_frames_delay;
-    ret = pp_buf_init(pp_client);
+
+    if (filter->nb_outputs == 1) {
+        ret = pp_buf_init(pp_client, 1);
+    } else {
+        ret = pp_buf_init(pp_client, 0);
+    }
     if (ret < 0) {
         VPILOGE("pp_buf_init failed!\n");
         return -1;
@@ -2523,7 +2564,6 @@ static VpiRet pp_set_params(VpiPPFilter *filter)
                 filter->resizes[0].sh               = 0;
 
         filter->low_res_num++;
-
     } else if (filter->nb_outputs != filter->low_res_num) {
         VPILOGE("low_res param error!\n");
         return VPI_ERR_PP_OPITION;
@@ -2667,7 +2707,11 @@ static int pp_set_hwframe_res(VpiPPFilter *filter)
         frame->pic_info[0].picdata.bit_depth_luma =
             frame->pic_info[0].picdata.bit_depth_chroma = 8;
     }
+#ifdef SUPPORT_DEC400
     frame->pic_info[0].picdata.pic_compressed_status = 2;
+#else
+    frame->pic_info[0].picdata.pic_compressed_status = 0;
+#endif
     frame->pic_info[1].enabled                       = 0;
     for (int i = 2; i < 5; i++) {
         if (params->ppu_cfg[i - 1].enabled == 1) {
@@ -2686,8 +2730,11 @@ static int pp_set_hwframe_res(VpiPPFilter *filter)
                 frame->pic_info[i].picdata.bit_depth_luma =
                     frame->pic_info[i].picdata.bit_depth_chroma = 8;
             }
-
+#ifdef SUPPORT_DEC400
             frame->pic_info[i].picdata.pic_compressed_status = 2;
+#else
+            frame->pic_info[i].picdata.pic_compressed_status = 0;
+#endif
         }
     }
 
@@ -2935,6 +2982,7 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     PPInst pp_inst            = NULL;
     PPConfig *dec_cfg;
     PPContainer *pp_c         = NULL;
+    VpiFrame *frame_ctx = filter->frame;
     static u32 decode_pic_num = 0;
     int ret                   = 0;
     int idx;
@@ -3057,7 +3105,11 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pp->pic_list[idx].pic   = output;
 
     output->locked     = 1;
-    output->nb_outputs = filter->nb_outputs;
+    if (filter->res_en == 0) {
+        output->nb_outputs = filter->nb_outputs;
+    } else {
+        output->nb_outputs = 1;
+    }
     output->used_cnt   = 0;
     pthread_mutex_init(&output->frame_mutex, NULL);
     if (pp->num_of_output_pics == 0) {
@@ -3065,6 +3117,23 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     }
 
     pp->num_of_output_pics++;
+
+#ifdef SUPPORT_RESOLUTION_CHANGE
+    if (frame_ctx->cfg_res) {
+        filter->res_en = 1;
+        if (!filter->low_res) {
+            filter->low_res = &filter->res_string[0];
+        }
+        pp_set_res(filter->low_res, frame_ctx->cfg_width, frame_ctx->cfg_height);
+        VPILOGD("new low_res %s\n", filter->low_res);
+        if (filter->nb_outputs == 1) {
+            filter->nb_outputs = 2;
+        }
+        vpi_prc_pp_restart(vpi_ctx);
+        frame_ctx->cfg_res = 0;
+    }
+#endif
+
     return ret;
 
 err_exit:
@@ -3109,5 +3178,152 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
         pp_mwl_release(filter->mwl);
         filter->mwl = NULL;
     }
+
     return VPI_SUCCESS;
 }
+
+#ifdef SUPPORT_RESOLUTION_CHANGE
+static int vpi_prc_pp_restart(VpiPrcCtx *ctx)
+{
+    VpiPPFilter *filter = &ctx->ppfilter;
+    PPClient *pp_client = filter->pp_client;
+    PPConfig *dec_cfg = NULL;
+    int ret, i;
+    int pp_index;
+    VpiPPParams *params = &filter->params;
+    u32 pp_width, pp_height, pp_stride, pp_stride_2;
+    u32 pp_out_byte_per_pixel;
+    VpiPPConfig *test_cfg = &pp_client->pp_config;
+
+    VPILOGD("begin to restart pp\n");
+
+    dec_cfg = &pp_client->dec_cfg;
+
+    ret = pp_parse_low_res(filter);
+    if (ret != 0) {
+        VPILOGE("pp_parse_low_res failed=%d!\n", ret);
+        return ret;
+    }
+
+    ret = pp_set_params(filter);
+    if (ret != 0) {
+        VPILOGE("pp_set_params failed = %d\n", ret);
+        return ret;
+    }
+
+    pp_client->param = *params;
+    memcpy(dec_cfg->ppu_config, pp_client->param.ppu_cfg,
+           sizeof(pp_client->param.ppu_cfg));
+
+    for (i = 0; i < 4; i++) {
+        if (dec_cfg->ppu_config[i].tiled_e && pp_client->param.in_10bit)
+            dec_cfg->ppu_config[i].out_cut_8bits = 0;
+        if (pp_client->param.in_10bit == 0) {
+            dec_cfg->ppu_config[i].out_cut_8bits = 0;
+            dec_cfg->ppu_config[i].out_p010      = 0;
+        }
+
+        VPILOGD("dec_cfg->ppu_config[%d].crop.width %d, "
+                "dec_cfg->ppu_config[%d].crop.height %d \n",
+                i, dec_cfg->ppu_config[i].crop.width, i,
+                dec_cfg->ppu_config[i].crop.height);
+        if (!dec_cfg->ppu_config[i].crop.width ||
+            !dec_cfg->ppu_config[i].crop.height) {
+            dec_cfg->ppu_config[i].crop.x = dec_cfg->ppu_config[i].crop.y = 0;
+            dec_cfg->ppu_config[i].crop.width  = test_cfg->in_width_align;
+            dec_cfg->ppu_config[i].crop.height = test_cfg->in_height_align;
+
+            VPILOGD("dec_cfg->ppu_config[%d].crop.width %d, "
+                    "dec_cfg->ppu_config[%d].crop.height %d \n",
+                    i, dec_cfg->ppu_config[i].crop.width, i,
+                    dec_cfg->ppu_config[i].crop.height);
+        }
+
+        VPILOGD("dec_cfg->ppu_config[%d].scale.width %d, "
+                "dec_cfg->ppu_config[%d].scale.height %d \n",
+                i, dec_cfg->ppu_config[i].scale.width, i,
+                dec_cfg->ppu_config[i].scale.height);
+        if (!dec_cfg->ppu_config[i].scale.width ||
+            !dec_cfg->ppu_config[i].scale.height) {
+            dec_cfg->ppu_config[i].scale.width =
+                dec_cfg->ppu_config[i].crop.width;
+            dec_cfg->ppu_config[i].scale.height =
+                dec_cfg->ppu_config[i].crop.height;
+
+            VPILOGD("dec_cfg->ppu_config[%d].scale.width %d, "
+                    "dec_cfg->ppu_config[%d].scale.height %d \n",
+                    i, dec_cfg->ppu_config[i].scale.width, i,
+                    dec_cfg->ppu_config[i].scale.height);
+        }
+    }
+
+    for (i = 0; i < 4; i++) {
+        if (!dec_cfg->ppu_config[i].enabled)
+            continue;
+
+        pp_out_byte_per_pixel =
+            (dec_cfg->ppu_config[i].out_cut_8bits || test_cfg->in_p010 == 0) ?
+                1 :
+                ((dec_cfg->ppu_config[i].out_p010 ||
+                  (dec_cfg->ppu_config[i].tiled_e && test_cfg->in_p010)) ?
+                     2 :
+                     1);
+
+        if (dec_cfg->ppu_config[i].tiled_e) {
+            pp_width  = NEXT_MULTIPLE(dec_cfg->ppu_config[i].scale.width, 4);
+            pp_height = NEXT_MULTIPLE(dec_cfg->ppu_config[i].scale.height,
+                                      PP_OUT_HEIGHT_ALIGN) /
+                        4;
+            pp_stride = NEXT_MULTIPLE(4 * pp_width * pp_out_byte_per_pixel,
+                                      ALIGN(test_cfg->align));
+            dec_cfg->ppu_config[i].ystride = pp_stride;
+            dec_cfg->ppu_config[i].cstride = pp_stride;
+            dec_cfg->ppu_config[i].align   = test_cfg->align;
+            VPILOGD("pp[%d] luma, pp_width=%d, pp_height=%d, "
+                    "pp_stride=%d(0x%x), pp_out_byte_per_pixel=%d, "
+                    "align=%d\n",
+                    i, pp_width, pp_height, pp_stride, pp_stride,
+                    pp_out_byte_per_pixel, test_cfg->align);
+            /* chroma */
+            if (!dec_cfg->ppu_config[i].monochrome) {
+                pp_height =
+                    NEXT_MULTIPLE(dec_cfg->ppu_config[i].scale.height / 2,
+                                  PP_OUT_HEIGHT_ALIGN) /
+                    4; /*fix height align 2*/
+                VPILOGD("pp[%d] chroma, pp_height=%d\n", i, pp_height);
+            }
+        } else {
+            pp_width  = dec_cfg->ppu_config[i].scale.width;
+            pp_height = dec_cfg->ppu_config[i].scale.height;
+            pp_stride = NEXT_MULTIPLE(pp_width * pp_out_byte_per_pixel, 4);
+            pp_stride_2 =
+                NEXT_MULTIPLE(pp_width / 2 * pp_out_byte_per_pixel, 4);
+
+            VPILOGD("pp[%d], tile_e=0 pp_width=%d , pp_height=%d , "
+                    "pp_stride=%d(0x%x),pp_out_byte_per_pixel=%d\n",
+                    i, pp_width, pp_height, pp_stride, pp_stride,
+                    pp_out_byte_per_pixel);
+        }
+
+    }
+
+    pp_client->res_change = 1;
+    pp_buf_init(pp_client, 0);
+
+    ret = PPSetInfo(pp_client->pp_inst, dec_cfg);
+    if (ret != PP_OK) {
+        VPILOGE("encode fails for Invalid pp parameters\n");
+        return -1;
+    }
+
+    ret = pp_set_hwframe_res(filter);
+    if (ret != 0) {
+        VPILOGE("pp_set_hwframe_res failed!\n");
+        return ret;
+    }
+
+    return 0;
+
+}
+
+#endif

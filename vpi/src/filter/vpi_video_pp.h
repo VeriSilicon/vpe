@@ -212,6 +212,8 @@ typedef struct {
     int disable_tcache;
     pthread_mutex_t pp_mutex;
     VpiPpPic pic_list[OUTPUT_BUF_DEPTH];
+
+    int res_change;
 } PPClient;
 
 typedef struct ppResize {
@@ -255,6 +257,9 @@ typedef struct VpiPPFilter {
     int b_disable_tcache;
 
     int initialized;
+
+    char res_string[128];
+    int res_en;
 } VpiPPFilter;
 
 #endif

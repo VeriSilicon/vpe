@@ -102,4 +102,5 @@ int h26x_enc_get_empty_stream_buffer(VpiH26xEncCtx *ctx);
 void h26x_enc_outbuf_uninit(VpiH26xEncCtx *enc_ctx);
 int h26x_enc_get_extradata_size(VpiH26xEncCtx *ctx, void *outdata);
 int h26x_enc_get_extradata(VpiH26xEncCtx *ctx, void *data);
+int h26x_enc_get_res_fps_info(VpiH26xEncCtx *enc_ctx, VpiFrame *frame);
 #endif /* __VPI_VIDEO_H26XENC_UTILS_H__ */

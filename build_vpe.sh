@@ -38,14 +38,14 @@ cd -
 cd ffmpeg
 	if [ "${debug}" == "y" ] && [ "${mini_ffmpeg}" == "n" ]
 	then
-		./configure --enable-vpe --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
+		./configure --enable-vpe --extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" \
 		--disable-optimizations \
 		--disable-asm  \
 		--disable-stripping \
 		--disable-vaapi
 	elif [ "${dbg}" == "y" ] && [ "${mini_ffmpeg}" == "y" ]
 	then
-		./configure --disable-sdl2 --enable-vpe --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
+		./configure --disable-sdl2 --enable-vpe --extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" \
 		--disable-optimizations \
 		--disable-asm  \
 		--disable-stripping \
@@ -59,7 +59,7 @@ cd ffmpeg
 		--disable-vaapi
 	elif [ "${debug}" == "n" ] && [ "${mini_ffmpeg}" == "y" ]
 	then
-		./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
+		./configure --enable-vpe  --extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" \
 		--disable-sdl2 \
 		--disable-libxcb \
 		--disable-libxcb-shm \
@@ -69,7 +69,7 @@ cd ffmpeg
 		--disable-libmfx \
 		--disable-vaapi
 	else
-		./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi" \
+		./configure --enable-vpe  --extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" \
 		--disable-vaapi
 
 	fi

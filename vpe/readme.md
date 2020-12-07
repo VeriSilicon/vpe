@@ -99,14 +99,14 @@ Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and othe
 $make
 VPE build step - build VPI
 make -C vpi CHECK_MEM_LEAK=y DEBUG=
-make[1]: Entering directory `/home/gyzhang/work/facebook/spsd/vpe/vpi'
+make[1]: Entering directory `/home/gyzhang/work/spsd/vpe/vpi'
 ...
  Building modules, stage 2.
   MODPOST 1 modules
-  CC      /home/gyzhang/work/facebook/spsd/vpe/drivers/transcoder-pcie/transcoder_pcie.mod.o
-  LD [M]  /home/gyzhang/work/facebook/spsd/vpe/drivers/transcoder-pcie/transcoder_pcie.ko
-make[2]: Leaving directory `/home/gyzhang/work/facebook/transcoder/linux-4.19.106'
-make[1]: Leaving directory `/home/gyzhang/work/facebook/spsd/vpe/drivers/transcoder-pcie'
+  CC      /home/gyzhang/work/spsd/vpe/drivers/transcoder-pcie/transcoder_pcie.mod.o
+  LD [M]  /home/gyzhang/work/spsd/vpe/drivers/transcoder-pcie/transcoder_pcie.ko
+make[2]: Leaving directory `/home/gyzhang/work/transcoder/linux-4.19.106'
+make[1]: Leaving directory `/home/gyzhang/work/spsd/vpe/drivers/transcoder-pcie'
 Build release VPE
 ```
 
@@ -114,12 +114,12 @@ Build release VPE
 ```bash
 $sudo make install
 VPE build step - install
-cp /home/gyzhang/work/facebook/spsd/vpe/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin
-cp /home/gyzhang/work/facebook/spsd/vpe/sdk_libs/*.so "/usr/lib/vpe"
-cp /home/gyzhang/work/facebook/spsd/vpe/vpi/libvpi.so "/usr/lib/vpe"
+cp /home/gyzhang/work/spsd/vpe/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin
+cp /home/gyzhang/work/spsd/vpe/sdk_libs/*.so "/usr/lib/vpe"
+cp /home/gyzhang/work/spsd/vpe/vpi/libvpi.so "/usr/lib/vpe"
 echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
 /sbin/ldconfig
-cp /home/gyzhang/work/facebook/spsd/vpe/vpi/inc/*.h "/usr/local/include/vpe"
+cp /home/gyzhang/work/spsd/vpe/vpi/inc/*.h "/usr/local/include/vpe"
 insmod drivers/transcoder-pcie/transcoder_pcie.ko
 rm "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x" -rf
 mkdir -p "/lib/modules/4.19.106/kernel/drivers/pci/pcie/solios-x"
@@ -131,7 +131,7 @@ VPE installation finished!
 3. Uninstall
 ```bash
 $sudo make uninstall
-[gyzhang@k8s-master /home/gyzhang/work/facebook/opensource/vpe]$sudo make uninstall
+[gyzhang@k8s-master /home/gyzhang/work/opensource/vpe]$sudo make uninstall
 VPE build step - uninstall
 /sbin/ldconfig
 depmod

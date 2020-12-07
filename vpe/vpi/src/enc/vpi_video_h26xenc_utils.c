@@ -2725,6 +2725,7 @@ u8 *read_userdata(VCEncInst encoder, char *name)
     FILE *file          = NULL;
     i32 byteCnt;
     u8 *data;
+    int ret = 0;
 
     if (name == NULL)
         return NULL;
@@ -2762,7 +2763,7 @@ u8 *read_userdata(VCEncInst encoder, char *name)
     }
 
     /* Read user data from file */
-    fread(data, sizeof(u8), byteCnt, file);
+    ret = fread(data, sizeof(u8), byteCnt, file);
     fclose(file);
 
     ENC_TB_INFO_PRINT("User data: %d bytes [%d %d %d %d ...]\n", byteCnt,

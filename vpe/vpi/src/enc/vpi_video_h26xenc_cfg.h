@@ -52,7 +52,6 @@
 #include "vpi_video_h26xenc_options.h"
 
 #define MAX_FIFO_DEPTH 16
-#define MAX_WAIT_DEPTH 78 /*34*/
 #define MAX_ENC_NUM 4
 
 #define DEFAULT_VALUE -255

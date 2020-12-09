@@ -268,6 +268,36 @@ int vpi_dec_set_pts_decid(VpiDecCtx *vpi_ctx)
     return -1;
 }
 
+void vpi_dec_clear_unused_pts(VpiDecCtx *vpi_ctx)
+{
+    int i;
+
+    if (vpi_ctx->cur_pkt_pts == VDEC_NOPTS_VALUE &&
+        vpi_ctx->cur_pkt_dts == VDEC_NOPTS_VALUE) {
+        return;
+    }
+    if (vpi_ctx->cur_pkt_pts != VDEC_NOPTS_VALUE) {
+        for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+            if (vpi_ctx->time_stamp_info[i].pts == vpi_ctx->cur_pkt_pts) {
+                vpi_ctx->time_stamp_info[i].used = -1;
+                return;
+            }
+        }
+    } else {
+        if (vpi_ctx->cur_pkt_dts != VDEC_NOPTS_VALUE) {
+            for (i = 0; i < MAX_PTS_DTS_DEPTH; i++) {
+                if (vpi_ctx->time_stamp_info[i].pkt_dts == vpi_ctx->cur_pkt_dts) {
+                    vpi_ctx->time_stamp_info[i].used = -1;
+                    return;
+                }
+            }
+        }
+    }
+    VPILOGD("Can't find matched pts %lld, dts %lld\n",
+             vpi_ctx->cur_pkt_pts, vpi_ctx->cur_pkt_dts);
+
+}
+
 int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt)
 {
     int i;
@@ -439,10 +469,14 @@ VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
     }
     vpi_ctx->pts += vpi_ctx->duration;
     VPILOGD("pts %ld, pkt_dts %ld\n", vpi_frame->pts, vpi_frame->pkt_dts);
+    if (vpi_ctx->first_pts == -1) {
+        vpi_ctx->first_pts = vpi_frame->pts;
+    }
+    vpi_frame->pts -= vpi_ctx->first_pts;
 
-    VPILOGD("width = %d, height = %d, linesize[0] = %d, key_frame = %d\n",
+    VPILOGD("width = %d, height = %d, linesize[0] = %d, key_frame = %d, first_pts %d\n",
             vpi_frame->width, vpi_frame->height, vpi_frame->linesize[0],
-            vpi_frame->key_frame);
+            vpi_frame->key_frame, vpi_ctx->first_pts);
 
     PpUnitConfig *pp0 = &vpi_ctx->vpi_dec_config.ppu_cfg[0];
     if (pp0->enabled == 1) {

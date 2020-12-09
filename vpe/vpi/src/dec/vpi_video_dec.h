@@ -299,6 +299,7 @@ typedef struct VpiDecCtx {
     int64_t pts;
     int64_t pkt_dts;
     int64_t duration;
+    int64_t first_pts;
     struct DecSequenceInfo sequence_info;
 
     // decode process

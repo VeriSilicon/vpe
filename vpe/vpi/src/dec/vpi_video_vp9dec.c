@@ -1264,6 +1264,7 @@ static int vpi_decode_vp9_frame_decoding(VpiDecCtx *vpi_ctx)
             vpi_ctx->retry = 0;
             break;
         case DEC_STRM_PROCESSED:
+            vpi_dec_clear_unused_pts(vpi_ctx);
         case DEC_NONREF_PIC_SKIPPED:
         case DEC_STRM_ERROR:
             /* Used to indicate that picture decoding needs to finalized

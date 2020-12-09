@@ -910,6 +910,7 @@ static int vpi_decode_h264_frame_decoding(VpiDecCtx *vpi_ctx)
             vpi_ctx->pic_decode_number++;
             break;
         case DEC_STRM_PROCESSED:
+            vpi_dec_clear_unused_pts(vpi_ctx);
         case DEC_BUF_EMPTY:
         case DEC_NONREF_PIC_SKIPPED:
         case DEC_STRM_ERROR:

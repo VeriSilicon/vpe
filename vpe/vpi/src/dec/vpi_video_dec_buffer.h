@@ -44,6 +44,7 @@ int vpi_dec_get_stream_buffer_index(VpiDecCtx *vpi_ctx, int status);
 void vpi_dec_release_ext_buffers(VpiDecCtx *vpi_ctx);
 int vpi_dec_check_buffer_number_for_trans(VpiDecCtx *vpi_ctx);
 int vpi_dec_set_pts_decid(VpiDecCtx *vpi_ctx);
+void vpi_dec_clear_unused_pts(VpiDecCtx *vpi_ctx);
 int vpi_dec_set_pts_dts(VpiDecCtx *vpi_ctx, VpiPacket *pkt);
 VpiRet vpi_dec_output_frame(VpiDecCtx *vpi_ctx, VpiFrame *vpi_frame,
                             struct DecPicturePpu *decoded_pic);

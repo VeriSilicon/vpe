@@ -62,7 +62,7 @@ VpiEncSetting vp9enc_options[] = {
     { "filter_sharpness", OFFSET(filter_sharpness), DEFAULT, 8, VPI_ENC_PARA_INT },
 };
 
-static int vpi_venc_vp9_convert_setting(VpiEncVp9Opition *in,
+static int vpi_venc_vp9_convert_setting(VpiVp9EncCfg *in,
                                         VpiEncVp9Setting *out)
 {
     if (in == NULL || out == NULL) {
@@ -390,10 +390,10 @@ void *vpi_venc_vp9_process(void *param)
 
 VpiRet vpi_venc_vp9_init(VpiEncVp9Ctx *ctx, void *cfg)
 {
-    VpiEncVp9Opition *vpi_setting = (VpiEncVp9Opition *)cfg;
-    VpiEncVp9Setting *cml         = &ctx->vp9_enc_cfg;
-    VpiFrame *frame               = (VpiFrame *)vpi_setting->framectx;
-    VpiEncParamSet *para_set = vpi_setting->param_list;
+    VpiVp9EncCfg *vpi_setting = (VpiVp9EncCfg *)cfg;
+    VpiEncVp9Setting *cml     = &ctx->vp9_enc_cfg;
+    VpiFrame *frame           = (VpiFrame *)vpi_setting->framectx;
+    VpiEncParamSet *para_set  = vpi_setting->param_list;
     int num = sizeof(vp9enc_options) / sizeof(VpiEncSetting);
     int ret = 0, i = 0;
 
@@ -732,18 +732,24 @@ VpiRet vpi_venc_vp9_control(VpiEncVp9Ctx *ctx, void *indata, void *outdata)
     }
 
     switch (cmd->cmd) {
-    case VPI_CMD_VP9ENC_GET_EMPTY_FRAME_SLOT:
+    case VPI_CMD_ENC_GET_EMPTY_FRAME_SLOT:
         ret = vp9enc_get_pic_buffer(ctx, outdata);
         break;
 
-    case VPI_CMD_VP9ENC_CONSUME_PIC:
+    case VPI_CMD_ENC_CONSUME_PIC:
         ret = vp9enc_get_used_pic_mem(ctx, outdata);
         break;
 
-    case VPI_CMD_VP9ENC_GET_FRAME_PACKET:
+    case VPI_CMD_ENC_GET_FRAME_PACKET:
         ret = vp9enc_get_frame_packet(ctx, outdata);
         break;
-
+    case VPI_CMD_ENC_INIT_OPTION: {
+        VpiVp9EncCfg **enc_opt;
+        enc_opt = (VpiVp9EncCfg **)outdata;
+        *enc_opt = (VpiVp9EncCfg *)malloc(sizeof(VpiVp9EncCfg));
+        memset(*enc_opt, 0, sizeof(VpiVp9EncCfg));
+        return ret;
+    }
     default:
         VPILOGE("vpi_venc_vp9_control: "
                 "vpi_venc_vp9_control Invalid typer=%d.\n",

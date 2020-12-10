@@ -118,7 +118,7 @@ void vp9enc_print_total(VpiEncVp9Ctx *ctx);
 void vp9enc_statistic(VpiEncVp9Ctx *ctx);
 void vp9enc_hw_performance(VpiEncVp9Ctx *ctx);
 void vp9enc_free_resource(VpiEncVp9Ctx *ctx);
-int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiEncVp9Opition *cfg);
+int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiVp9EncCfg *cfg);
 int vp9enc_send_buffer_to_encoder(VpiEncVp9Ctx *ctx, VP9EncIn *enc_instance,
                                   VpiEncVp9Setting *ecfg);
 int vp9enc_get_empty_stream_buffer(VpiEncVp9Ctx *ctx);

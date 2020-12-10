@@ -63,17 +63,13 @@ typedef enum {
     VPI_CMD_HWDW_FREE_BUF,
     VPI_CMD_HWDW_SET_INDEX,
 
-    /*vp9 encoder command*/
-    VPI_CMD_VP9ENC_GET_EMPTY_FRAME_SLOT,
-    VPI_CMD_VP9ENC_GET_FRAME_PACKET,
-    VPI_CMD_VP9ENC_CONSUME_PIC,
-
-    /*H26x encoder command*/
-    VPI_CMD_H26xENC_GET_EMPTY_FRAME_SLOT,
-    VPI_CMD_H26xENC_CONSUME_PIC,
-    VPI_CMD_H26xENC_GET_FRAME_PACKET,
-    VPI_CMD_H26xENC_GET_EXTRADATA_SIZE,
-    VPI_CMD_H26xENC_GET_EXTRADATA,
+    /*encoder command*/
+    VPI_CMD_ENC_GET_EMPTY_FRAME_SLOT,
+    VPI_CMD_ENC_CONSUME_PIC,
+    VPI_CMD_ENC_GET_FRAME_PACKET,
+    VPI_CMD_ENC_GET_EXTRADATA_SIZE,
+    VPI_CMD_ENC_GET_EXTRADATA,
+    VPI_CMD_ENC_INIT_OPTION,
 
     /*pp command*/
     VPI_CMD_PP_CONFIG,
@@ -125,7 +121,7 @@ typedef struct VpiEncParamSet {
 /**
  * VP9 encoder opition data which got from application like ffmpeg
  */
-typedef struct VpiEncVp9Opition {
+typedef struct VpiVp9EncCfg {
     int task_id;
     int priority;
     char *dev_name;
@@ -150,7 +146,7 @@ typedef struct VpiEncVp9Opition {
 
     /*VPE VP9 encoder public parameters with -enc_params*/
     VpiEncParamSet *param_list;
-} VpiEncVp9Opition;
+} VpiVp9EncCfg;
 
 /**
  * PP configuration

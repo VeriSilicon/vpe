@@ -2093,7 +2093,7 @@ int vp9enc_open(VpiEncVp9Ctx *ctx, VpiEncVp9Setting *ecfg)
     return ret;
 }
 
-int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiEncVp9Opition *cfg)
+int vp9enc_set_ppindex(VpiEncVp9Ctx *ctx, VpiFrame *frame, VpiVp9EncCfg *cfg)
 {
     int i = 0, pp_index = 0;
 

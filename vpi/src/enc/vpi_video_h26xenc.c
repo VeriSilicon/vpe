@@ -2596,21 +2596,28 @@ int vpi_h26xe_ctrl(VpiH26xEncCtx *enc_ctx, void *indata, void *outdata)
     VpiCtrlCmdParam *cmd = (VpiCtrlCmdParam *)indata;
 
     switch (cmd->cmd) {
-    case VPI_CMD_H26xENC_GET_EMPTY_FRAME_SLOT:
+    case VPI_CMD_ENC_GET_EMPTY_FRAME_SLOT:
         ret = h26x_enc_get_pic_buffer(enc_ctx, outdata);
         break;
-    case VPI_CMD_H26xENC_CONSUME_PIC:
+    case VPI_CMD_ENC_CONSUME_PIC:
         ret = h26x_enc_get_used_pic_mem(enc_ctx, outdata);
         break;
-    case VPI_CMD_H26xENC_GET_FRAME_PACKET:
+    case VPI_CMD_ENC_GET_FRAME_PACKET:
         ret = h26x_enc_get_frame_packet(enc_ctx, outdata);
         break;
-    case VPI_CMD_H26xENC_GET_EXTRADATA_SIZE:
+    case VPI_CMD_ENC_GET_EXTRADATA_SIZE:
         ret = h26x_enc_get_extradata_size(enc_ctx, outdata);
         break;
-    case VPI_CMD_H26xENC_GET_EXTRADATA:
+    case VPI_CMD_ENC_GET_EXTRADATA:
         ret = h26x_enc_get_extradata(enc_ctx, cmd->data);
         break;
+    case VPI_CMD_ENC_INIT_OPTION: {
+        VpiH26xEncCfg **enc_opt;
+        enc_opt = (VpiH26xEncCfg **)outdata;
+        *enc_opt = (VpiH26xEncCfg *)malloc(sizeof(VpiH26xEncCfg));
+        memset(*enc_opt, 0, sizeof(VpiH26xEncCfg));
+        return ret;
+    }
     default:
         break;
     }

@@ -181,11 +181,11 @@ static VpiRet vpi_init(VpiCtx vpe_ctx, void *cfg)
         break;
 
     case VP9ENC_VPE:
-        vp9enc_ctx                    = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
-        VpiEncVp9Opition *vp9_enc_cfg = (VpiEncVp9Opition *)cfg;
-        vp9_enc_cfg->priority         = vpi_hw_ctx[idx]->priority;
-        vp9_enc_cfg->dev_name         = vpi_hw_ctx[idx]->device_name;
-        vp9_enc_cfg->task_id          = vpi_hw_ctx[idx]->task_id;
+        vp9enc_ctx                = (VpiEncVp9Ctx *)vpe_vpi_ctx->ctx;
+        VpiVp9EncCfg *vp9_enc_cfg = (VpiVp9EncCfg *)cfg;
+        vp9_enc_cfg->priority     = vpi_hw_ctx[idx]->priority;
+        vp9_enc_cfg->dev_name     = vpi_hw_ctx[idx]->device_name;
+        vp9_enc_cfg->task_id      = vpi_hw_ctx[idx]->task_id;
         ret = vpi_venc_vp9_init(vp9enc_ctx, vp9_enc_cfg);
         if (ret)
             return ret;

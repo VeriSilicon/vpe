@@ -647,35 +647,36 @@ static VpiRet h26x_enc_open_encoder(VPIH26xEncOptions *options, VCEncInst *p_enc
             options->loop_filter_across_tiles_enabled_flag;
 
         /* HDR10 */
-        coding_cfg.Hdr10Display.hdr10_display_enable =
-            options->hdr10_display_enable;
-        if (options->hdr10_display_enable) {
-            coding_cfg.Hdr10Display.hdr10_dx0     = options->hdr10_dx0;
-            coding_cfg.Hdr10Display.hdr10_dy0     = options->hdr10_dy0;
-            coding_cfg.Hdr10Display.hdr10_dx1     = options->hdr10_dx1;
-            coding_cfg.Hdr10Display.hdr10_dy1     = options->hdr10_dy1;
-            coding_cfg.Hdr10Display.hdr10_dx2     = options->hdr10_dx2;
-            coding_cfg.Hdr10Display.hdr10_dy2     = options->hdr10_dy2;
-            coding_cfg.Hdr10Display.hdr10_wx      = options->hdr10_wx;
-            coding_cfg.Hdr10Display.hdr10_wy      = options->hdr10_wy;
-            coding_cfg.Hdr10Display.hdr10_maxluma = options->hdr10_maxluma;
-            coding_cfg.Hdr10Display.hdr10_minluma = options->hdr10_minluma;
-        }
+        if (!IS_H264(options->codec_format)) {
+            coding_cfg.Hdr10Display.hdr10_display_enable =
+                options->hdr10_display_enable;
+            if (options->hdr10_display_enable) {
+                coding_cfg.Hdr10Display.hdr10_dx0     = options->hdr10_dx0;
+                coding_cfg.Hdr10Display.hdr10_dy0     = options->hdr10_dy0;
+                coding_cfg.Hdr10Display.hdr10_dx1     = options->hdr10_dx1;
+                coding_cfg.Hdr10Display.hdr10_dy1     = options->hdr10_dy1;
+                coding_cfg.Hdr10Display.hdr10_dx2     = options->hdr10_dx2;
+                coding_cfg.Hdr10Display.hdr10_dy2     = options->hdr10_dy2;
+                coding_cfg.Hdr10Display.hdr10_wx      = options->hdr10_wx;
+                coding_cfg.Hdr10Display.hdr10_wy      = options->hdr10_wy;
+                coding_cfg.Hdr10Display.hdr10_maxluma = options->hdr10_maxluma;
+                coding_cfg.Hdr10Display.hdr10_minluma = options->hdr10_minluma;
+            }
 
-        coding_cfg.Hdr10LightLevel.hdr10_lightlevel_enable =
-            options->hdr10_lightlevel_enable;
-        if (options->hdr10_lightlevel_enable) {
-            coding_cfg.Hdr10LightLevel.hdr10_maxlight = options->hdr10_maxlight;
-            coding_cfg.Hdr10LightLevel.hdr10_avglight = options->hdr10_avglight;
-        }
+            coding_cfg.Hdr10LightLevel.hdr10_lightlevel_enable =
+                options->hdr10_lightlevel_enable;
+            if (options->hdr10_lightlevel_enable) {
+                coding_cfg.Hdr10LightLevel.hdr10_maxlight = options->hdr10_maxlight;
+                coding_cfg.Hdr10LightLevel.hdr10_avglight = options->hdr10_avglight;
+            }
 
-        coding_cfg.Hdr10Color.hdr10_color_enable = options->hdr10_color_enable;
-        if (options->hdr10_color_enable) {
-            coding_cfg.Hdr10Color.hdr10_matrix   = options->hdr10_matrix;
-            coding_cfg.Hdr10Color.hdr10_primary  = options->hdr10_primary;
-            coding_cfg.Hdr10Color.hdr10_transfer = options->hdr10_transfer;
+            coding_cfg.Hdr10Color.hdr10_color_enable = options->hdr10_color_enable;
+            if (options->hdr10_color_enable) {
+                coding_cfg.Hdr10Color.hdr10_matrix   = options->hdr10_matrix;
+                coding_cfg.Hdr10Color.hdr10_primary  = options->hdr10_primary;
+                coding_cfg.Hdr10Color.hdr10_transfer = options->hdr10_transfer;
+            }
         }
-
         coding_cfg.RpsInSliceHeader = options->rps_in_slice_header;
 
         if ((ret = VCEncSetCodingCtrl(encoder, &coding_cfg)) != VCENC_OK) {

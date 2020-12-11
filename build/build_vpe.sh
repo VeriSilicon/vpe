@@ -23,19 +23,19 @@ echo "Compiling opition: debug=$debug, mini_ffmpeg=$mini_ffmpeg, clean_option=$c
 
 if [ "${clean_option}" == "y" ]
 then
-	cd vpe
+	cd ../
 	make clean
 	cd ../ffmpeg
 	make clean
 	exit 0
 fi
 
-cd vpe
+cd ../
 	make DEBUG=${debug}
 	sudo make install
 cd -
 
-cd ffmpeg
+cd ../../ffmpeg
 	if [ "${debug}" == "y" ] && [ "${mini_ffmpeg}" == "n" ]
 	then
 		./configure --enable-vpe --extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" \

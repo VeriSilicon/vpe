@@ -49,7 +49,7 @@ void log_print(const char *p_format, ...)
         return;
 
     va_start(ap, p_format);
-    vsnprintf(buf, MAX_LOG_BUF_SIZE, p_format, ap);
+    vsnprintf(buf, MAX_LOG_BUF_SIZE-1, p_format, ap);
     va_end(ap);
     printf("%s", buf);
 }
@@ -59,7 +59,7 @@ void log_write(LogLevel level, const char *p_header, const char *p_format, ...)
     va_list ap;
     char buf[MAX_LOG_BUF_SIZE] = { 0 };
     if (p_header) {
-        strncpy(buf, p_header, MAX_LOG_BUF_SIZE);
+        strncpy(buf, p_header, MAX_LOG_BUF_SIZE-1);
     }
 
     if (strlen(buf) == MAX_LOG_BUF_SIZE) {

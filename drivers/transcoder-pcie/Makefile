@@ -18,17 +18,16 @@ transcoder_pcie-objs += encoder.o misc_ip.o
 
 obj-m += transcoder_pcie.o
 
-KERN_DIR := /lib/modules/$(shell uname -r)/build
-
+KERN_DIR ?= /lib/modules/$(shell uname -r)/build
 
 all:
 	$(MAKE) -C $(KERN_DIR) M=`pwd` modules
 
 test:
-	gcc -o edma_test_hugepage edma_test_hugepage.c -lhugetlbfs
-	gcc -o edma_link_test edma_link_test.c -lhugetlbfs
-	gcc -o mem_test mem_test.c
-	gcc -o  edma_phyaddr_test edma_phyaddr_test.c
+	$(CC) -o edma_test_hugepage edma_test_hugepage.c -lhugetlbfs
+	$(CC) -o edma_link_test edma_link_test.c -lhugetlbfs
+	$(CC) -o mem_test mem_test.c
+	$(CC) -o  edma_phyaddr_test edma_phyaddr_test.c
 .PHONY: clean
 clean:
 	make -C $(KERN_DIR) M=`pwd` clean

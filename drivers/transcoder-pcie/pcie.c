@@ -57,7 +57,7 @@
 #define CCM_ADDR_OFF			0x400000
 #define CCM_MAP_SIZE			0x30000
 
-#define MSI_NUM				32
+#define MSI_NUM				30
 
 static inline void pcie_write(struct cb_tranx_t *tdev,
 				 unsigned int off,

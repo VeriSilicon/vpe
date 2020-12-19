@@ -30,6 +30,10 @@ else
 	@echo "Build release VPE"
 endif
 
+ifeq ($(ARCH), )
+        ARCH = x86_64
+endif
+
 vpi:
 	@echo "VPE build step - build VPI"
 	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG)

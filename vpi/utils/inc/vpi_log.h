@@ -31,6 +31,7 @@
 #define __VPI_LOG_H__
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {

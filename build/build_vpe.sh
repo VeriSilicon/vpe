@@ -1,7 +1,8 @@
 #!/bin/sh
 
-if [ -x "config.mk" ]; then
-source ./config.mk
+if [ -f "config.mk" ]; then
+	echo "lunch config.mk"
+	source ./config.mk
 fi
 
 debug=n
@@ -79,7 +80,7 @@ else
 "--extra-ldflags=\"-L./../vpe/sdk_libs/${arch} -L./../vpe/vpi/\" "\
 "--extra-libs=\"-lvpi -lcwl -ldwlg2 -lenc -lg2common -lg2h264 -lg2hevc -lg2vp9 -lh2enc -lhal -lpp -lsyslog\" "\
 "--target-os=linux "\
-"--sysroiot=$SDKTARGETSYSROOT "
+"--sysroot=$SDKTARGETSYSROOT "
 fi
 	echo "command is $cmd"
 	echo $cmd > config.sh
@@ -89,7 +90,7 @@ fi
 
 	rm config.sh
 	make -j8
-	if [ $? != 0 ]; then echo "build FFmpeg error";exit 1; f
+	if [ $? != 0 ]; then echo "build FFmpeg error";exit 1; fi
 
 if [ "${cross}" == "y" ]; then
 	rm ../vpe/vpi_inc -rf

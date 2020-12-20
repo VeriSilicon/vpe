@@ -32,7 +32,7 @@ sysroot=
 kernel=
 
 TEMP=`getopt -o a:c:s:dk:h, --long arch:,cross:,sysroot:,debug,kernel:,help\
-     -n -- "$@"`
+     -n ' ' -- "$@"`
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
@@ -57,12 +57,12 @@ for arg do
         exit 1 ;
 done
 
-echo "Create VPE build config file OK!"
 echo "arch=$arch"
 echo "cross=$cross"
 echo "sysroot=$sysroot"
 echo "kernel=$kernel"
 echo "debug=$debug"
+echo "Create VPE build config file successfully!"
 
 if [ "$arch" == "aarch64" ]; then
 arch=arm64

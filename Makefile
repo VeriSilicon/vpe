@@ -36,7 +36,7 @@ endif
 
 vpi:
 	@echo "VPE build step - build VPI"
-	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG)
+	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG) ARCH=$(ARCH)
 
 drivers:
 	make -C drivers/transcoder-pcie clean
@@ -47,10 +47,10 @@ install:
 	$(shell if [ ! -d $(DLL_PATH) ]; then mkdir $(DLL_PATH); fi;)
 	$(shell if [ ! -d $(INC_PATH) ]; then mkdir $(INC_PATH); fi;)
 	cp $(PWD)/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin
-	cp $(PWD)/sdk_libs/*.so $(DLL_PATH)
+	cp $(PWD)/sdk_libs/$(ARCH)/*.so $(DLL_PATH)
 	cp $(PWD)/vpi/libvpi.so $(DLL_PATH)
 	cp $(PWD)/build/libvpi.pc $(PKG_PATH)
-	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-x86_64.conf
+	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-$(ARCH).conf
 	/sbin/ldconfig
 	cp $(PWD)/vpi/inc/*.h $(INC_PATH)
 	$(shell rmmod transcoder_pcie)
@@ -67,7 +67,7 @@ uninstall:
 	$(shell if [ -d $(INC_PATH) ]; then rm $(INC_PATH) -rf; fi;)
 	$(shell rm /lib/firmware/transcoder_zsp_fw.bin)
 	$(shell rm 	$(PKG_PATH)/libvpi.pc)
-	$(shell rm /etc/ld.so.conf.d/vpe-x86_64.conf)
+	$(shell rm /etc/ld.so.conf.d/vpe-$(ARCH).conf)
 	/sbin/ldconfig
 	$(shell rmmod transcoder_pcie)
 	$(shell rm $(DRV_PATH) -rf )

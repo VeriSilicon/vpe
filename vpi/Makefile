@@ -33,7 +33,7 @@ AR  ?= $(CROSS_COMPILE)ar rcs
 FBIP_ENABLE = y
 PERFORMANCE = y
 
-DEBFLAGS += -Werror -fPIC -Wno-unused -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-strict-overflow -Wno-shift-negative-value
+DEBFLAGS += -Werror -fPIC -Wno-unused -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-strict-overflow -Wno-implicit-function-declaration
 
 ifeq ($(DEBUG),y)
 	DEBFLAGS += -O0 -g -DDEBUG
@@ -41,9 +41,11 @@ else
 	DEBFLAGS += -O2 -g -DNDEBUG
 endif
 
-CFLAGS  = -Wall -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE \
-           $(DEBFLAGS) $(INCLUDE) -fPIC
-           CFLAGS += -Wmissing-field-initializers -std=gnu99
+CFLAGS  = -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE $(DEBFLAGS) $(INCLUDE) -fPIC -std=gnu99
+
+CFLAGS += -DFIFO_DATATYPE=void* -DUSE_EXTERNAL_BUFFER -DUSE_OUTPUT_RELEASE -D_FILE_OFFSET_BITS=64  -D_LARGEFILE64_SOURCE -DUSE_NON_BLOCKING -DGET_FREE_BUFFER_NON_BLOCK -DGET_FREE_BUFFER_NON_BLOCK -DGET_OUTPUT_BUFFER_NON_BLOCK -DSKIP_OPENB_FRAME -DENABLE_DPB_RECOVER -D_LARGEFILE64_SOURCE -DEXPIRY_DATE=1 -D_RANGE_CHECK -D_ERROR_PRINT -DDEC_X170_OUTPUT_FORMAT=0 -DDEC_X170_TIMEOUT_LENGTH=-1 -DREORDER_ERROR_FIX -DCLEAR_HDRINFO_IN_SEEK -DNEW_MEM_ALLOC -DDWL_USE_DEC_IRQ -fpic -DENABLE_HUGEPAGE
+
+CFLAGS +=-DFB_SYSLOG_ENABLE
 
 ifeq ($(ERROR_TEST),y)
 	CFLAGS += -DERROR_TEST
@@ -87,9 +89,7 @@ INCLUDE =  	-I$(VC8000E) \
 		-I$(VC8000D)/source/common \
 		-I$(COMMON)/inc \
 		-I$(DRIVERS)/transcoder-pcie \
-		-I$(BIGSEA)/inc
-
-#INCLUDE += -Ikernel_module -Imemalloc
+		-I$(BIGSEA)/inc \
 
 vpath %.c src \
           src/dec \

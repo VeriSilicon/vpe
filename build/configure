@@ -1,0 +1,110 @@
+#!/bin/sh
+#
+# VeriSilicon configure script
+#
+
+# Prevent locale nonsense from breaking basic text processing.
+LC_ALL=C
+export LC_ALL
+
+# make sure we are running under a compatible shell
+# try to make this part work with most shells
+
+try_exec(){
+    echo "Trying shell $1"
+    type "$1" > /dev/null 2>&1 && exec "$@"
+}
+
+print_usage(){
+	echo "VPE configure tool help menu:"
+	echo "--arch=    target platform CPU arch, can be x86_64 or arm64. can be empty."
+	echo "--cross=   prefix of the cross compiling tool, for example: aarch64-linux-gnu-. can be empty. if the toolchain bin files are not accessible directly, please set this value with full path."
+	echo "--sysroot= the sysroot path of the target cross compiling system. can be empty."
+	echo "--kernel=  kernel source code of the target system. it will be used to compiling VPE driver. for cross compiling, it's MUST."
+	echo "--debug    if compiling VPE in debug mode. if it's not set then release version will be built"
+	echo "--help     show help menu"
+}
+
+debug=n
+arch=x86_64
+cross=
+sysroot=
+kernel=
+
+TEMP=`getopt -o a:c:s:dk:h, --long arch:,cross:,sysroot:,debug,kernel:,help\
+     -n -- "$@"`
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+eval set -- "$TEMP"
+
+while true ; do
+    case "$1" in
+        -a|--arch)       arch=$2 ; shift 2 ;;
+        -c|--cross)     cross=$2 ; shift 2 ;;
+	-s|--sysroot) sysroot=$2 ; shift 2 ;;
+	-k|--kernel)   kernel=$2 ; shift 2 ;;
+	-d|--debug)      debug=y ; shift ;;
+	-h|--help)   print_usage ; shift ;;
+	--) shift ; break ;;
+        *) echo "Invalid parameters" ; print_usage ; exit 1 ;;
+    esac
+done
+
+for arg do
+        echo "Error! Opition \`$arg' is unknown" ;
+        print_usage;
+        exit 1 ;
+done
+
+echo "Create VPE build config file OK!"
+echo "arch=$arch"
+echo "cross=$cross"
+echo "sysroot=$sysroot"
+echo "kernel=$kernel"
+echo "debug=$debug"
+
+if [ "$arch" == "aarch64" ]; then
+arch=arm64
+fi
+
+if [ ! -z "$LD_LIBRARY_PATH" ]; then
+    unset LD_LIBRARY_PATH
+fi
+
+echo "export SDKTARGETSYSROOT=$sysroot" > config.mk
+if [ "$kernel" != "" ]; then
+echo "export KERN_DIR=$kernel" >> config.mk
+fi
+echo "export CROSS_COMPILE=$cross" >> config.mk
+echo "export PKG_CONFIG_SYSROOT_DIR=$sysroot" >> config.mk
+echo "export PKG_CONFIG_PATH=$sysroot/usr/lib/pkgconfig:$sysroot/usr/share/pkgconfig" >> config.mk
+if [ "$sysroot" != "" ]; then
+echo "export CC=\"${cross}gcc  --sysroot=$sysroot\"" >> config.mk
+echo "export CXX=\"${cross}g++  --sysroot=$sysroot\"" >> config.mk
+echo "export CPP=\"${cross}gcc -E  --sysroot=$sysroot\"" >> config.mk
+echo "export LD=\"${cross}ld  --sysroot=$sysroot\"" >> config.mk
+else
+echo "export CC=${cross}gcc" >> config.mk
+echo "export CXX=${cross}g++" >> config.mk
+echo "export CPP=\"${cross}gcc -E\"" >> config.mk
+echo "export LD=${cross}ld" >> config.mk
+fi
+echo "export AS="${cross}as "" >> config.mk
+echo "export GDB=${cross}gdb" >> config.mk
+echo "export STRIP=${cross}strip" >> config.mk
+echo "export RANLIB=${cross}ranlib" >> config.mk
+echo "export OBJCOPY=${cross}objcopy" >> config.mk
+echo "export OBJDUMP=${cross}objdump" >> config.mk
+echo "export AR=\"${cross}ar rcs\"" >> config.mk
+echo "export NM=${cross}nm" >> config.mk
+echo "export ARCH=$arch" >> config.mk
+
+if [ "$arch" == "arm64" ]; then
+echo "export ENV=arm_linux_pci" >> config.mk
+else
+echo "export ENV=x86_linux_pci" >> config.mk
+fi
+
+echo "export DEBUG=$debug" >> config.mk
+

@@ -90,7 +90,7 @@ echo "export CXX=${cross}g++" >> config.mk
 echo "export CPP=\"${cross}gcc -E\"" >> config.mk
 echo "export LD=${cross}ld" >> config.mk
 fi
-echo "export AS="${cross}as "" >> config.mk
+echo "export AS="${cross}as"" >> config.mk
 echo "export GDB=${cross}gdb" >> config.mk
 echo "export STRIP=${cross}strip" >> config.mk
 echo "export RANLIB=${cross}ranlib" >> config.mk

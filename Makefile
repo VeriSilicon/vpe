@@ -30,8 +30,9 @@ else
 	@echo "Build release VPE"
 endif
 
-ifeq ($(ARCH), )
-        ARCH = x86_64
+ARCH = $(shell uname -m)
+ifeq ($(ARCH),aarch64)
+        ARCH=arm64
 endif
 
 vpi:

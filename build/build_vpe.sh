@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ -f "config.mk" ]; then
 	echo "lunch config.mk"
-	source ./config.mk
+	. ./config.mk
 fi
 
 debug=n
@@ -31,7 +31,7 @@ echo "Target arch is $arch, host arch is $host_arch, so enable cross compiling"
 cross=y
 fi
 
-cmd="./configure --disable-vaapi --enable-vpe "
+cmd="./configure --pkg-config=true --enable-vpe "
 
 if [ "$1" == "clean" ]; then
         cd ../
@@ -70,7 +70,7 @@ if [ "${cross}" == "n" ]; then
 	cmd=$cmd"--extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" "
 else
 	cmd=$cmd\
-"--pkg-config=true "\
+"--disable-vaapi"\
 "--disable-shared "\
 "--enable-static "\
 "--cross-prefix=$CROSS_COMPILE "\
@@ -78,7 +78,7 @@ else
 "--arch=${arch} "\
 "--extra-cflags=-I../vpe/vpi_inc "\
 "--extra-ldflags=\"-L./../vpe/sdk_libs/${arch} -L./../vpe/vpi/\" "\
-"--extra-libs=\"-lvpi -lcwl -ldwlg2 -lenc -lg2common -lg2h264 -lg2hevc -lg2vp9 -lh2enc -lhal -lpp -lsyslog\" "\
+"--extra-libs=\"-lvpi -lhugetlbfs -lcwl -ldwlg2 -lenc -lg2common -lg2h264 -lg2hevc -lg2vp9 -lh2enc -lhal -lpp -lsyslog\" "\
 "--target-os=linux "\
 "--sysroot=$SDKTARGETSYSROOT "
 fi

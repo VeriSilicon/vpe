@@ -70,7 +70,7 @@ if [ "${cross}" == "n" ]; then
 	cmd=$cmd"--extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" "
 else
 	cmd=$cmd\
-"--disable-vaapi"\
+"--disable-vaapi "\
 "--disable-shared "\
 "--enable-static "\
 "--cross-prefix=$CROSS_COMPILE "\

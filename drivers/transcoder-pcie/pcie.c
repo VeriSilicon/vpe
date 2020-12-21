@@ -28,7 +28,9 @@
 #define IATU_UPPER_TARGET_ADDR_OFF(i)	(IATU_BASE_OFF+0x200*(i)+0x18)
 
 #ifndef EMULATOR
+#ifdef __x86_64__
 #define ENABLE_REPORT
+#endif
 #endif
 
 #define BAR_PCIE_MAPPING_SIZE		0x80000
@@ -57,7 +59,11 @@
 #define CCM_ADDR_OFF			0x400000
 #define CCM_MAP_SIZE			0x30000
 
+#ifdef __x86_64__
+#define MSI_NUM				32
+#else
 #define MSI_NUM				30
+#endif
 
 static inline void pcie_write(struct cb_tranx_t *tdev,
 				 unsigned int off,

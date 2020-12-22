@@ -15,14 +15,26 @@ try_exec(){
     type "$1" > /dev/null 2>&1 && exec "$@"
 }
 
+print_config(){
+	echo "arch=$arch"
+	echo "cross=$cross"
+	echo "sysroot=$sysroot"
+	echo "kernel=$kernel"
+	echo "debug=$debug"
+	echo "installpath=$installpath"
+	echo "Create VPE build config file successfully!"
+}
+
 print_usage(){
 	echo "VPE configure tool help menu:"
+	echo "Toolchain:"
 	echo "--arch=    target platform CPU arch, can be x86_64 or arm64. can be empty."
 	echo "--cross=   prefix of the cross compiling tool, for example: aarch64-linux-gnu-. can be empty. if the toolchain bin files are not accessible directly, please set this value with full path."
 	echo "--sysroot= the sysroot path of the target cross compiling system. can be empty."
 	echo "--kernel=  kernel source code of the target system. it will be used to compiling VPE driver. for cross compiling, it's MUST."
+	echo "Config:"
 	echo "--debug    if compiling VPE in debug mode. if it's not set then release version will be built"
-	echo "--outpath= the built files output path"
+	echo "--installpath= the installation base path, default is /. For cross compiling, please set this to target root files system"
 	echo "--help     show help menu"
 }
 
@@ -31,13 +43,9 @@ arch=`uname -m`
 cross=
 sysroot=
 kernel=
-outpath=
+installpath=
 
-if [ "$arch" == "aarch64" ]; then
-arch=arm64
-fi
-
-TEMP=`getopt -o a:c:s:dk:p:h, --long arch:,cross:,sysroot:,debug,kernel:,outpath:,help\
+TEMP=`getopt -o a:c:s:dk:p:h, --long arch:,cross:,sysroot:,debug,kernel:,installpath:,help\
      -n ' ' -- "$@"`
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
@@ -45,17 +53,17 @@ if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 eval set -- "$TEMP"
 
 while true ; do
-    case "$1" in
-        -a|--arch)       arch=$2 ; shift 2 ;;
-        -c|--cross)     cross=$2 ; shift 2 ;;
+	case "$1" in
+	-a|--arch)       arch=$2 ; shift 2 ;;
+	-c|--cross)     cross=$2 ; shift 2 ;;
 	-s|--sysroot) sysroot=$2 ; shift 2 ;;
-	-k|--kernel)   kernel=$2 ; shift 2 ;;
+	-k|--kernel)   	kernel=$2 ; shift 2 ;;
 	-d|--debug)      debug=y ; shift ;;
-	-o|--outpath)  outpath=$2; shift 2;;
+	-o|--installpath)  installpath=$2; shift 2;;
 	-h|--help)   print_usage ; exit 1 ;;
 	--) shift ; break ;;
-        *) echo "Invalid parameters" ; print_usage ; exit 1 ;;
-    esac
+	*) echo "Invalid parameters" ; print_usage ; exit 1 ;;
+	esac
 done
 
 for arg do
@@ -64,16 +72,24 @@ for arg do
         exit 1 ;
 done
 
-echo "arch=$arch"
-echo "cross=$cross"
-echo "sysroot=$sysroot"
-echo "kernel=$kernel"
-echo "debug=$debug"
-echo "outpath=$outpath"
-echo "Create VPE build config file successfully!"
-
 if [ ! -z "$LD_LIBRARY_PATH" ]; then
     unset LD_LIBRARY_PATH
+fi
+
+iscross=n
+host_arch=`uname -m`
+
+if [ "$arch" == "aarch64" ]; then
+arch=arm64
+fi
+
+if [ "$host_arch" == "aarch64" ]; then
+host_arch=arm64
+fi
+
+if [[ "$arch" != "$host_arch" ]]; then
+echo "Target arch is $arch, host arch is $host_arch, enable cross compiling"
+iscross=y
 fi
 
 echo "export SDKTARGETSYSROOT=$sysroot" > config.mk
@@ -103,15 +119,15 @@ echo "export OBJDUMP=${cross}objdump" >> config.mk
 echo "export AR=${cross}ar rcs" >> config.mk
 echo "export NM=${cross}nm" >> config.mk
 echo "export ARCH=$arch" >> config.mk
-
 if [ "$arch" == "arm64" ]; then
 echo "export ENV=arm_linux_pci" >> config.mk
 else
 echo "export ENV=x86_linux_pci" >> config.mk
 fi
-
 echo "export DEBUG=$debug" >> config.mk
-
-if [ "$outpath" != "" ]; then
-echo "export outpath=$outpath" >> config.mk
+if [ "$installpath" != "" ]; then
+echo "export installpath=$installpath" >> config.mk
 fi
+echo "export cross=$iscross" >> config.mk
+
+print_config;

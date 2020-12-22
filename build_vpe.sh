@@ -20,6 +20,10 @@ echo "Target arch is $arch, host arch is $host_arch, so enable cross compiling"
 cross=y
 fi
 
+ifeq ($(ARCH),aarch64)
+arch=arm64
+endif
+
 cmd="./configure --pkg-config=true --enable-vpe "
 
 if [ "$1" == "clean" ]; then

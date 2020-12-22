@@ -24,9 +24,13 @@ DRV_PATH := "/lib/modules/$(shell uname -r)/kernel/drivers/pci/pcie/solios-x"
 
 -include config.mk
 
-all: vpi drivers
+all: drivers vpi
 
 ARCH ?= $(shell uname -m)
+
+ifeq ($(ARCH),aarch64)
+        ARCH=arm64
+endif
 
 vpi:
 	@echo "VPE build step - build VPI"

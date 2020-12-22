@@ -14,26 +14,31 @@
 # * limitations under the License.
 # */
 
-DLL_PATH  := "/usr/lib/vpe"
-INC_PATH  := "/usr/local/include/vpe"
-PKG_PATH  := "/usr/share/pkgconfig"
-PWD  := $(shell pwd)
-DRV_PATH := "/lib/modules/$(shell uname -r)/kernel/drivers/pci/pcie/solios-x"
-
-.PHONY: all vpi drivers install clean help
-
 -include config.mk
 
-all: drivers vpi
-
 ARCH ?= $(shell uname -m)
+cross ?= n
+installpath ?=
+packagepath = $(shell pwd)/package
+
+DLL_PATH = $(installpath)/usr/lib/vpe/
+INC_PATH = $(installpath)/usr/local/include/vpe/
+PKG_PATH = $(installpath)/usr/share/pkgconfig/
+DRV_PATH = $(installpath)/lib/modules/`uname -r`/kernel/drivers/pci/pcie/solios-x/
+FRM_PATH = $(installpath)/lib/firmware/
+CFG_PATH = $(installpath)/etc/ld.so.conf.d/
 
 ifeq ($(ARCH),aarch64)
-        ARCH=arm64
+	ARCH=arm64
 endif
+
+.PHONY: all vpi drivers install clean help package
+
+all: drivers vpi package
 
 vpi:
 	@echo "VPE build step - build VPI"
+
 ifeq ($(DEBUG),y)
 	@echo "Build debug VPE"
 else
@@ -44,44 +49,86 @@ endif
 drivers:
 	make -C drivers all
 
+package:
+	$(shell if [ ! -d $(packagepath)/ ]; then mkdir $(packagepath); fi;)
+	$(shell cp firmware/ZSP_FW_RP_V*.bin $(packagepath)/ )
+	$(shell cp sdk_libs/$(ARCH)/*.so $(packagepath)/ )
+	$(shell cp vpi/libvpi.so $(packagepath)/ )
+	$(shell if [ ! -d $(packagepath)/vpe/ ]; then mkdir $(packagepath)/vpe/; fi;)
+	$(shell cp $(PWD)/vpi/inc/*.h $(packagepath)/vpe )
+	$(shell cp $(PWD)/drivers/transcoder_pcie.ko $(packagepath)/ )
+	## libvpi.pc was generated to $(packagepath)
+
+	@echo "Name: libvpi" >  $(packagepath)/libvpi.pc
+	@echo "Description: VSI platform interface lib" >>  $(packagepath)/libvpi.pc
+	@echo "Version: 1.0" >>  $(packagepath)/libvpi.pc
+	@echo "Cflags: -I$(packagepath)/" >> $(packagepath)/libvpi.pc
+	@echo "Libs: -L$(packagepath)/ -lvpi"  >> $(packagepath)/libvpi.pc
+	## VPE libs, fw, .h were copied to $(packagepath)
+
 install:
-	@echo "VPE build step - install"
-	$(shell if [ ! -d $(DLL_PATH) ]; then mkdir $(DLL_PATH); fi;)
-	$(shell if [ ! -d $(INC_PATH) ]; then mkdir $(INC_PATH); fi;)
-	cp $(PWD)/firmware/ZSP_FW_RP_V*.bin /lib/firmware/transcoder_zsp_fw.bin
-	cp $(PWD)/sdk_libs/$(ARCH)/*.so $(DLL_PATH)
-	cp $(PWD)/vpi/libvpi.so $(DLL_PATH)
-	cp $(PWD)/build/libvpi.pc $(PKG_PATH)
-	echo "/usr/lib/vpe" >  /etc/ld.so.conf.d/vpe-$(ARCH).conf
-	/sbin/ldconfig
-	cp $(PWD)/vpi/inc/*.h $(INC_PATH)
-	$(shell rmmod transcoder_pcie)
-	insmod drivers/transcoder_pcie.ko
-	rm $(DRV_PATH) -rf
-	mkdir -p $(DRV_PATH)
-	cp drivers/transcoder_pcie.ko $(DRV_PATH)
-	depmod
-	@echo "VPE installation finished!"
+ifeq ($(cross),y)
+ifeq ($(installpath),)
+	@echo "!! WARNNING !! non-compatible VPE will be installed to your host server system folder. "
+	@ERROR @echo "Please use ./configure --installpath to set target VPE installation path."
+endif
+endif
+
+	$(shell if [ ! -d $(DLL_PATH) ]; then mkdir $(DLL_PATH) -p; fi;)
+	$(shell if [ ! -d $(INC_PATH) ]; then mkdir $(INC_PATH) -p; fi;)
+	$(shell if [ ! -d $(PKG_PATH) ]; then mkdir $(PKG_PATH) -p; fi;)
+	$(shell if [ ! -d $(DRV_PATH) ]; then mkdir $(DRV_PATH) -p; fi;)
+	$(shell if [ ! -d $(FRM_PATH) ]; then mkdir $(FRM_PATH) -p; fi;)
+	$(shell if [ ! -d $(CFG_PATH) ]; then mkdir $(CFG_PATH) -p; fi;)
+
+	$(shell cp sdk_libs/$(ARCH)/*.so $(DLL_PATH) )
+	$(shell cp vpi/libvpi.so $(DLL_PATH) )
+
+	$(shell cp vpi/inc/*.h $(INC_PATH) )
+	$(shell cp build/libvpi.pc $(PKG_PATH) )
+	$(shell rm $(DRV_PATH) -rf )
+	$(shell mkdir -p $(DRV_PATH) )
+	$(shell cp drivers/transcoder_pcie.ko $(DRV_PATH) )
+	$(shell cp firmware/ZSP_FW_RP_V*.bin $(FRM_PATH)/transcoder_zsp_fw.bin )
+	@echo "/usr/lib/vpe" > $(CFG_PATH)/vpe-$(ARCH).conf
+	## VPE libs, fw, .h were installed to path:$(installpath)
+
+ifeq ($(cross),n)
+	@echo "Installing driver..."
+	$(shell /sbin/ldconfig )
+	$(shell rmmod transcoder_pcie )
+	$(shell insmod drivers/transcoder_pcie.ko )
+ifneq ($(shell lsmod | grep transcoder_pcie), "")
+	@echo "driver was installed successfully!"
+endif
+	$(shell depmod )
+else
+	@echo "cross compiling, skip driver installation"
+endif
+	## VPE installation finished!
 
 uninstall:
 	@echo "VPE build step - uninstall"
-	$(shell if [ -d $(DLL_PATH) ]; then rm $(DLL_PATH) -rf; fi;)
-	$(shell if [ -d $(INC_PATH) ]; then rm $(INC_PATH) -rf; fi;)
-	$(shell rm /lib/firmware/transcoder_zsp_fw.bin)
-	$(shell rm 	$(PKG_PATH)/libvpi.pc)
-	$(shell rm /etc/ld.so.conf.d/vpe-$(ARCH).conf)
-	/sbin/ldconfig
-	$(shell rmmod transcoder_pcie)
+	$(shell if [ -d $(DLL_PATH) ]; then rm $(DLL_PATH) -rf; fi; )
+	$(shell if [ -d $(INC_PATH) ]; then rm $(INC_PATH) -rf; fi; )
+	$(shell rm $(FRM_PATH)/transcoder_zsp_fw.bin )
+	$(shell rm $(PKG_PATH)/libvpi.pc )
+	$(shell rm $(CFG_PATH)/vpe-$(ARCH).conf )
 	$(shell rm $(DRV_PATH) -rf )
-	depmod
-	@echo "VPE uninstallation finished!"
+
+ifeq ($(cross),n)
+	$(shell /sbin/ldconfig )
+	$(shell rmmod transcoder_pcie )
+	$(shell depmod )
+endif
+	## VPE uninstallation finished!
 
 clean:
 	make -C vpi clean
 	make -C drivers clean
+	$(shell if [ -d $(packagepath)/ ]; then rm $(packagepath)/ -rf; fi;)
 
 help:
-	@echo ""
 	@echo "  o make                - make VPI library and pcie driver"
 	@echo "  o make clean          - cleaN VPE"
 	@echo "  o make install        - install VPE"

@@ -13,19 +13,16 @@
 # * See the License for the specific language governing permissions and
 # * limitations under the License.
 # */
+-include ../config.mk
 
 PWD = $(shell pwd)
-
 VC8000D = $(PWD)/../sdk_inc/VC8000D/software
 VC8000E = $(PWD)/../sdk_inc/VC8000E/software
 BIGSEA = $(PWD)/../sdk_inc/Bigsea/software
 COMMON = $(PWD)/../sdk_inc/common
 DRIVERS = $(PWD)/../drivers
 
--include ../config.mk
-
 ARCH ?= $(shell uname -m)
-
 CC  ?= $(CROSS_COMPILE)gcc
 RM  ?= rm -f
 AR  ?= $(CROSS_COMPILE)ar rcs
@@ -34,7 +31,6 @@ FBIP_ENABLE = y
 PERFORMANCE = y
 
 DEBFLAGS += -Werror -fPIC -Wno-unused -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-strict-overflow -Wno-implicit-function-declaration
-
 ifeq ($(DEBUG),y)
 	DEBFLAGS += -O0 -g -DDEBUG
 else
@@ -42,10 +38,31 @@ else
 endif
 
 CFLAGS  = -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE $(DEBFLAGS) $(INCLUDE) -fPIC -std=gnu99
-
-CFLAGS += -DFIFO_DATATYPE=void* -DUSE_EXTERNAL_BUFFER -DUSE_OUTPUT_RELEASE -D_FILE_OFFSET_BITS=64  -D_LARGEFILE64_SOURCE -DUSE_NON_BLOCKING -DGET_FREE_BUFFER_NON_BLOCK -DGET_FREE_BUFFER_NON_BLOCK -DGET_OUTPUT_BUFFER_NON_BLOCK -DSKIP_OPENB_FRAME -DENABLE_DPB_RECOVER -D_LARGEFILE64_SOURCE -DEXPIRY_DATE=1 -D_RANGE_CHECK -D_ERROR_PRINT -DDEC_X170_OUTPUT_FORMAT=0 -DDEC_X170_TIMEOUT_LENGTH=-1 -DREORDER_ERROR_FIX -DCLEAR_HDRINFO_IN_SEEK -DNEW_MEM_ALLOC -DDWL_USE_DEC_IRQ -fpic -DENABLE_HUGEPAGE -DCTBRC_STRENGTH -DRECON_REF_1KB_BURST_RW
-
-CFLAGS +=-DFB_SYSLOG_ENABLE
+CFLAGS += 	-DFIFO_DATATYPE=void* \
+			-DUSE_EXTERNAL_BUFFER \
+			-DUSE_OUTPUT_RELEASE \
+			-D_FILE_OFFSET_BITS=64 \
+			-D_LARGEFILE64_SOURCE \
+			-DUSE_NON_BLOCKING \
+			-DGET_FREE_BUFFER_NON_BLOCK \
+			-DGET_OUTPUT_BUFFER_NON_BLOCK \
+			-DSKIP_OPENB_FRAME \
+			-DENABLE_DPB_RECOVER \
+			-D_LARGEFILE64_SOURCE \
+			-DEXPIRY_DATE=1 \
+			-D_RANGE_CHECK \
+			-D_ERROR_PRINT \
+			-DDEC_X170_OUTPUT_FORMAT=0 \
+			-DDEC_X170_TIMEOUT_LENGTH=-1 \
+			-DREORDER_ERROR_FIX \
+			-DCLEAR_HDRINFO_IN_SEEK \
+			-DNEW_MEM_ALLOC \
+			-DDWL_USE_DEC_IRQ \
+			-fpic \
+			-DENABLE_HUGEPAGE \
+			-DCTBRC_STRENGTH \
+			-DRECON_REF_1KB_BURST_RW \
+			-DFB_SYSLOG_ENABLE
 
 ifeq ($(ERROR_TEST),y)
 	CFLAGS += -DERROR_TEST
@@ -98,28 +115,28 @@ vpath %.c src \
 	  src/filter
 
 SRCS := src/vpi.c \
-        src/dec/vpi_video_dec.c \
-	src/dec/vpi_video_dec_buffer.c \
-	src/dec/vpi_video_dec_cfg.c \
-	src/dec/vpi_video_dec_info.c \
-	src/dec/vpi_video_dec_picture_consume.c \
-	src/dec/vpi_video_dec_pp.c \
-	src/dec/vpi_video_dec_tb_defs.c \
-	src/dec/vpi_video_h264dec.c \
-	src/dec/vpi_video_hevcdec.c \
-	src/dec/vpi_video_vp9dec.c \
-	utils/src/log_manager.c \
-	src/enc/vpi_video_h26xenc.c \
-	src/enc/vpi_video_h26xenc_cfg.c \
-	src/enc/vpi_video_h26xenc_utils.c \
-	src/enc/vpi_video_h26xenc_options.c \
-	src/enc/vpi_video_enc_common.c \
-	src/enc/vpi_video_vp9enc.c \
-	src/enc/vpi_video_vp9enc_utils.c \
-	src/filter/vpi_video_prc.c \
-	src/filter/vpi_video_hwdwprc.c \
-	src/filter/vpi_video_pp.c \
-	src/filter/vpi_video_hwulprc.c
+		src/dec/vpi_video_dec.c \
+		src/dec/vpi_video_dec_buffer.c \
+		src/dec/vpi_video_dec_cfg.c \
+		src/dec/vpi_video_dec_info.c \
+		src/dec/vpi_video_dec_picture_consume.c \
+		src/dec/vpi_video_dec_pp.c \
+		src/dec/vpi_video_dec_tb_defs.c \
+		src/dec/vpi_video_h264dec.c \
+		src/dec/vpi_video_hevcdec.c \
+		src/dec/vpi_video_vp9dec.c \
+		utils/src/log_manager.c \
+		src/enc/vpi_video_h26xenc.c \
+		src/enc/vpi_video_h26xenc_cfg.c \
+		src/enc/vpi_video_h26xenc_utils.c \
+		src/enc/vpi_video_h26xenc_options.c \
+		src/enc/vpi_video_enc_common.c \
+		src/enc/vpi_video_vp9enc.c \
+		src/enc/vpi_video_vp9enc_utils.c \
+		src/filter/vpi_video_prc.c \
+		src/filter/vpi_video_hwdwprc.c \
+		src/filter/vpi_video_pp.c \
+		src/filter/vpi_video_hwulprc.c
 
 LIBS += -lg2h264 -lg2hevc -lg2vp9 -lpp -lg2common -ldwlg2 -lhugetlbfs -lh2enc -lenc -lcwl -lhal -lsyslog -lpthread -lm
 

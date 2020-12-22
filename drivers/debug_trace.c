@@ -34,4 +34,3 @@ void __trans_dbg(void *dev, int level, const char *fmt, ...)
 
 	va_end(args);
 }
-

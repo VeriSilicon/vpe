@@ -22,26 +22,23 @@ DRV_PATH := "/lib/modules/$(shell uname -r)/kernel/drivers/pci/pcie/solios-x"
 
 .PHONY: all vpi drivers install clean help
 
+-include config.mk
+
 all: vpi drivers
 
+ARCH ?= $(shell uname -m)
+
+vpi:
+	@echo "VPE build step - build VPI"
 ifeq ($(DEBUG),y)
 	@echo "Build debug VPE"
 else
 	@echo "Build release VPE"
 endif
-
-ARCH = $(shell uname -m)
-ifeq ($(ARCH),aarch64)
-        ARCH=arm64
-endif
-
-vpi:
-	@echo "VPE build step - build VPI"
 	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG) ARCH=$(ARCH)
 
 drivers:
-	make -C drivers/transcoder-pcie clean
-	make -C drivers/transcoder-pcie all
+	make -C drivers all
 
 install:
 	@echo "VPE build step - install"
@@ -55,10 +52,10 @@ install:
 	/sbin/ldconfig
 	cp $(PWD)/vpi/inc/*.h $(INC_PATH)
 	$(shell rmmod transcoder_pcie)
-	insmod drivers/transcoder-pcie/transcoder_pcie.ko
+	insmod drivers/transcoder_pcie.ko
 	rm $(DRV_PATH) -rf
 	mkdir -p $(DRV_PATH)
-	cp drivers/transcoder-pcie/transcoder_pcie.ko $(DRV_PATH)
+	cp drivers/transcoder_pcie.ko $(DRV_PATH)
 	depmod
 	@echo "VPE installation finished!"
 
@@ -77,19 +74,11 @@ uninstall:
 
 clean:
 	make -C vpi clean
-	make -C drivers/transcoder-pcie clean
+	make -C drivers clean
 
 help:
 	@echo ""
 	@echo "  o make                - make VPI library and pcie driver"
-	@echo "  o make vpi            - make VPI library"
-	@echo "  o make drivers        - make pcie driver"
-	@echo "  o make install        - copy the vpe sdk libs to default search path"
-	@echo "                          install the pcie driver"
-	@echo "                          run "sudo make install" if permission denied"
-	@echo "  o make clean          - make clean VPI and drivers"
-	@echo ""
-	@echo "  o How to make FFmpeg:"
-	@echo "   cd ffmpeg"
-	@echo "   ./configure --enable-vpe  --extra-ldflags="-L/lib/vpe" --extra-libs="-lvpi""
-	@echo "    make"
+	@echo "  o make clean          - cleaN VPE"
+	@echo "  o make install        - install VPE"
+	@echo "  o make: uninstall      - uninstall VPE"

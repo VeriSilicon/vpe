@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # VeriSilicon configure script
 #
@@ -27,7 +27,7 @@ print_usage(){
 }
 
 debug=n
-arch=x86_64
+arch=`uname -m`
 cross=
 sysroot=
 kernel=
@@ -68,10 +68,6 @@ echo "debug=$debug"
 echo "outpath=$outpath"
 echo "Create VPE build config file successfully!"
 
-if [ "$arch" == "aarch64" ]; then
-arch=arm64
-fi
-
 if [ ! -z "$LD_LIBRARY_PATH" ]; then
     unset LD_LIBRARY_PATH
 fi
@@ -84,14 +80,14 @@ echo "export CROSS_COMPILE=$cross" >> config.mk
 echo "export PKG_CONFIG_SYSROOT_DIR=$sysroot" >> config.mk
 echo "export PKG_CONFIG_PATH=$sysroot/usr/lib/pkgconfig:$sysroot/usr/share/pkgconfig" >> config.mk
 if [ "$sysroot" != "" ]; then
-echo "export CC=\"${cross}gcc  --sysroot=$sysroot\"" >> config.mk
-echo "export CXX=\"${cross}g++  --sysroot=$sysroot\"" >> config.mk
-echo "export CPP=\"${cross}gcc -E  --sysroot=$sysroot\"" >> config.mk
-echo "export LD=\"${cross}ld  --sysroot=$sysroot\"" >> config.mk
+echo "export CC=${cross}gcc  --sysroot=$sysroot" >> config.mk
+echo "export CXX=${cross}g++  --sysroot=$sysroot" >> config.mk
+echo "export CPP=${cross}gcc -E  --sysroot=$sysroot" >> config.mk
+echo "export LD=${cross}ld  --sysroot=$sysroot" >> config.mk
 else
 echo "export CC=${cross}gcc" >> config.mk
 echo "export CXX=${cross}g++" >> config.mk
-echo "export CPP=\"${cross}gcc -E\"" >> config.mk
+echo "export CPP=${cross}gcc -E" >> config.mk
 echo "export LD=${cross}ld" >> config.mk
 fi
 echo "export AS="${cross}as"" >> config.mk
@@ -100,7 +96,7 @@ echo "export STRIP=${cross}strip" >> config.mk
 echo "export RANLIB=${cross}ranlib" >> config.mk
 echo "export OBJCOPY=${cross}objcopy" >> config.mk
 echo "export OBJDUMP=${cross}objdump" >> config.mk
-echo "export AR=\"${cross}ar rcs\"" >> config.mk
+echo "export AR=${cross}ar rcs" >> config.mk
 echo "export NM=${cross}nm" >> config.mk
 echo "export ARCH=$arch" >> config.mk
 

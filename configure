@@ -33,6 +33,10 @@ sysroot=
 kernel=
 outpath=
 
+if [ "$arch" == "aarch64" ]; then
+arch=arm64
+fi
+
 TEMP=`getopt -o a:c:s:dk:p:h, --long arch:,cross:,sysroot:,debug,kernel:,outpath:,help\
      -n ' ' -- "$@"`
 
@@ -87,7 +91,7 @@ echo "export LD=${cross}ld  --sysroot=$sysroot" >> config.mk
 else
 echo "export CC=${cross}gcc" >> config.mk
 echo "export CXX=${cross}g++" >> config.mk
-echo "export CPP=${cross}gcc -E" >> config.mk
+echo "export CPP=${cross}gcc" >> config.mk
 echo "export LD=${cross}ld" >> config.mk
 fi
 echo "export AS="${cross}as"" >> config.mk

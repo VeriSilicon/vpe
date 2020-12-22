@@ -10,19 +10,24 @@ echo "lunch config.mk"
 
 cross=n
 arch=$ARCH
+host_arch=`uname -m`
 
 if [ -z "$ARCH" ]; then
 arch=`uname -m`
 fi
 
-if [[ "$arch" != "`uname -m`" ]]; then
-echo "Target arch is $arch, host arch is $host_arch, so enable cross compiling"
-cross=y
+if [ "$arch" == "aarch64" ]; then
+arch=arm64
 fi
 
-ifeq ($(ARCH),aarch64)
-arch=arm64
-endif
+if [ "$host_arch" == "aarch64" ]; then
+host_arch=arm64
+fi
+
+if [[ "$arch" != "$host_arch" ]]; then
+echo "Target arch is $arch, host arch is $host_arc, enable cross compiling"
+cross=y
+fi
 
 cmd="./configure --pkg-config=true --enable-vpe "
 

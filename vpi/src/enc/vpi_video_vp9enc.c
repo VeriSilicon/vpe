@@ -278,12 +278,13 @@ int vpi_encode_vp9_enc_process(VpiEncVp9Ctx *ctx)
         if (ctx->enc_out.frameSize == 0) {
             enc_in->pOutBuf = NULL;
         } else {
-            ctx->stream_buf_list[idx]->used      = 1;
-            ctx->stream_buf_list[idx]->item      = ctx->outstream_mem[idx];
-            ctx->stream_buf_list[idx]->item_size = ctx->enc_out.frameSize;
-            ctx->stream_buf_list[idx]->show      = ctx->enc_out.show_frame;
-            ctx->stream_buf_list[idx]->pts       = ctx->enc_out.pts;
-            ctx->stream_buf_list[idx]->pkt_dts   = ctx->enc_out.pts;
+            ctx->stream_buf_list[idx]->used        = 1;
+            ctx->stream_buf_list[idx]->item        = ctx->outstream_mem[idx];
+            ctx->stream_buf_list[idx]->item_size   = ctx->enc_out.frameSize;
+            ctx->stream_buf_list[idx]->show        = ctx->enc_out.show_frame;
+            ctx->stream_buf_list[idx]->pts         = ctx->enc_out.pts;
+            ctx->stream_buf_list[idx]->pkt_dts     = ctx->enc_out.pts;
+            ctx->stream_buf_list[idx]->coding_type = ctx->enc_out.codingType;
             vp9enc_buf_list_add(&ctx->stream_buf_head, ctx->stream_buf_list[idx]);
             if (ctx->waiting_for_pkt == 1 && ctx->enc_out.show_frame == 1) {
                 pthread_cond_signal(&ctx->enc_thread_cond);
@@ -498,7 +499,6 @@ VpiRet vpi_venc_vp9_encode(VpiEncVp9Ctx *ctx, void *in, void *out)
 
     ctx->pic_tobe_free = 0;
     output->size       = 0;
-    output->pkt_dts    = 0;
     output->pkt_dts    = 0;
 
     enc_in->write_stats = 1;
@@ -820,8 +820,10 @@ VpiRet vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata)
 
     ctx->stream_buf_head = vp9enc_buf_list_delete(ctx->stream_buf_head);
     if (buf->show) {
-        pkt->pts = buf->pts;
+        pkt->pts     = buf->pts;
         pkt->pkt_dts = buf->pkt_dts;
+        pkt->flags   = (buf->coding_type == VP9ENC_INTRA_FRAME) ?
+                           VPI_PKT_FLAG_KEY : 0;
         buf->used = 0;
         buf->show = 0;
         pthread_mutex_unlock(&ctx->enc_thread_mutex);
@@ -842,8 +844,10 @@ VpiRet vpi_venc_vp9_get_packet(VpiEncVp9Ctx *ctx, void *outdata)
     pkt->size += buf_next->item_size;
     ctx->stream_buf_head = vp9enc_buf_list_delete(ctx->stream_buf_head);
     if (buf_next->show) {
-        pkt->pts = buf_next->pts;
+        pkt->pts     = buf_next->pts;
         pkt->pkt_dts = buf_next->pkt_dts;
+        pkt->flags   = (buf->coding_type == VP9ENC_INTRA_FRAME) ?
+                           VPI_PKT_FLAG_KEY : 0;
         buf_next->used = 0;
         buf_next->show = 0;
     } else {

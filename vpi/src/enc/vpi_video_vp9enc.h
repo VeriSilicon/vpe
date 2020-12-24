@@ -62,6 +62,7 @@ typedef struct Vp9EncBufLink{
     int show;
     int64_t pts;
     int64_t pkt_dts;
+    VP9EncPictureCodingType coding_type;
     struct Vp9EncBufLink *next;
 } Vp9EncBufLink;
 

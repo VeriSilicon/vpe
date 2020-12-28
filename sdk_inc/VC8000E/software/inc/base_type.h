@@ -35,16 +35,6 @@ typedef __int64 off_t;
 #define off_t off64_t
 #endif  /* _WIN32 */
 
-#if 0
-typedef int8_t    i8;
-typedef uint8_t   u8;
-typedef int16_t   i16;
-typedef uint16_t  u16;
-typedef int32_t   i32;
-typedef uint32_t  u32;
-typedef int64_t   i64;
-typedef uint64_t  u64;
-#else
 typedef unsigned char u8;
 typedef signed char i8;
 typedef unsigned short u16;
@@ -53,7 +43,6 @@ typedef unsigned int u32;
 typedef signed int i32;
 typedef long i64;
 typedef unsigned long u64;
-#endif
 
 typedef size_t    ptr_t;
 

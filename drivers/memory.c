@@ -38,8 +38,8 @@
 #include "transcoder.h"
 
 /* aggress as follows: the first slice is slice_0, another is slice_1 */
-#define MAX_TASK_NUM	16
-#define MIN_TASK_ID	1
+#define MAX_TASK_NUM	128
+#define MIN_TASK_ID		1
 #define S0_BLOCK_CNT	47
 #define S1_BLOCK_CNT	47
 #define CHUNK_SIZE	0x1000

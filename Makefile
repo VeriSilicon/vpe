@@ -14,8 +14,6 @@
 # * limitations under the License.
 # */
 
--include config.mk
-
 ARCH ?= $(shell uname -m)
 cross ?= n
 installpath ?=
@@ -44,7 +42,7 @@ ifeq ($(DEBUG),y)
 else
 	@echo "Build release VPE"
 endif
-	make -C vpi CHECK_MEM_LEAK=y DEBUG=$(DEBUG) ARCH=$(ARCH)
+	make -C vpi CHECK_MEM_LEAK=y
 
 drivers:
 	make -C drivers all

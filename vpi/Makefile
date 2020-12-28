@@ -13,7 +13,6 @@
 # * See the License for the specific language governing permissions and
 # * limitations under the License.
 # */
--include ../config.mk
 
 PWD = $(shell pwd)
 VC8000D = $(PWD)/../sdk_inc/VC8000D/software
@@ -143,7 +142,7 @@ LIBS += -lg2h264 -lg2hevc -lg2vp9 -lpp -lg2common -ldwlg2 -lhugetlbfs -lh2enc -l
 TARGET = libvpi.so
 
 all: $(OBJS)
-	  $(CC) $(DEBFLAGS) -shared -o $(TARGET) $(OBJS) $(LDFLAGS) $(LIBS)
+	$(CC) $(DEBFLAGS) -shared -o $(TARGET) $(OBJS) $(LDFLAGS) $(LIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(ENVSET) $(CONFFLAGS) -c $< -o $@

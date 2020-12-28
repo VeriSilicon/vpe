@@ -12,8 +12,6 @@ ifeq ($(HW_HANDSHAKE),y)
 EXTRA_CFLAGS += -DENABLE_HANDSHAKE
 endif
 
--include ../config.mk
-
 transcoder_pcie-objs += transcoder.o pcie.o edma.o vc8000e.o bigsea.o vc8000d.o
 transcoder_pcie-objs += memory.o interrupt.o debug_trace.o hw_monitor.o
 transcoder_pcie-objs += encoder.o misc_ip.o

@@ -102,6 +102,8 @@ ifeq ($(cross),n)
 	$(shell insmod drivers/transcoder_pcie.ko )
 ifneq ($(shell lsmod | grep transcoder_pcie), "")
 	@echo "driver was installed successfully!"
+else
+	@echo "driver was installed failed!"
 endif
 	$(shell depmod )
 else

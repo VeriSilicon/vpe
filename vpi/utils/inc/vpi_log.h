@@ -77,14 +77,18 @@ typedef enum {
     LOG_LEVEL_MAX
 } LogLevel;
 
+extern int report_file_level;
+
 #ifndef VPILOG
 #define MAX_LOG_HEADER_SIZE (512)
 #define VPILOG(level, ...)                                                     \
     do {                                                                       \
         char header[MAX_LOG_HEADER_SIZE] = { 0 };                              \
-        snprintf(header, MAX_LOG_HEADER_SIZE, "%s(%d):", __FUNCTION__,         \
-                 __LINE__);                                                    \
-        log_write(level, header, __VA_ARGS__);                                 \
+        if (report_file_level >= level) {                                      \
+            snprintf(header, MAX_LOG_HEADER_SIZE, "%s(%d):", __FUNCTION__,     \
+                    __LINE__);                                                 \
+            log_write(level, header, __VA_ARGS__);                             \
+        }                                                                      \
     } while (0)
 #endif
 

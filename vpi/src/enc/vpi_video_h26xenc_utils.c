@@ -3868,6 +3868,10 @@ void h26x_enc_consume_pic(VpiH26xEncCtx *ctx, int consume_poc)
     in_vpi_frame->used_cnt++;
     pthread_mutex_unlock(&in_vpi_frame->frame_mutex);
 
+    if (in_vpi_frame->used_cnt == in_vpi_frame->nb_outputs) {
+        pthread_mutex_destroy(&in_vpi_frame->frame_mutex);
+    }
+
     if (ctx->force_idr) {
         pthread_mutex_lock(&ctx->h26xe_thd_mutex);
         ctx->inject_frm_cnt--;

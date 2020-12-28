@@ -524,7 +524,6 @@ int vpi_decode_vp9_get_frame(VpiDecCtx *vpi_ctx, void *outdata)
             if (vpi_frame->nb_outputs == vpi_frame->used_cnt &&
                 vpi_frame->locked == 1) {
                 vpi_frame->locked = 0;
-                pthread_mutex_destroy(&vpi_frame->frame_mutex);
                 vpi_ctx->frame_stored_list[i]->used = 0;
             }
         }

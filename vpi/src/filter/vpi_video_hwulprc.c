@@ -308,14 +308,25 @@ static void  mwl_pic_consume(VpiPrcHwUlCtx *ctx)
         if (ctx->pic_list[i].state == 1) {
             frame = ctx->pic_list[i].pic;
             if (frame->nb_outputs == frame->used_cnt) {
-                picture = (struct DecPicturePpu *)frame->data[0];
-                if (picture) {
-                    free(picture);
-                    pthread_mutex_destroy(&frame->frame_mutex);
-                }
                 ctx->pic_list[i].state = 0;
                 frame->data[0] = NULL;
             }
+        }
+    }
+    pthread_mutex_unlock(&ctx->hw_upload_mutex);
+}
+
+static void  mwl_pic_consume_flush(VpiPrcHwUlCtx *ctx)
+{
+    VpiFrame *frame;
+    struct DecPicturePpu *picture;
+    int i;
+
+    pthread_mutex_lock(&ctx->hw_upload_mutex);
+
+    for (i = 0; i < ctx->mwl_nums; i++) {
+        if (ctx->pic_list[i].state == 1) {
+            ctx->pic_list[i].state = 0;
         }
     }
     pthread_mutex_unlock(&ctx->hw_upload_mutex);
@@ -340,7 +351,6 @@ static void vpi_mwl_pic_consume(VpiPrcHwUlCtx *ctx, void *in_data)
                 free(picture);
                 ctx->pic_list[i].state = 0;
                 frame->data[0] = NULL;
-                pthread_mutex_destroy(&frame->frame_mutex);
                 break;
             }
         }
@@ -359,7 +369,9 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     int idx, ret;
     uint8_t *addr_offset = NULL;
     unsigned int i;
+    struct DecPicturePpu *pic;
 
+    mwl_pic_consume(ctx);
     pthread_mutex_lock(&ctx->hw_upload_mutex);
     if (vpi_upload_check_buffer_number_for_trans(ctx) < 0) {
         VPILOGD("check buffer failed\n");
@@ -368,24 +380,24 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     }
     pthread_mutex_unlock(&ctx->hw_upload_mutex);
 
-    struct DecPicturePpu *pic = malloc(sizeof(struct DecPicturePpu));
-    if (!pic)
-        return -1;
-    memset(pic, 0, sizeof(struct DecPicturePpu));
-    out_frame->data[0] = (void *)pic;
-
     do {
-        mwl_pic_consume(ctx);
         idx = vpi_prc_get_empty_pic(ctx);
         if (idx == -1) {
             VPILOGD("can't find empty pic\n");
-            usleep(50);
+            usleep(500);
+            mwl_pic_consume(ctx);
         } else {
             break;
         }
     } while (1);
+
+    pic = (struct DecPicturePpu *)ctx->pic_list[idx].pic_ppu;
+    memset(pic, 0, sizeof(struct DecPicturePpu));
+    out_frame->data[0] = (void *)pic;
     mwl_mem_item = &(ctx->pic_list[idx].mwl_mem);
 
+    in_frame->width  = in_frame->src_width;
+    in_frame->height = in_frame->src_height;
     if (ctx->format == VPI_FMT_UYVY) {
         linesize32_y  = ((in_frame->linesize[0]+31)/32)*32;
     } else {
@@ -416,6 +428,7 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         memcpy(addr_offset, in_frame->data[0]+i*in_frame->linesize[0],
                in_frame->linesize[0]);
     }
+
     ret = TRANS_EDMA_RC2EP_nonlink(vpi_ctx->edma_handle,
                                    (u64)ctx->p_hugepage_buf_y,
                                    pic->pictures[0].luma.bus_address, y_size);
@@ -425,7 +438,6 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
                 ret, pic->pictures[0].luma.bus_address, y_size);
         return -1;
     }
-
     if (ctx->format != VPI_FMT_UYVY) {
         //copy UV lines to hugepage buffer, then rc to ep.
         //NV12 and P010le chroma: 1 plane, UV
@@ -449,6 +461,7 @@ VpiRet vpi_prc_hwul_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     ctx->pic_list[idx].state = 1;
     ctx->pic_list[idx].pic   = out_frame;
 
+    out_frame->locked     = 1;
     out_frame->nb_outputs = 1;
     out_frame->used_cnt   = 0;
     pthread_mutex_init(&out_frame->frame_mutex, NULL);
@@ -478,14 +491,12 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
     else
         frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR;
 
-    /* FIXME: nv12,p010(all formats) uses 32 align */
-    align_width = ((frame->src_width + 31)/32)*32;
-
     /*For upload filter directly link to encoder(8000E or bigsea) */
     /*Bigsea require 1024 align, so we set 1024 align for 8000E and bigsea */
     if(VPI_FMT_P010LE == vpi_cfg->format)
         align_width = (((frame->src_width*2 + 1023)/1024)*1024)/2;
-    else if(VPI_FMT_NV12 == vpi_cfg->format)
+    else if(VPI_FMT_NV12 == vpi_cfg->format ||
+            VPI_FMT_YUV420P == vpi_cfg->format)
         align_width = ((frame->src_width + 1023)/1024)*1024;
     else if(VPI_FMT_UYVY == vpi_cfg->format)
         align_width = ((frame->src_width + 31)/32)*32;
@@ -555,6 +566,7 @@ VpiRet vpi_prc_hwul_init(VpiPrcCtx *vpi_ctx, void *cfg)
 
     for (i = 0; i < MWL_BUF_DEPTH; i++) {
         ctx->pic_list[i].state = 0;
+        ctx->pic_list[i].pic_ppu = malloc(sizeof(struct DecPicturePpu));
     }
     pthread_mutex_init(&ctx->hw_upload_mutex, NULL);
 
@@ -589,6 +601,8 @@ VpiRet vpi_prc_hwul_close(VpiPrcCtx *vpi_ctx)
     VpiPrcHwUlCtx *ctx = &(vpi_ctx->hwul_ctx);
     int i;
 
+    mwl_pic_consume_flush(ctx);
+
     if (vpi_ctx->edma_handle) {
         TRANS_EDMA_release(vpi_ctx->edma_handle);
         vpi_ctx->edma_handle = NULL;
@@ -600,6 +614,10 @@ VpiRet vpi_prc_hwul_close(VpiPrcCtx *vpi_ctx)
         mwl_release(ctx->mwl);
         ctx->mwl = NULL;
     }
+    for (i = 0; i < MWL_BUF_DEPTH; i++) {
+        free(ctx->pic_list[i].pic_ppu);
+    }
+
     pthread_mutex_destroy(&ctx->hw_upload_mutex);
 
     if(ctx->p_hugepage_buf_y != NULL){

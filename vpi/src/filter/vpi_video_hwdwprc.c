@@ -153,7 +153,13 @@ VpiRet vpi_prc_hwdw_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
         }
     }
 
+    pthread_mutex_lock(&in_frame->frame_mutex);
     in_frame->used_cnt++;
+    pthread_mutex_unlock(&in_frame->frame_mutex);
+    if (in_frame->used_cnt == in_frame->nb_outputs) {
+        pthread_mutex_destroy(&in_frame->frame_mutex);
+    }
+
     VPILOGD("linesize %d %d\n", out_frame->linesize[0], out_frame->linesize[1]);
 
     VPILOGD("in %s:%d, dma get luma data from EP:%p to RC:%p \n", __FUNCTION__,

@@ -42,6 +42,7 @@ extern "C" {
 typedef struct {
     int state;
     VpiFrame *pic;
+    void *pic_ppu;
     struct DWLLinearMem mwl_mem;
 } VpiHwUlPic;
 

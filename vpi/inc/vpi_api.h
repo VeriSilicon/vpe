@@ -50,12 +50,6 @@ void vpi_freep(void *arg);
 int vpi_get_sys_info_struct(VpiSysInfo **sys_info);
 
 /**
- * @brief Create media process structure
- * @param sys_info pointer of the media process structure
- */
-int vpi_get_media_proc_struct(VpiMediaProc **media_proc);
-
-/**
  * @brief Create empty context structure and api function pointers.
  *        Use functions in VpiApi to access vpi services.
  * @param ctx pointer of the vpi context

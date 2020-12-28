@@ -253,6 +253,8 @@ typedef struct VpiPPFilter {
     VpiPixsFmt format;
     VpiFrame *frame;
     int b_disable_tcache;
+
+    int initialized;
 } VpiPPFilter;
 
 #endif

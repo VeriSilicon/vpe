@@ -1295,11 +1295,31 @@ static void pp_pic_consume(PPClient *pp)
                 if (picture) {
                     pp_push_output_buf(pp, picture);
                     free(picture);
-                    pthread_mutex_destroy(&frame->frame_mutex);
                 }
                 frame->data[0] = NULL;
                 pp->pic_list[i].state = 0;
+                frame->locked = 0;
             }
+        }
+    }
+}
+
+static void pp_pic_consume_flush(PPClient *pp)
+{
+    VpiFrame *frame;
+    struct DecPicturePpu *picture;
+    int i;
+
+    for (i = 0; i < pp->out_buf_nums; i++) {
+        if (pp->pic_list[i].state == 1) {
+            frame = pp->pic_list[i].pic;
+            picture = (struct DecPicturePpu *)frame->data[0];
+            if (picture) {
+                free(picture);
+            }
+            frame->data[0] = NULL;
+            pp->pic_list[i].state = 0;
+            frame->locked = 0;
         }
     }
 }
@@ -1877,7 +1897,6 @@ static PPClient *pp_client_init(VpiPPFilter *filter)
     PPClient *pp_client   = NULL;
     PPInst pp_inst        = NULL;
     VpiPPConfig *test_cfg = NULL;
-    VpiFrame *in_frame    = filter->frame;
     int ret;
     u32 i;
     PPConfig *dec_cfg = NULL;
@@ -2022,16 +2041,6 @@ static PPClient *pp_client_init(VpiPPFilter *filter)
             pp_client->pp_config.in_width_align,
             pp_client->pp_config.in_stride);
 
-    if (filter->b_disable_tcache) {
-        pp_client->pp_config.in_stride = in_frame->pic_info[0].pic_width;
-    }
-    if(in_frame->raw_format == VPI_FMT_NV12)
-        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR;
-    else if(in_frame->raw_format == VPI_FMT_YUV420P)
-        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR_YUV420P;
-    else
-        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR_VU;
-
     /* Override command line options and tb.cfg for PPU0. */
     /* write pp params form tb_cfg.pp_units_params to pp_client->param.ppu_cfg
        or keep cml params - kwu */
@@ -2130,6 +2139,31 @@ static PPClient *pp_client_init(VpiPPFilter *filter)
         }
     }
 
+    return pp_client;
+err_exit:
+    vpi_ppclient_release(pp_client);
+    return NULL;
+}
+
+static int pp_config_init(VpiPPFilter *filter)
+{
+    PPClient *pp_client   = filter->pp_client;
+    PPInst pp_inst        = pp_client->pp_inst;
+    PPConfig *dec_cfg     = &pp_client->dec_cfg;
+    VpiPPConfig *test_cfg = &pp_client->pp_config;
+    VpiFrame *in_frame    = filter->frame;
+    int i, ret;
+
+    if (filter->b_disable_tcache) {
+        test_cfg->in_stride = in_frame->pic_info[0].pic_width;
+    }
+    if(in_frame->raw_format == VPI_FMT_NV12)
+        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR;
+    else if(in_frame->raw_format == VPI_FMT_YUV420P)
+        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR_YUV420P;
+    else
+        in_frame->pic_info[0].format = VPI_YUV420_SEMIPLANAR_VU;
+
     dec_cfg->in_format = test_cfg->in_p010;
     dec_cfg->in_stride = test_cfg->in_stride;
     dec_cfg->in_height = test_cfg->in_height_align;
@@ -2141,22 +2175,19 @@ static PPClient *pp_client_init(VpiPPFilter *filter)
     }
 
     pp_client->disable_tcache   = filter->b_disable_tcache;
-    pp_client->max_frames_delay = filter->frame->max_frames_delay;
+    pp_client->max_frames_delay = in_frame->max_frames_delay;
     ret = pp_buf_init(pp_client);
     if (ret < 0) {
         VPILOGE("pp_buf_init failed!\n");
-        goto err_exit;
+        return -1;
     }
     pp_dump_config(pp_client);
     ret = PPSetInfo(pp_inst, dec_cfg);
     if (ret != PP_OK) {
         VPILOGE("encode fails for Invalid pp parameters\n");
-        goto err_exit;
+        return -1;
     }
-    return pp_client;
-err_exit:
-    vpi_ppclient_release(pp_client);
-    return NULL;
+    return 0;
 }
 
 static void pp_report_pp_pic_info(struct DecPicturePpu *picture)
@@ -2691,19 +2722,9 @@ static int pp_set_hwframe_res(VpiPPFilter *filter)
     return VPI_SUCCESS;
 }
 
-static int pp_config_props(VpiPPFilter *filter, VpiPPOpition *cfg)
+static VpiRet pp_config_props(VpiPPFilter *filter)
 {
     int ret = 0;
-
-    /* get iput from ffmpeg*/
-    filter->nb_outputs       = cfg->nb_outputs;
-    filter->low_res          = cfg->low_res;
-    filter->force_10bit      = cfg->force_10bit;
-    filter->w                = cfg->w;
-    filter->h                = cfg->h;
-    filter->format           = cfg->format;
-    filter->frame            = (VpiFrame *)cfg->frame;
-    filter->b_disable_tcache = cfg->b_disable_tcache;
 
     ret = pp_parse_low_res(filter);
     if (ret != 0) {
@@ -2810,25 +2831,40 @@ static void pp_print_dec_picture(PPDecPicture *dec_picture, int num)
 
 VpiRet vpi_prc_pp_init(VpiPrcCtx *vpi_ctx, void *cfg)
 {
-    return VPI_SUCCESS;
+    VpiPPFilter *filter = &vpi_ctx->ppfilter;
+    VpiPPOption *option = (VpiPPOption *)cfg;
+    int ret;
+
+    /* get iput from ffmpeg*/
+    filter->nb_outputs       = option->nb_outputs;
+    filter->low_res          = option->low_res;
+    filter->force_10bit      = option->force_10bit;
+    filter->w                = option->w;
+    filter->h                = option->h;
+    filter->format           = option->format;
+    filter->frame            = (VpiFrame *)option->frame;
+    filter->b_disable_tcache = option->b_disable_tcache;
+
+    ret = pp_config_props(filter);
+
+    return ret;
 }
 
 VpiRet vpi_prc_pp_control(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
 {
     VpiCtrlCmdParam *cmd = (VpiCtrlCmdParam *)indata;
     VpiPPFilter *filter  = &vpi_ctx->ppfilter;
-    VpiPPOpition *cfg    = NULL;
     VpiFrame *frame      = NULL;
     int ret              = 0;
 
     switch (cmd->cmd) {
-    case VPI_CMD_PP_CONFIG:
-        cfg = (VpiPPOpition *)cmd->data;
-        ret = pp_config_props(filter, cfg);
-        if (ret < 0) {
-            VPILOGE("VPI_CMD_PP_CONFIG failed=%d\n", ret);
-        }
+    case VPI_CMD_PP_INIT_OPTION: {
+        VpiPPOption **pp_opt;
+        pp_opt = (VpiPPOption **)outdata;
+        *pp_opt = (VpiPPOption *)malloc(sizeof(VpiPPOption));
+        memset(*pp_opt, 0, sizeof(VpiPPOption));
         break;
+    }
     case VPI_CMD_PP_CONSUME:
         frame = cmd->data;
         ret   = pp_picture_consumed(filter, frame);
@@ -2893,16 +2929,25 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     VpiPPFilter *filter = &vpi_ctx->ppfilter;
     VpiFrame *input     = (VpiFrame *)indata;
     VpiFrame *output    = (VpiFrame *)outdata;
-    PPClient *pp        = filter->pp_client;
+    PPClient *pp;
     PPDecPicture dec_picture;
     struct DecPicturePpu * picPpu;
     PPInst pp_inst            = NULL;
-    PPConfig *dec_cfg         = &pp->dec_cfg;
+    PPConfig *dec_cfg;
     PPContainer *pp_c         = NULL;
     static u32 decode_pic_num = 0;
     int ret                   = 0;
     int idx;
 
+    if (!filter->initialized) {
+        ret = pp_config_init(filter);
+        if (ret != 0) {
+            return ret;
+        }
+        filter->initialized = 1;
+    }
+
+    pp = filter->pp_client;
     if (!pp || !pp->pp_inst) {
         VPILOGE("PP was not inited\n");
         return VPI_SUCCESS;
@@ -2911,6 +2956,9 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pp_inst = pp->pp_inst;
     pp_c    = (PPContainer *)pp_inst;
 
+    pp_pic_consume(pp);
+
+    dec_cfg = &pp->dec_cfg;
     if (filter->b_disable_tcache == 0) {
         pp_c->b_disable_tcache = 0;
         /* read frame from VpeFrame to pp_in_buffer*/
@@ -2995,6 +3043,9 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     if (filter->b_disable_tcache == 1) {
         // release vpi_frame from hwupload
         input->used_cnt++;
+        if (input->used_cnt == input->nb_outputs) {
+            pthread_mutex_destroy(&input->frame_mutex);
+        }
     }
 
     idx = pp_get_empty_pic(pp);
@@ -3005,9 +3056,13 @@ VpiRet vpi_prc_pp_process(VpiPrcCtx *vpi_ctx, void *indata, void *outdata)
     pp->pic_list[idx].state = 1;
     pp->pic_list[idx].pic   = output;
 
+    output->locked     = 1;
     output->nb_outputs = filter->nb_outputs;
     output->used_cnt   = 0;
     pthread_mutex_init(&output->frame_mutex, NULL);
+    if (pp->num_of_output_pics == 0) {
+        memcpy(filter->frame, output, sizeof(VpiFrame));
+    }
 
     pp->num_of_output_pics++;
     return ret;
@@ -3023,6 +3078,7 @@ VpiRet vpi_prc_pp_close(VpiPrcCtx *ctx)
     VpiRawParser *inst  = (VpiRawParser *)filter->inst;
 
     if (pp_client != NULL) {
+        pp_pic_consume_flush(pp_client);
         pp_buf_release(pp_client);
         PPRelease(pp_client->pp_inst);
         if (pp_client->dwl)

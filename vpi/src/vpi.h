@@ -158,6 +158,7 @@ typedef struct VpiHwCtx {
     int task_id;
     int priority;
     void *sys_info;
+    void *frame;
 } VpiHwCtx;
 
 typedef struct VpiCodecCtx {

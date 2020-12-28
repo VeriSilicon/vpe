@@ -171,11 +171,17 @@ static VpiRet vpi_init(VpiCtx vpe_ctx, void *cfg)
 
     case H26XENC_VPE:
         h26xenc_ctx = (VpiH26xEncCtx *)vpe_vpi_ctx->ctx;
-        VpiH26xEncCfg *h26x_enc_cfg         = (VpiH26xEncCfg *)cfg;
+        VpiH26xEncCfg *h26x_enc_cfg      = (VpiH26xEncCfg *)cfg;
         h26x_enc_cfg->priority           = vpi_hw_ctx[idx]->priority;
         h26x_enc_cfg->device             = vpi_hw_ctx[idx]->device_name;
+        h26x_enc_cfg->frame_ctx          = vpi_hw_ctx[idx]->frame;
         h26x_enc_cfg->frame_ctx->task_id = vpi_hw_ctx[idx]->task_id;
-        ret                              = vpi_h26xe_init(h26xenc_ctx, h26x_enc_cfg);
+        if (h26x_enc_cfg->codec_id == CODEC_ID_HEVC) {
+            strcpy(h26x_enc_cfg->module_name, "HEVCENC");
+        } else if (h26x_enc_cfg->codec_id == CODEC_ID_H264) {
+            strcpy(h26x_enc_cfg->module_name, "H264ENC");
+        }
+        ret = vpi_h26xe_init(h26xenc_ctx, h26x_enc_cfg);
         if (ret)
             return ret;
         break;
@@ -186,6 +192,7 @@ static VpiRet vpi_init(VpiCtx vpe_ctx, void *cfg)
         vp9_enc_cfg->priority     = vpi_hw_ctx[idx]->priority;
         vp9_enc_cfg->dev_name     = vpi_hw_ctx[idx]->device_name;
         vp9_enc_cfg->task_id      = vpi_hw_ctx[idx]->task_id;
+        vp9_enc_cfg->framectx     = vpi_hw_ctx[idx]->frame;
         ret = vpi_venc_vp9_init(vp9enc_ctx, vp9_enc_cfg);
         if (ret)
             return ret;
@@ -193,28 +200,24 @@ static VpiRet vpi_init(VpiCtx vpe_ctx, void *cfg)
 
     case PP_VPE:
         prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
-        memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        prc_ctx->filter_type       = FILTER_PP;
+        VpiPPOption *option = (VpiPPOption *)cfg;
+
         prc_ctx->ppfilter.params.device   = vpi_hw_ctx[idx]->device_name;
         prc_ctx->ppfilter.params.mem_id   = vpi_hw_ctx[idx]->task_id;
         prc_ctx->ppfilter.params.priority = vpi_hw_ctx[idx]->priority;
+        option->frame                     = vpi_hw_ctx[idx]->frame;
         if (vpi_hw_ctx[idx]) {
-            ret = vpi_vprc_init(prc_ctx, &prc_ctx->ppfilter.params);
+            ret = vpi_vprc_init(prc_ctx, cfg);
             if (ret)
                 return ret;
         }
         break;
 
     case SPLITER_VPE:
-        prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
-        memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        prc_ctx->filter_type = FILTER_SPLITER;
         break;
 
     case HWDOWNLOAD_VPE:
         prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
-        memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        prc_ctx->filter_type = FILTER_HW_DOWNLOADER;
         if (vpi_hw_ctx[idx]) {
             ret = vpi_vprc_init(prc_ctx, vpi_hw_ctx[idx]->device_name);
             if (ret)
@@ -224,14 +227,15 @@ static VpiRet vpi_init(VpiCtx vpe_ctx, void *cfg)
 
     case HWUPLOAD_VPE:
         prc_ctx = (VpiPrcCtx *)vpe_vpi_ctx->ctx;
-        memset(prc_ctx, 0, sizeof(VpiPrcCtx));
-        VpiHWUploadCfg * hwul_cfg = (VpiHWUploadCfg *)cfg;
-        prc_ctx->filter_type      = FILTER_HW_UPLOAD;
-        hwul_cfg->task_id         = vpi_hw_ctx[idx]->task_id;
-        hwul_cfg->priority        = vpi_hw_ctx[idx]->priority;
-        hwul_cfg->device          = vpi_hw_ctx[idx]->device_name;
+        VpiHWUploadCfg hwul_cfg;
+
+        hwul_cfg.task_id  = vpi_hw_ctx[idx]->task_id;
+        hwul_cfg.priority = vpi_hw_ctx[idx]->priority;
+        hwul_cfg.device   = vpi_hw_ctx[idx]->device_name;
+        hwul_cfg.frame    = vpi_hw_ctx[idx]->frame;
+        hwul_cfg.format   = *(VpiPixsFmt *)cfg;
         if (vpi_hw_ctx[idx]) {
-            ret = vpi_vprc_init(prc_ctx, cfg);
+            ret = vpi_vprc_init(prc_ctx, &hwul_cfg);
             if (ret)
                 return ret;
         }
@@ -494,6 +498,16 @@ static VpiRet vpe_control_interface(void *id, void *indata, void *outdata)
             *size = sizeof(VpiPicInfo);
             return 0;
         }
+        case VPI_CMD_SET_VPEFRAME: {
+            VpeVpiCtx *vpe_vpi_ctx = (VpeVpiCtx *)id;
+            VpiFrame *frame = (VpiFrame *)in_param->data;
+
+            frame->pic_info[0].enabled = 1;
+            frame->pic_info[0].width   = frame->src_width;
+            frame->pic_info[0].height  = frame->src_height;
+            vpi_hw_ctx[idx]->frame     = in_param->data;
+            break;
+        }
         default:
             break;
     }
@@ -655,16 +669,6 @@ VpiRet vpi_get_sys_info_struct(VpiSysInfo **sys_info)
     return VPI_SUCCESS;
 }
 
-VpiRet vpi_get_media_proc_struct(VpiMediaProc **media_proc)
-{
-    *media_proc = malloc(sizeof(VpiMediaProc));
-    if (*media_proc == NULL) {
-        VPILOGE("Can't allocate media proc struct for APP\n");
-        return VPI_ERR_NO_AP_MEM;
-    }
-    return VPI_SUCCESS;
-}
-
 VpiRet vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
 {
     VpiDecCtx *dec_ctx;
@@ -813,6 +817,7 @@ find_codec_ctx:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         vpe_vpi_ctx->ctx          = prc_ctx;
+        prc_ctx->filter_type      = FILTER_PP;
         codec_ctx->vpi_prc_pp_ctx = vpe_vpi_ctx;
         codec_ctx->ref_cnt++;
         break;
@@ -820,6 +825,7 @@ find_codec_ctx:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         vpe_vpi_ctx->ctx               = prc_ctx;
+        prc_ctx->filter_type           = FILTER_SPLITER;
         codec_ctx->vpi_prc_spliter_ctx = vpe_vpi_ctx;
         codec_ctx->ref_cnt++;
         break;
@@ -827,6 +833,7 @@ find_codec_ctx:
         prc_ctx = (VpiPrcCtx *)malloc(sizeof(VpiPrcCtx));
         memset(prc_ctx, 0, sizeof(VpiPrcCtx));
         vpe_vpi_ctx->ctx            = prc_ctx;
+        prc_ctx->filter_type        = FILTER_HW_DOWNLOADER;
         codec_ctx->vpi_prc_hwdw_ctx = vpe_vpi_ctx;
         codec_ctx->ref_cnt++;
         break;

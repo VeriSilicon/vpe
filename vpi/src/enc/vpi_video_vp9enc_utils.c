@@ -805,6 +805,10 @@ void vp9enc_consume_pic(VpiEncVp9Ctx *ctx, int consume_poc)
     in_vpi_frame->used_cnt++;
     pthread_mutex_unlock(&in_vpi_frame->frame_mutex);
 
+    if (in_vpi_frame->used_cnt == in_vpi_frame->nb_outputs) {
+        pthread_mutex_destroy(&in_vpi_frame->frame_mutex);
+    }
+
     for (i = 0; i < MAX_WAIT_DEPTH; i++) {
         if (ctx->rls_pic_list[i]->used == 0) {
             ctx->rls_pic_list[i]->item = trans_pic->pic->opaque;

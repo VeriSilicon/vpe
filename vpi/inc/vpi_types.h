@@ -72,7 +72,7 @@ typedef enum {
     VPI_CMD_ENC_INIT_OPTION,
 
     /*pp command*/
-    VPI_CMD_PP_CONFIG,
+    VPI_CMD_PP_INIT_OPTION,
     VPI_CMD_PP_CONSUME,
 
     /*vpe hwcontext pool buffer command*/
@@ -82,6 +82,7 @@ typedef enum {
     /*common command*/
     VPI_CMD_GET_VPEFRAME_SIZE,
     VPI_CMD_GET_PICINFO_SIZE,
+    VPI_CMD_SET_VPEFRAME,
 
     /*hw upload command*/
     VPI_CMD_HWDL_INIT_OPTION,
@@ -151,7 +152,7 @@ typedef struct VpiVp9EncCfg {
 /**
  * PP configuration
  */
-typedef struct VpiPPOpition {
+typedef struct VpiPPOption {
     int nb_outputs;
     int force_10bit;
     char *low_res;
@@ -161,7 +162,7 @@ typedef struct VpiPPOpition {
     /*low level hardware frame context, point to one VpiFrame pointer*/
     void *frame;
     int b_disable_tcache;
-} VpiPPOpition;
+} VpiPPOption;
 
 typedef struct VpiPacket {
     uint32_t size;
@@ -352,7 +353,6 @@ typedef struct VpiH26xEncCfg {
     int crf;
     char *preset;
     VpiH26xCodecID codec_id;
-    const char *codec_name;
     char *profile;
     char *level;
     int force_idr;
@@ -406,10 +406,5 @@ typedef struct VpiApi {
 
     int (*close)(VpiCtx);
 } VpiApi;
-
-typedef struct VpiMediaProc {
-    VpiCtx ctx;
-    VpiApi *vpi;
-} VpiMediaProc;
 
 #endif

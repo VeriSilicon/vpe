@@ -169,9 +169,9 @@ static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
     options->tr_depth_intra         = 2; /*mfu =>0*/
     options->tr_depth_inter         = (options->max_cu_size == 64) ? 4 : 3;
 
-    if (!strcmp(h26x_enc_cfg->codec_name, "hevcenc_vpe")) {
+    if (h26x_enc_cfg->codec_id == CODEC_ID_HEVC) {
         options->codec_format = VCENC_VIDEO_CODEC_HEVC;
-    } else if (!strcmp(h26x_enc_cfg->codec_name, "h264enc_vpe")) {
+    } else if (h26x_enc_cfg->codec_id == CODEC_ID_H264) {
         options->codec_format   = VCENC_VIDEO_CODEC_H264;
         options->max_cu_size    = 16;
         options->min_cu_size    = 8;
@@ -360,8 +360,7 @@ static int h26x_enc_set_default_opt(VpiH26xEncCtx *vpi_h26xe_ctx,
 }
 
 static VpiRet h26x_enc_profile_check(enum VpiH26xCodecID codec,
-                                  const char *codec_name,
-                                  char *profile, VPIH26xEncOptions *options)
+                                     char *profile, VPIH26xEncOptions *options)
 {
     if (codec == CODEC_ID_HEVC) {
         if (strcmp(profile, "main") == 0) {
@@ -371,7 +370,7 @@ static VpiRet h26x_enc_profile_check(enum VpiH26xCodecID codec,
         } else if (strcmp(profile, "main10") == 0) {
             options->profile = VCENC_HEVC_MAIN_10_PROFILE;
         } else {
-            VPILOGE("unknow vce profile %s for %s\n", profile, codec_name);
+            VPILOGE("unknow vce profile %s for HEVC\n", profile);
             return VPI_ERR_ENCODER_OPITION;
         }
     } else if (codec == CODEC_ID_H264) {
@@ -384,7 +383,7 @@ static VpiRet h26x_enc_profile_check(enum VpiH26xCodecID codec,
         } else if (strcmp(profile, "high10") == 0) {
             options->profile = VCENC_H264_HIGH_10_PROFILE;
         } else {
-            VPILOGE("unknow vce profile %s for %s\n", profile, codec_name);
+            VPILOGE("unknow vce profile %s for H264\n", profile);
             return VPI_ERR_ENCODER_OPITION;
         }
     }
@@ -393,7 +392,6 @@ static VpiRet h26x_enc_profile_check(enum VpiH26xCodecID codec,
 }
 
 static int h26x_enc_level_check(enum VpiH26xCodecID codec,
-                                const char *codec_name,
                                 char *level, VPIH26xEncOptions *options)
 {
     if (codec == CODEC_ID_HEVC) {
@@ -416,7 +414,7 @@ static int h26x_enc_level_check(enum VpiH26xCodecID codec,
         } else if (strcmp(level, "5.1") == 0) {
             options->level = VCENC_HEVC_LEVEL_5_1;
         } else {
-            VPILOGE("unsupported vce level %s for %s\n", level, codec_name);
+            VPILOGE("unsupported vce level %s for HEVC\n", level);
             return -1;
         }
     } else if (codec == CODEC_ID_H264) {
@@ -455,7 +453,7 @@ static int h26x_enc_level_check(enum VpiH26xCodecID codec,
         } else if (strcmp(level, "5.2") == 0) {
             options->level = VCENC_H264_LEVEL_5_2;
         } else {
-            VPILOGE("unsupported vce level %s for %s. \n", level, codec_name);
+            VPILOGE("unsupported vce level %s for H264.\n", level);
             return -1;
         }
     }
@@ -471,15 +469,14 @@ static int h26x_enc_get_profile_and_level(VpiH26xEncCtx *vpi_h26xe_ctx,
 
     if (h26x_enc_cfg->profile) {
         ret = h26x_enc_profile_check(h26x_enc_cfg->codec_id,
-                               h26x_enc_cfg->codec_name,
-                               h26x_enc_cfg->profile, options);
+                                     h26x_enc_cfg->profile, options);
         if( ret)
             return ret;
     }
 
     if (h26x_enc_cfg->level) {
-        ret = h26x_enc_level_check(h26x_enc_cfg->codec_id, h26x_enc_cfg->codec_name,
-                             h26x_enc_cfg->level, options);
+        ret = h26x_enc_level_check(h26x_enc_cfg->codec_id,
+                                   h26x_enc_cfg->level, options);
         if( ret)
             return ret;
     }

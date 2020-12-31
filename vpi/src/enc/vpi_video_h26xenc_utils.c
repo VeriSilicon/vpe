@@ -3735,6 +3735,8 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
     VpiEncOutData *out_buf = NULL;
     H26xEncBufLink *buf    = NULL;
 
+    VPIH26xEncOptions *options = &ctx->options;
+
     pthread_mutex_lock(&ctx->h26xe_thd_mutex);
     while (1) {
         buf = ctx->stream_buf_head;
@@ -3757,8 +3759,15 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
                 if (ctx->eos_received == 0 ||
                     ctx->resolution_change == 1 ||
                     ctx->fps_change == 1) {
-                    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-                    return -1;
+                    if (ctx->got_frame && options->low_delay) {
+                        ctx->waiting_for_pkt = 1;
+                        pthread_cond_wait(&ctx->h26xe_thd_cond,
+                                          &ctx->h26xe_thd_mutex);
+                        continue;
+                    } else {
+                        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                        return -1;
+                    }
                 } else {
                     ctx->waiting_for_pkt = 1;
                     pthread_cond_wait(&ctx->h26xe_thd_cond,

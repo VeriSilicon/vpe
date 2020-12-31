@@ -427,6 +427,8 @@ typedef struct {
     u8 restart_flag;
     u8 res_enable;
     u32 res_fps_change;
+
+    u32 got_frame;
 } VpiH26xEncCtx;
 
 enum {

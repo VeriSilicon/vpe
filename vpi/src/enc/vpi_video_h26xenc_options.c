@@ -599,6 +599,15 @@ VPIH26xParamsDef h26x_enc_param_table[] = {
       { .i64 = 0 },
       OPT_FLAG_VCE | OPT_FLAG_MULTI,
       "max pic average light level" },
+    { "low_delay",
+      COM_SHORT,
+      TYPE_INT,
+      0,
+      1,
+      OFFSETM_VCE(low_delay),
+      { .i64 = 0 },
+      OPT_FLAG_VCE | OPT_FLAG_MULTI | OPT_FLAG_EN,
+      "[VC8000E] enable low delay" },
     { NULL },
 };
 

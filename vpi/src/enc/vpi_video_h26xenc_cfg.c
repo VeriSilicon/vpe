@@ -1364,6 +1364,12 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
         }
     }
 
+    if (options->pic_rc != -255) {
+        vpi_h26xe_ctx->res_fps_change = options->pic_rc;
+    } else {
+        vpi_h26xe_ctx->res_fps_change = 0;
+    }
+
     /* preset params set */
     ret = h26x_enc_preset_params_set(vpi_h26xe_ctx, h26x_enc_cfg);
     if (ret) {

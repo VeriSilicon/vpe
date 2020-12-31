@@ -1899,6 +1899,15 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
                 VPILOGD("[%d]ctx->next_poc = %d. wait next pict\n",
                         cfg->enc_index, ctx->next_poc);
                 ctx->trans_flush_pic = HANTRO_TRUE;
+                if (options->low_delay) {
+                    pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+                    if (ctx->waiting_for_pkt == 1) {
+                        ctx->got_frame--;
+                        pthread_cond_signal(&ctx->h26xe_thd_cond);
+                        ctx->waiting_for_pkt = 0;
+                    }
+                    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                }
                 return VPI_SUCCESS;
             } else {
                 return ret;
@@ -2215,6 +2224,16 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
 
             calc_next_coding_type(ctx);
             p_enc_in->timeIncrement = cfg->output_rate_denom;
+
+            if (options->low_delay) {
+                pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+                if (ctx->waiting_for_pkt == 1) {
+                    ctx->got_frame--;
+                    pthread_cond_signal(&ctx->h26xe_thd_cond);
+                    ctx->waiting_for_pkt = 0;
+                }
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+            }
             break;
         case VCENC_FRAME_READY:
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
@@ -2241,6 +2260,9 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
             }
             pthread_mutex_lock(&ctx->h26xe_thd_mutex);
             if (ctx->waiting_for_pkt == 1) {
+                if (options->low_delay) {
+                    ctx->got_frame--;
+                }
                 pthread_cond_signal(&ctx->h26xe_thd_cond);
                 ctx->waiting_for_pkt = 0;
             }
@@ -2575,6 +2597,10 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
         return VPI_SUCCESS;
     }
 
+    if (ctx->got_frame != 1 && ctx->eos_received == 0 && options->low_delay) {
+        return VPI_SUCCESS;
+    }
+
     switch (ctx->flush_state) {
         case VPIH26X_FLUSH_IDLE:
             ctx->trans_flush_pic = HANTRO_FALSE;
@@ -2730,13 +2756,13 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     enc_ctx->trans_flush_pic  = HANTRO_FALSE;
     enc_ctx->flush_state      = VPIH26X_FLUSH_IDLE;
     enc_ctx->picture_cnt_bk   = 0;
-    enc_ctx->act_enc_cnt      = 0;
-    enc_ctx->res_fps_change   = options->pic_rc;
 
+    enc_ctx->act_enc_cnt      = 0;
     for (i = 0; i< 120; i++) {
         enc_ctx->enc_enable[i] = -1;
     }
     enc_ctx->fps_change_flag = 0;
+    enc_ctx->got_frame       = 0;
 
     vpi_h26xe_cfg->enc_index = options->enc_index;
 
@@ -2785,6 +2811,7 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
                 enc_ctx->gop_pic_cfg_pass2;
     }
 
+    VPILOGD("res_fps_change %d, low_delay %d\n", enc_ctx->res_fps_change, options->low_delay);
     VPILOGD("lookahead_depth %d, gop_size %d\n",
              options->lookahead_depth, options->gop_size);
     if (options->lookahead_depth) {
@@ -3067,12 +3094,20 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
             pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         }
     } else {
+
         if (enc_ctx->res_fps_change) {
             ret = h26x_enc_get_res_fps_info(enc_ctx, frame);
             if (ret != 0) {
                 return 0;
             }
         }
+
+        if (options->low_delay) {
+            pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+            enc_ctx->got_frame++;
+            pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+        }
+
         pthread_mutex_lock(&trans_pic->pic_mutex);
         trans_pic->state             = 1;
         trans_pic->used              = 0;

@@ -405,6 +405,8 @@ typedef struct {
     u32 b_close_dummy_regs;
 
     char *pic_rc_path;
+
+    u32 low_delay;
 } VPIH26xEncOptions;
 
 #define NOCARE (-255)

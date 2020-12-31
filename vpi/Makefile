@@ -26,6 +26,10 @@ CC  ?= $(CROSS_COMPILE)gcc
 RM  ?= rm -f
 AR  ?= $(CROSS_COMPILE)ar rcs
 
+ifeq ($(ARCH),aarch64)
+	ARCH=arm64
+endif
+
 FBIP_ENABLE = y
 PERFORMANCE = y
 

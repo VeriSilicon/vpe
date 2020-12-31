@@ -708,8 +708,8 @@ VpiRet vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
                         }
                     }
 #ifdef FB_SYSLOG_ENABLE
-                    printf("sys log level %d\n", vpi_dev_info->sys_log_level);
-                    init_syslog_module("system", vpi_dev_info->sys_log_level);
+                    printf("sys log level %d\n", vpi_dev_info->sys_log_level-2);
+                    init_syslog_module("system", vpi_dev_info->sys_log_level-2);
 #endif
                     if (!log_enabled) {
                         if (log_init(vpi_dev_info->sys_log_level)) {

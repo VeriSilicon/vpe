@@ -120,8 +120,17 @@ int close_syslog_module(void);
 
 int change_log_level(int loglevel);
 
+extern int syslog_sink_threshold;
 
-void FB_SYSLOG(const void * inst, int level, const char * fmt, ...);
+void SYSLOG(const void * inst, int level, const char * fmt, ...);
+
+#define FB_SYSLOG(inst, level, ...)                                        \
+    do {                                                                   \
+        if (syslog_sink_threshold >= level) {                              \
+            SYSLOG(inst, level, __VA_ARGS__);                           \
+        }                                                                  \
+    } while (0)
+
 void FB_SYSLOG_FLUSH();
 
 int get_deviceId(const char * dev);
@@ -131,4 +140,3 @@ int get_deviceId(const char * dev);
 #endif
 
 #endif
-

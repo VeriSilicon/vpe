@@ -98,7 +98,7 @@ endif
 
 ifeq ($(cross),n)
 	@echo "Installing driver..."
-	$(shell /sbin/ldconfig )
+#	$(shell /sbin/ldconfig )
 	$(shell rmmod transcoder_pcie )
 	$(shell insmod drivers/transcoder_pcie.ko )
 ifneq ($(shell lsmod | grep transcoder_pcie), "")

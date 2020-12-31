@@ -30,13 +30,12 @@ ifeq ($(ARCH),aarch64)
 	ARCH=arm64
 endif
 
-.PHONY: all vpi drivers install clean help package
+.PHONY: all vpi drivers install clean help package tools
 
-all: drivers vpi package
+all: drivers tools vpi package
 
 vpi:
 	@echo "VPE build step - build VPI"
-
 ifeq ($(DEBUG),y)
 	@echo "Build debug VPE"
 else
@@ -47,14 +46,18 @@ endif
 drivers:
 	make -C drivers all
 
+tools:
+	make -C tools all
+
 package:
 	$(shell if [ ! -d $(packagepath)/ ]; then mkdir $(packagepath); fi;)
 	$(shell cp firmware/ZSP_FW_RP_V*.bin $(packagepath)/ )
 	$(shell cp sdk_libs/$(ARCH)/*.so $(packagepath)/ )
 	$(shell cp vpi/libvpi.so $(packagepath)/ )
 	$(shell if [ ! -d $(packagepath)/vpe/ ]; then mkdir $(packagepath)/vpe/; fi;)
-	$(shell cp $(PWD)/vpi/inc/*.h $(packagepath)/vpe )
-	$(shell cp $(PWD)/drivers/transcoder_pcie.ko $(packagepath)/ )
+	$(shell cp vpi/inc/*.h $(packagepath)/vpe )
+	$(shell cp drivers/transcoder_pcie.ko $(packagepath)/ )
+	$(shell cp tools/libhugetlbfs/obj64/libhugetlbfs.so $(packagepath)/ )
 	## libvpi.pc was generated to $(packagepath)
 
 	@echo "Name: libvpi" >  $(packagepath)/libvpi.pc
@@ -81,6 +84,7 @@ endif
 
 	$(shell cp sdk_libs/$(ARCH)/*.so $(DLL_PATH) )
 	$(shell cp vpi/libvpi.so $(DLL_PATH) )
+	$(shell cp tools/libhugetlbfs/obj64/libhugetlbfs.so $(DLL_PATH) )
 
 	$(shell cp vpi/inc/*.h $(INC_PATH) )
 	$(shell cp build/libvpi.pc $(PKG_PATH) )
@@ -124,6 +128,7 @@ endif
 clean:
 	make -C vpi clean
 	make -C drivers clean
+	make -C tools clean
 	$(shell if [ -d $(packagepath)/ ]; then rm $(packagepath)/ -rf; fi;)
 
 help:

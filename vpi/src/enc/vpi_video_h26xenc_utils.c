@@ -3754,8 +3754,15 @@ int h26x_enc_get_frame_packet(VpiH26xEncCtx *ctx, void *outdata)
                 return 1;
             } else {
                 if (ctx->eos_received == 0) {
-                    pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
-                    return -1;
+                    if (ctx->got_frame) {
+                        ctx->waiting_for_pkt = 1;
+                        pthread_cond_wait(&ctx->h26xe_thd_cond,
+                                          &ctx->h26xe_thd_mutex);
+                        continue;
+                    } else {
+                        pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
+                        return -1;
+                    }
                 } else {
                     ctx->waiting_for_pkt = 1;
                     pthread_cond_wait(&ctx->h26xe_thd_cond,

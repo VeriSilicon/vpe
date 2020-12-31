@@ -394,6 +394,8 @@ typedef struct {
     void* outstream_mem[MAX_OUTPUT_FIFO_DEPTH];
     VpiEncOutData outstream_pkt[MAX_OUTPUT_FIFO_DEPTH];
     u8 outstrm_num;
+
+    u32 got_frame;
 } VpiH26xEncCtx;
 
 enum {

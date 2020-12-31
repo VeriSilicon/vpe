@@ -1844,6 +1844,13 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
                 VPILOGD("[%d]ctx->next_poc = %d. wait next pict\n",
                         cfg->enc_index, ctx->next_poc);
                 ctx->trans_flush_pic = HANTRO_TRUE;
+                pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+                if (ctx->waiting_for_pkt == 1) {
+                    ctx->got_frame--;
+                    pthread_cond_signal(&ctx->h26xe_thd_cond);
+                    ctx->waiting_for_pkt = 0;
+                }
+                pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
                 return VPI_SUCCESS;
             } else {
                 return ret;
@@ -2164,6 +2171,14 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
 
             calc_next_coding_type(ctx);
             p_enc_in->timeIncrement = cfg->output_rate_denom;
+
+            pthread_mutex_lock(&ctx->h26xe_thd_mutex);
+            if (ctx->waiting_for_pkt == 1) {
+                ctx->got_frame--;
+                pthread_cond_signal(&ctx->h26xe_thd_cond);
+                ctx->waiting_for_pkt = 0;
+            }
+            pthread_mutex_unlock(&ctx->h26xe_thd_mutex);
             break;
         case VCENC_FRAME_READY:
 #if defined(SUPPORT_DEC400) || defined(SUPPORT_TCACHE)
@@ -2190,6 +2205,7 @@ VpiRet h26x_enc_frame(VpiH26xEncCtx *ctx)
             }
             pthread_mutex_lock(&ctx->h26xe_thd_mutex);
             if (ctx->waiting_for_pkt == 1) {
+                ctx->got_frame--;
                 pthread_cond_signal(&ctx->h26xe_thd_cond);
                 ctx->waiting_for_pkt = 0;
             }
@@ -2293,6 +2309,10 @@ VpiRet h26x_enc_frame_process(VpiH26xEncCtx *ctx)
     if ((ctx->inject_frm_cnt < ctx->hold_buf_num)
        && ctx->force_idr
        && ctx->eos_received == 0) {
+        return VPI_SUCCESS;
+    }
+
+    if (ctx->got_frame != 1 && ctx->eos_received == 0) {
         return VPI_SUCCESS;
     }
 
@@ -2430,6 +2450,7 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     enc_ctx->trans_flush_pic  = HANTRO_FALSE;
     enc_ctx->flush_state      = VPIH26X_FLUSH_IDLE;
     enc_ctx->picture_cnt_bk   = 0;
+    enc_ctx->got_frame        = 0;
 
     vpi_h26xe_cfg->enc_index = options->enc_index;
 
@@ -2748,6 +2769,10 @@ VpiRet vpi_h26xe_put_frame(VpiH26xEncCtx *enc_ctx, void *indata)
             pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
         }
     } else {
+        pthread_mutex_lock(&enc_ctx->h26xe_thd_mutex);
+        enc_ctx->got_frame++;
+        pthread_mutex_unlock(&enc_ctx->h26xe_thd_mutex);
+
         pthread_mutex_lock(&trans_pic->pic_mutex);
         trans_pic->state             = 1;
         trans_pic->used              = 0;

@@ -79,14 +79,6 @@ fi
 iscross=n
 host_arch=`uname -m`
 
-if [ "$arch" == "aarch64" ]; then
-arch=arm64
-fi
-
-if [ "$host_arch" == "aarch64" ]; then
-host_arch=arm64
-fi
-
 if [[ "$arch" != "$host_arch" ]]; then
 echo "Target arch is $arch, host arch is $host_arch, enable cross compiling"
 iscross=y
@@ -99,6 +91,23 @@ fi
 echo "export CROSS_COMPILE=$cross" >> config.mk
 echo "export PKG_CONFIG_SYSROOT_DIR=$sysroot" >> config.mk
 echo "export PKG_CONFIG_PATH=$sysroot/usr/lib/pkgconfig:$sysroot/usr/share/pkgconfig" >> config.mk
+
+echo "export ARCH=$arch" >> config.mk
+if [ "$arch" == "aarch64" ]; then
+echo "export ENV=arm_linux_pci" >> config.mk
+else
+echo "export ENV=x86_linux_pci" >> config.mk
+fi
+echo "export DEBUG=$debug" >> config.mk
+if [ "$installpath" != "" ]; then
+echo "export installpath=$installpath" >> config.mk
+fi
+echo "export cross=$iscross" >> config.mk
+
+if [ "$iscross" == "n" ]; then
+exit 0
+fi
+
 if [ "$sysroot" != "" ]; then
 echo "export CC=\"${cross}gcc  --sysroot=$sysroot\"" >> config.mk
 echo "export CXX=\"${cross}g++  --sysroot=$sysroot\"" >> config.mk
@@ -118,16 +127,3 @@ echo "export OBJCOPY=${cross}objcopy" >> config.mk
 echo "export OBJDUMP=${cross}objdump" >> config.mk
 echo "export AR=\"${cross}ar rcs\"" >> config.mk
 echo "export NM=${cross}nm" >> config.mk
-echo "export ARCH=$arch" >> config.mk
-if [ "$arch" == "arm64" ]; then
-echo "export ENV=arm_linux_pci" >> config.mk
-else
-echo "export ENV=x86_linux_pci" >> config.mk
-fi
-echo "export DEBUG=$debug" >> config.mk
-if [ "$installpath" != "" ]; then
-echo "export installpath=$installpath" >> config.mk
-fi
-echo "export cross=$iscross" >> config.mk
-
-print_config;

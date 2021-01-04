@@ -4,6 +4,10 @@ ifeq ($(obj),)
 obj = .
 endif
 
+ifeq ($(ARCH),aarch64)
+	ARCH=arm64
+endif
+
 ifeq ($(EMULATOR),y)
 EXTRA_CFLAGS += -DEMULATOR
 endif

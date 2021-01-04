@@ -14,7 +14,11 @@
 # * limitations under the License.
 # */
 
-ARCH ?= $(shell uname -m)
+arch ?= $(shell uname -m)
+ifeq ($(arch),aarch64)
+	arch=arm64
+endif
+
 cross ?= n
 installpath ?=
 packagepath = $(shell pwd)/package
@@ -25,10 +29,6 @@ PKG_PATH = $(installpath)/usr/share/pkgconfig/
 DRV_PATH = $(installpath)/lib/modules/`uname -r`/kernel/drivers/pci/pcie/solios-x/
 FRM_PATH = $(installpath)/lib/firmware/
 CFG_PATH = $(installpath)/etc/ld.so.conf.d/
-
-ifeq ($(ARCH),aarch64)
-	ARCH=arm64
-endif
 
 .PHONY: all vpi drivers install clean help package tools
 
@@ -50,9 +50,10 @@ tools:
 	make -C tools all
 
 package:
+
 	$(shell if [ ! -d $(packagepath)/ ]; then mkdir $(packagepath); fi;)
 	$(shell cp firmware/ZSP_FW_RP_V*.bin $(packagepath)/ )
-	$(shell cp sdk_libs/$(ARCH)/*.so $(packagepath)/ )
+	$(shell cp sdk_libs/$(arch)/*.so $(packagepath)/ )
 	$(shell cp vpi/libvpi.so $(packagepath)/ )
 	$(shell if [ ! -d $(packagepath)/vpe/ ]; then mkdir $(packagepath)/vpe/; fi;)
 	$(shell cp vpi/inc/*.h $(packagepath)/vpe )
@@ -82,7 +83,7 @@ endif
 	$(shell if [ ! -d $(FRM_PATH) ]; then mkdir $(FRM_PATH) -p; fi;)
 	$(shell if [ ! -d $(CFG_PATH) ]; then mkdir $(CFG_PATH) -p; fi;)
 
-	$(shell cp sdk_libs/$(ARCH)/*.so $(DLL_PATH) )
+	$(shell cp sdk_libs/$(arch)/*.so $(DLL_PATH) )
 	$(shell cp vpi/libvpi.so $(DLL_PATH) )
 	$(shell cp tools/libhugetlbfs/obj64/libhugetlbfs.so $(DLL_PATH) )
 
@@ -92,7 +93,7 @@ endif
 	$(shell mkdir -p $(DRV_PATH) )
 	$(shell cp drivers/transcoder_pcie.ko $(DRV_PATH) )
 	$(shell cp firmware/ZSP_FW_RP_V*.bin $(FRM_PATH)/transcoder_zsp_fw.bin )
-	@echo "/usr/lib/vpe" > $(CFG_PATH)/vpe-$(ARCH).conf
+	@echo "/usr/lib/vpe" > $(CFG_PATH)/vpe-$(arch).conf
 	## VPE libs, fw, .h were installed to path:$(installpath)
 
 ifeq ($(cross),n)

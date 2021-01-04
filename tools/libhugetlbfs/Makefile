@@ -3,7 +3,8 @@ EXEDIR ?= /bin
 
 LIBOBJS = hugeutils.o version.o init.o morecore.o debug.o alloc.o shm.o kernel-features.o
 LIBPUOBJS = init_privutils.o debug.o hugeutils.o kernel-features.o
-INSTALL_OBJ_LIBS = libhugetlbfs.so libhugetlbfs.a libhugetlbfs_privutils.so
+#INSTALL_OBJ_LIBS = libhugetlbfs.so libhugetlbfs.a libhugetlbfs_privutils.so
+INSTALL_OBJ_LIBS = libhugetlbfs.so
 BIN_OBJ_DIR=obj
 INSTALL_BIN = hugectl hugeedit hugeadm pagesize
 INSTALL_HELPER = huge_page_setup_helper.py
@@ -243,7 +244,7 @@ all:	libs tests tools
 
 .PHONY:	tests libs
 
-libs:	$(foreach file,$(INSTALL_OBJ_LIBS),$(OBJDIRS:%=%/$(file))) $(BIN_OBJ_DIR)/libhugetlbfs_privutils.a
+libs:	$(foreach file,$(INSTALL_OBJ_LIBS),$(OBJDIRS:%=%/$(file)))
 
 tests:	libs # Force make to build the library first
 tests:	tests/all

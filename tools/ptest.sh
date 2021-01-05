@@ -50,9 +50,9 @@ do
         ffmpeg -y -filter_threads 1 -filter_complex_threads 1 -threads 1 -init_hw_device \
         vpe=dev0:/dev/transcoder0 -c:v h264_vpe -i ${file} -filter_complex "hwdownload,format=nv12" -f null /dev/null &
     elif [ "$2" == "encoder" ]; then
-        ffmpeg -y -v 32 -filter_threads 1 -benchmark -filter_complex_threads 1 -threads 1 -init_hw_device \
+        ffmpeg -y -filter_threads 1 -filter_complex_threads 1 -threads 1 -init_hw_device \
         vpe=dev0:/dev/transcoder0 -s 1280x720 -pix_fmt nv12 \
-        -i ${file} -filter_complex 'vpe_pp' -c:v h264enc_vpe -preset superfast -b:v 10000000 -f null /dev/null  &
+        -i ${file} -filter_complex 'vpe_pp' -c:v h264enc_vpe -preset superfast -b:v 10000000 -f null /dev/null &
     elif [ "$2" == "transcoder" ]; then
         ffmpeg -y -filter_threads 1 -filter_complex_threads 1 -threads 1 -init_hw_device \
         vpe=dev0:/dev/transcoder0 -c:v h264_vpe -transcode 1 \

@@ -30,12 +30,13 @@ DRV_PATH = $(installpath)/lib/modules/`uname -r`/kernel/drivers/pci/pcie/solios-
 FRM_PATH = $(installpath)/lib/firmware/
 CFG_PATH = $(installpath)/etc/ld.so.conf.d/
 
-.PHONY: all vpi drivers install clean help package tools
+.PHONY: all vpi drivers install clean help package
 
-all: drivers tools vpi package
+all: drivers vpi package
 
 vpi:
 	@echo "VPE build step - build VPI"
+
 ifeq ($(DEBUG),y)
 	@echo "Build debug VPE"
 else
@@ -46,9 +47,6 @@ endif
 drivers:
 	make -C drivers all
 
-tools:
-	make -C tools all
-
 package:
 
 	$(shell if [ ! -d $(packagepath)/ ]; then mkdir $(packagepath); fi;)
@@ -56,9 +54,8 @@ package:
 	$(shell cp sdk_libs/$(arch)/*.so $(packagepath)/ )
 	$(shell cp vpi/libvpi.so $(packagepath)/ )
 	$(shell if [ ! -d $(packagepath)/vpe/ ]; then mkdir $(packagepath)/vpe/; fi;)
-	$(shell cp vpi/inc/*.h $(packagepath)/vpe )
-	$(shell cp drivers/transcoder_pcie.ko $(packagepath)/ )
-	$(shell cp tools/libhugetlbfs/obj64/libhugetlbfs.so $(packagepath)/ )
+	$(shell cp $(PWD)/vpi/inc/*.h $(packagepath)/vpe )
+	$(shell cp $(PWD)/drivers/transcoder_pcie.ko $(packagepath)/ )
 	## libvpi.pc was generated to $(packagepath)
 
 	@echo "Name: libvpi" >  $(packagepath)/libvpi.pc
@@ -85,7 +82,6 @@ endif
 
 	$(shell cp sdk_libs/$(arch)/*.so $(DLL_PATH) )
 	$(shell cp vpi/libvpi.so $(DLL_PATH) )
-	$(shell cp tools/libhugetlbfs/obj64/libhugetlbfs.so $(DLL_PATH) )
 
 	$(shell cp vpi/inc/*.h $(INC_PATH) )
 	$(shell cp build/libvpi.pc $(PKG_PATH) )
@@ -131,7 +127,6 @@ endif
 clean:
 	make -C vpi clean
 	make -C drivers clean
-	make -C tools clean
 	$(shell if [ -d $(packagepath)/ ]; then rm $(packagepath)/ -rf; fi;)
 
 help:

@@ -83,7 +83,7 @@ ifeq ($(CHECK_MEM_LEAK), y)
 	CFLAGS += -DCHECK_MEM_LEAK_TRANS
 endif
 
-LDFLAGS := -L./../sdk_libs/$(ARCH)/ -L./../tools/libhugetlbfs/obj64/
+LDFLAGS := -L./../sdk_libs/$(ARCH)/
 
 OBJS = $(SRCS:.c=.o)
 

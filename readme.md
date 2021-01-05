@@ -1,7 +1,6 @@
 # Introduction
 
-VeriSilicon Platform Engine(VPE for short) consists of VeriSilicon Platform Interfaces (VPI for short) and SDK. It is the control software for VeriSilicon SoC platforms and separate IPs. Here VPI provides the APIs for VeriSilicon Video encoding and decoding functions, the details are below:
-
+VPE main functions:
     * Transcoding
           The input is HEVC,H264,VP9 bitstream up to 4K@60 FPS. The output is
           HEVC,H264,VP9 up to four channels with downscaling.
@@ -34,7 +33,7 @@ VeriSilicon Platform Engine(VPE for short) consists of VeriSilicon Platform Inte
 # VPE Plugin Description
 
 VPE Plugin is for the multimedia frameworks to enable video transcoding, encoding,
-decoding and processing with VeriSilicon Platform Engine.
+decoding and processing.
 Here VPE Plugin for FFmpeg is supported and to be extended to GStreamer and others.
 
 # VPE Overall Architecture

@@ -10,8 +10,6 @@ fi
 echo "lunch config.mk"
 . ./config.mk
 
-arch=$ARCH
-
 if [ "$1" == "clean" ]; then
 	make clean
 	cd ../ffmpeg
@@ -20,16 +18,16 @@ if [ "$1" == "clean" ]; then
 fi
 
 ## 1. build VPE
-make DEBUG=${DEBUG} ARCH=$arch
+make
 if [ $? != 0 ]; then echo "build VPE error";exit 1; fi
 
 ## 2.install VPE
 if [ "${cross}" == "n" ]; then
 	echo "installing VPE to host"
-	sudo make install ARCH=$arch
+	sudo make install
 elif [[ "${cross}" == "y" && ! -z "$installpath" ]]; then
 	echo "installing VPE to sysroot $installpath"
-	sudo make install ARCH=$arch
+	sudo make install
 else
 	echo "Cross compiling, and 'installpath' is not specified, skip VPE installation"
 fi
@@ -42,6 +40,8 @@ if [ "${DEBUG}" == "y" ]; then
 fi
 
 if [ "${cross}" == "n" ]; then
+	##for libhugetlbfs.so on arm64 platform
+	export LD_LIBRARY_PATH=/usr/lib64
 	cmd=$cmd"--extra-ldflags="-L/usr/lib/vpe" --extra-libs="-lvpi" "
 else
 	cmd="$cmd"\
@@ -50,7 +50,7 @@ else
 "--enable-static "\
 "--cross-prefix=$CROSS_COMPILE "\
 "--enable-cross-compile "\
-"--arch=${arch} "\
+"--arch=${ARCH} "\
 "--extra-cflags=-I${vpe_out_path} "\
 "--extra-ldflags=-L${vpe_out_path} "\
 "--extra-libs=\"-lvpi -lhugetlbfs -lcwl -ldwlg2 -lenc -lg2common -lg2h264 -lg2hevc -lg2vp9 -lh2enc -lhal -lpp -lsyslog\" "\

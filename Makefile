@@ -14,6 +14,10 @@
 # * limitations under the License.
 # */
 
+ifneq ($(ARCH),)
+arch=$(ARCH)
+endif
+
 arch ?= $(shell uname -m)
 ifeq ($(arch),aarch64)
 	arch=arm64

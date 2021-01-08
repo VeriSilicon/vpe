@@ -34,7 +34,7 @@ DRV_PATH = $(installpath)/lib/modules/`uname -r`/kernel/drivers/pci/pcie/solios-
 FRM_PATH = $(installpath)/lib/firmware/
 CFG_PATH = $(installpath)/etc/ld.so.conf.d/
 
-.PHONY: all vpi drivers install clean help package
+.PHONY: all vpi drivers tools install clean help package
 
 all: drivers vpi package
 
@@ -50,6 +50,9 @@ endif
 
 drivers:
 	make -C drivers all
+
+tools:
+	make -C tools
 
 package:
 

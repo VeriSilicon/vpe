@@ -20,6 +20,7 @@
 #include <linux/version.h>
 #include <linux/timer.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 
 #include "common.h"
 #include "encoder.h"
@@ -475,9 +476,9 @@ int adjust_enc_pll(struct cb_tranx_t *tdev, u32 slice_id, int type)
 	if (type == TR_PLL_BIGSEA) {
 		switch (tdev->clock_adjust) {
 		case 0:
-			pll_m = BIGSEA_PLL_M_OVER;
-			pll_s = BIGSEA_PLL_S_OVER;
-			freq = BIGSEA_PLL_OVER;
+			pll_m = BIGSEA_PLL_M;
+			pll_s = BIGSEA_PLL_S;
+			freq = BIGSEA_PLL;
 			break;
 		case 1:
 			pll_m = ENC_PLL_M_75;

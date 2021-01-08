@@ -32,6 +32,7 @@
 #include <linux/miscdevice.h>
 #include <linux/pci.h>
 #include <linux/pagemap.h>
+#include <linux/vmalloc.h>
 
 #include "common.h"
 #include "memory.h"
@@ -198,7 +199,6 @@ void cb_mem_close(struct cb_tranx_t *tdev, struct file *filp)
 		if (tmem->id_filp[id] == filp) {
 			trans_dbg(tdev, TR_DBG, "%s id:%d\n", __func__, id);
 			free_task_id(tmem, id);
-			break;
 		}
 	}
 }
@@ -493,7 +493,7 @@ static int free_mem_ep(unsigned long busaddr,
 			   struct memory_t *tmem)
 {
 	int i, ret = 0;
-	int slice, bi; /* bi:block index */
+	int slice, bi = 0; /* bi:block index */
 	struct mem_block *mb; /* memory block */
 	unsigned long tmp;
 	u32 rsv_size;
@@ -781,7 +781,7 @@ int cb_mem_init(struct cb_tranx_t *tdev)
 	return 0;
 
 out_free_chunk:
-	vfree(hlina_chunks);
+	vfree(tmem->mem_s0_bk[0].chk_inf);
 out_free_slice:
 	kfree(block);
 out_free_dev:

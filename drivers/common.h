@@ -12,6 +12,9 @@
 
 #include "transcoder.h"
 
+#define MAX_MSIX_CNT		32
+#define MIN_MSIX_CNT		32
+
 /* submodule index */
 enum TRANS_MODULE_INDEX {
 	TR_MODULE_PCIE = 0,
@@ -156,6 +159,7 @@ struct cb_tranx_t {
 	u32 clock_adjust; /* adjust video pll frequency */
 	u32 reduce_strategy; /* reduce strategy when the temperature exceeds the threshold */
 	struct mutex reset_lock;
+	struct msix_entry msix_entries[MAX_MSIX_CNT];
 };
 
 struct cb_misc_tdev {

@@ -163,7 +163,7 @@ static struct attribute_group trans_pcie_attribute_group = {
  */
 int cb_pci_init(struct cb_tranx_t *tdev)
 {
-	int ret;
+	int ret, i;
 	resource_size_t bar4_base, bar2_base, bar0_base;
 	u32 bar4_len, bar2_len;
 
@@ -276,13 +276,18 @@ int cb_pci_init(struct cb_tranx_t *tdev)
 	tdev->ccm = tdev->bar2_virt + CCM_ADDR_OFF;
 	tdev->bar2_virt_end = tdev->bar2_virt + bar2_len;
 
-	ret = pci_alloc_irq_vectors(tdev->pdev, 1, MSI_NUM, PCI_IRQ_MSIX);
-	if (ret == MSI_NUM) {
+	for (i = 0; i < MAX_MSIX_CNT; i++)
+		tdev->msix_entries[i].entry = i;
+
+	ret = pci_enable_msix_range(tdev->pdev, tdev->msix_entries,
+					MIN_MSIX_CNT, MAX_MSIX_CNT);
+	if (ret >= MIN_MSIX_CNT) {
 		trans_dbg(tdev, TR_DBG,
 			"pcie: Have requested msi irq number:%d.\n", ret);
 	} else {
+		pci_disable_msix(tdev->pdev);
 		trans_dbg(tdev, TR_ERR,
-			"pcie: pci_alloc_irq_vectors failed,ret=%d.\n",
+			"pcie: allocate irq vectors failed,ret=%d.\n",
 			ret);
 		goto out_unmap_bar2;
 	}
@@ -292,7 +297,7 @@ int cb_pci_init(struct cb_tranx_t *tdev)
 	if (ret) {
 		trans_dbg(tdev, TR_ERR,
 			"pcie: failed to create sysfs device attributes\n");
-		goto out_free_irq;
+		goto out_unmap_bar2;
 	}
 
 	/*
@@ -309,8 +314,6 @@ int cb_pci_init(struct cb_tranx_t *tdev)
 		  ccm_read(tdev, MAIL_BOX_INTERRUPT_CONTROLLER));
 	return 0;
 
-out_free_irq:
-	pci_free_irq_vectors(tdev->pdev);
 out_unmap_bar2:
 	iounmap(tdev->bar2_virt);
 out_unmap_pcie:
@@ -415,8 +418,8 @@ void cb_pci_release(struct cb_tranx_t *tdev)
 	/* disable interrupt data path */
 	ccm_write(tdev, INT_POL_REF_CFG, 0x0);
 	ccm_write(tdev, MAIL_BOX_INTERRUPT_CONTROLLER, 0x0);
+	pci_disable_msix(tdev->pdev);
 
-	pci_free_irq_vectors(tdev->pdev);
 	iounmap(tdev->bar0_virt);
 	iounmap(tdev->bar2_virt);
 #ifdef ENABLE_REPORT

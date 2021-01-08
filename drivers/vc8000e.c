@@ -20,6 +20,7 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 
 #include "common.h"
 #include "encoder.h"
@@ -477,7 +478,7 @@ int vc8000e_init(struct cb_tranx_t *tdev)
 			pci_resource_start(tdev->pdev, 2) +  vce_cores[i][0];
 		tvce->core[i].hwregs = tdev->bar2_virt + vce_cores[i][0];
 		tvce->core[i].iosize = vce_cores[i][1];
-		tvce->core[i].irq = pci_irq_vector(tdev->pdev, vce_cores[i][2]);
+		tvce->core[i].irq = tdev->msix_entries[vce_cores[i][2]].vector;
 		spin_lock_init(&tvce->core[i].irq_lock);
 	}
 

@@ -18,6 +18,7 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 
 #include "common.h"
 #include "encoder.h"
@@ -470,7 +471,7 @@ int bigsea_init(struct cb_tranx_t *tdev)
 		tbigsea->core[i].hwregs = tdev->bar2_virt + bigsea_cores[i][0];
 		tbigsea->core[i].iosize = bigsea_cores[i][1];
 		tbigsea->core[i].irq =
-			pci_irq_vector(tdev->pdev, bigsea_cores[i][2]);
+			tdev->msix_entries[bigsea_cores[i][2]].vector;
 		spin_lock_init(&tbigsea->core[i].irq_lock);
 	}
 

@@ -8,7 +8,7 @@
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
-
+#include <linux/hrtimer.h>
 #include "common.h"
 
 #define TC_EDMA_RSV		0x00

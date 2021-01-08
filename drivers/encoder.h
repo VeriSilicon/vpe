@@ -11,9 +11,15 @@
 
 #include "common.h"
 
-#define BIGSEA_PLL_M_OVER	544 /* 680MHz */
-#define BIGSEA_PLL_S_OVER	2   /* 680MHz */
-#define BIGSEA_PLL_OVER		680 /* 680MHz */
+#ifdef BIGSEA_OVER_CLK
+#define BIGSEA_PLL_M		544 /* 680MHz */
+#define BIGSEA_PLL_S		2   /* 680MHz */
+#define BIGSEA_PLL		680 /* 680MHz */
+#else
+#define BIGSEA_PLL_M		520 /* 650MHz */
+#define BIGSEA_PLL_S		2   /* 650MHz */
+#define BIGSEA_PLL		650 /* 650MHz */
+#endif
 
 #define ENC_PLL_M_NORMAL	464 /* 580MHz */
 #define ENC_PLL_S_NORMAL	2   /* 580MHz */

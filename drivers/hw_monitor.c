@@ -1553,7 +1553,7 @@ int hw_monitor_init(struct cb_tranx_t *tdev)
 			goto out_del_timer;
 	}
 
-	thwm->irq = pci_irq_vector(tdev->pdev, ZSP_IRQ_INDEX);
+	thwm->irq = tdev->msix_entries[ZSP_IRQ_INDEX].vector;
 	if (thwm->irq == 0) {
 		trans_dbg(tdev, TR_ERR, "hwm: zsp vector is 0.\n");
 		goto out_del_timer;

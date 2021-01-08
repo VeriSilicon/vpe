@@ -15,6 +15,7 @@
 #include <linux/pagemap.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
+#include <linux/vmalloc.h>
 
 #include "common.h"
 #include "misc_ip.h"

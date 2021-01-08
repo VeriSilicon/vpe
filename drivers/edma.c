@@ -19,6 +19,7 @@
 #include <linux/pci.h>
 #include <linux/hrtimer.h>
 #include <linux/interrupt.h>
+#include <linux/vmalloc.h>
 
 #include "common.h"
 #include "edma.h"
@@ -566,6 +567,7 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 	int ret, rv, c;
 	unsigned char done = 0;
 	unsigned long flags;
+	u32 tc_total_size = 0;
 
 	/* edma link table which are saved in ep side ddr */
 	struct dma_link_table __iomem *link_table;
@@ -605,6 +607,8 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 		link_table[i].sar_low = table_info[i].sar_low;
 		link_table[i].dst_high = table_info[i].dst_high;
 		link_table[i].dst_low = table_info[i].dst_low;
+		if (tcache)
+			tc_total_size += link_table[i].size;
 		if ((i+1) == cnt)
 			link_table[i].control |= (DMA_LIE | DMA_RIE);
 	}
@@ -688,8 +692,10 @@ static int edma_tranx_rc2ep(struct dma_link_table *table_info,
 	/* tcache don't need to wait interrupt, user app will check edma
 	 * status, so return.
 	 */
-	if (tcache)
+	if (tcache) {
+		atomic64_add(tc_total_size, &tedma->edma_perf.rc2ep_size);
 		return 0;
+	}
 
 	ret = wait_event_interruptible_timeout(tedma->queue_wait,
 				tedma->wait_condition_r[c], EDMA_TIMEOUT);
@@ -1148,7 +1154,7 @@ static int cb_get_dma_addr(struct cb_tranx_t *tdev, unsigned long start,
 	flags |= FOLL_WRITE;
 	down_read(&current->mm->mmap_sem);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 	rv = get_user_pages(current, current->mm, start, page_cnt, 1, flags, user_pages, NULL);
 #else
 	rv = get_user_pages(start, page_cnt, flags, user_pages, NULL);
@@ -1212,7 +1218,7 @@ static int edma_tranx_viraddr_mode(struct trans_pcie_edma *edma_info,
 	unsigned int ctl = DMA_CB;
 	unsigned long vaddr, ep_addr;
 	struct rc_addr_info *paddr_array;
-	int rv;
+	int rv = 0;
 
 	if (edma_info->direct == RC2EP) {
 		vaddr = edma_info->sar_high;
@@ -1701,7 +1707,7 @@ static int edma_register_irq(struct cb_tranx_t *tdev)
 	int ret;
 
 	/* request edma irq. */
-	ret = request_irq(pci_irq_vector(tdev->pdev, 0), edma_isr,
+	ret = request_irq(tdev->msix_entries[0].vector, edma_isr,
 			IRQF_SHARED|IRQF_NO_THREAD, "tedma", tdev);
 	if (ret)
 		trans_dbg(tdev, TR_ERR, "edma: request edma irq failed.\n");
@@ -1873,9 +1879,9 @@ int edma_init(struct cb_tranx_t *tdev)
 	unsigned int val;
 	u16 flags;
 	u32 table, msix_bar, msix_offset, msix_size;
-	u32 msi_addr_l, msi_addr_h;
+	u32 msi_addr_l = 0, msi_addr_h = 0;
 	u64 msi_addr;
-	u32 msi_data;
+	u32 msi_data = 0;
 	struct edma_t *tedma;
 	struct pci_dev *pdev = tdev->pdev;
 	int ret;
@@ -2032,8 +2038,8 @@ out_free_edma:
 
 static void edma_free_irq(struct cb_tranx_t *tdev)
 {
-	if (pci_irq_vector(tdev->pdev, 0))
-		free_irq(pci_irq_vector(tdev->pdev, 0), tdev);
+	if (tdev->msix_entries[0].vector)
+		free_irq(tdev->msix_entries[0].vector, tdev);
 }
 
 void edma_release(struct cb_tranx_t *tdev)
@@ -2207,4 +2213,3 @@ long edma_ioctl(struct file *filp, unsigned int cmd,
 
 	return ret;
 }
-

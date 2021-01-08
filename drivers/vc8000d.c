@@ -24,6 +24,7 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 
 #include "common.h"
 #include "vc8000d.h"
@@ -1413,7 +1414,7 @@ int vc8000d_init(struct cb_tranx_t *tdev)
 			pci_resource_start(tdev->pdev, 2) + vcd_cores[i][0];
 		tvcd->core[i].hwregs = tdev->bar2_virt + vcd_cores[i][0];
 		tvcd->core[i].iosize = vcd_cores[i][1];
-		tvcd->core[i].irq = pci_irq_vector(tdev->pdev, vcd_cores[i][2]);
+		tvcd->core[i].irq = tdev->msix_entries[vcd_cores[i][2]].vector;
 		spin_lock_init(&tvcd->core[i].irq_lock);
 	}
 
@@ -1534,8 +1535,8 @@ int vc8000d_release(struct cb_tranx_t *tdev)
 	vc8000d_free_irq(tdev);
 	for (i = 0; i < tvcd->cores; i++)
 		vcd_disable_clock(tvcd, i);
+	kfree(tvcd->taskq[0]);
 	kfree(tvcd);
-
 	trans_dbg(tdev, TR_DBG, "vc8000d: remove module done.\n");
 	return 0;
 }

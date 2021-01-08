@@ -324,10 +324,11 @@ void srm_dump_resource(SrmContext *srm)
 
     for (i = 0; i < srm->driver_nums; i++) {
         status = &srm->driver_status[i];
-        printf("\rtranscoder%2d: power=%s, decoder=%2d%, encoder=%2d%, memory used=%4dMB, memory free=%4dMB",
-               status->device_id, status->power_state?"on":"off", status->dec_usage,
+        printf("transcoder%2d: power=%s, decoder=%2d%, encoder=%2d%, memory used=%4dMB, memory free=%4dMB\n",
+               i, status->power_state?"on":"off", status->dec_usage,
                status->enc_usage, status->used_mem, status->free_mem);
     }
+    printf("\033[%dA", srm->driver_nums);
 }
 
 int srm_init(SrmContext *srm)
@@ -364,7 +365,7 @@ int main()
         if(read_driver_status(&srm) !=0)
             return -1;
         srm_dump_resource(&srm);
-        usleep(100000);
+        usleep(1000000);
     }
     srm_close(&srm);
 }

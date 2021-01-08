@@ -17,7 +17,7 @@
 .PHONY: all clean
 
 all:
-	$(CC) -o srm srm.c
+	$(CC) -o srmtool srm.c
 
 clean:
-	$(RM) srm
+	$(RM) srmtool

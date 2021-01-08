@@ -18,6 +18,8 @@
 
 all:
 	make -C srm
+	cp srm/srmtool .
 
 clean:
 	make -C srm clean
+	rm srmtool

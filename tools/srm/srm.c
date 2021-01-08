@@ -27,7 +27,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,10 +43,20 @@
 #define ENC_CORE_STATUS "enc_core_status"
 #define MEM_USAGE "mem_info"
 #define POWER_STATUS "power_state"
+#define DRVER_INDEX_BALABCE 100
+#define MAX_DEVICES 12
+#define MEM_FACTOR_4K_HEVC_DEC 13
+#define MEM_FACTOR_2K_HEVC_DEC 25
+#define MEM_FACTOR_HEVC_ENC 2
+#define DEFAULT_EFFICIENCY  1.0
 
-typedef enum SrmMode {
-    SRM_BALANCE   = 0,
-    SRM_LOW_POWER = 1,
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define END "\033[0m"
+
+typedef enum {
+    SRM_PERFORMANCE   = 0,
+    SRM_POWER_SAVING = 1,
 } SrmMode;
 
 typedef enum {
@@ -55,14 +64,22 @@ typedef enum {
     SRM_RESERVED = 1,
 } SrmCoreStatus;
 
-typedef struct SrmDecCoreStatus {
+typedef struct {
     int core0;
     int core1;
     int core2;
     int core3;
 } SrmDecCoreStatus;
 
-typedef struct DriverStatus {
+typedef struct {
+    int res_seirios;
+    int res_480p30;
+    int res_720p30;
+    int res_1080p30;
+    int res_2160p30;
+} SrmTotalSource;
+
+typedef struct {
     int device_id;
     int dec_usage;
     int enc_usage;
@@ -72,21 +89,22 @@ typedef struct DriverStatus {
     int power_state;
     SrmDecCoreStatus dec_core;
     SrmDecCoreStatus enc_core;
+    SrmTotalSource comp_res;
 } SrmDriverStatus;
 
-typedef struct SrmContext {
+typedef struct {
     SrmDriverStatus *driver_status;
     int driver_nums;
+    float efficiency;
 } SrmContext;
 
-static char *mode_name(SrmMode mode)
-{
-    if (mode == SRM_LOW_POWER)
-        return "Low Power Mode";
-    if (mode == SRM_BALANCE)
-        return "Balance Mode";
-    return NULL;
-}
+typedef enum {
+    SRM_RES_ONE_CARD,
+    SRM_RES_480P,
+    SRM_RES_720P,
+    SRM_RES_1080P,
+    SRM_RES_2160P,
+} SrmResType;
 
 static int get_device_numbers(void)
 {
@@ -98,7 +116,6 @@ static int get_device_numbers(void)
     while (n--) {
         if (strncmp(namelist[n]->d_name, DEV_NAME_PREFIX,
                     strlen(DEV_NAME_PREFIX)) == 0) {
-            printf("Scanned device '%s'\n", namelist[n]->d_name);
             count++;
         }
         free(namelist[n]);
@@ -324,9 +341,10 @@ void srm_dump_resource(SrmContext *srm)
 
     for (i = 0; i < srm->driver_nums; i++) {
         status = &srm->driver_status[i];
-        printf("transcoder%2d: power=%s, decoder=%2d%, encoder=%2d%, memory used=%4dMB, memory free=%4dMB\n",
-               i, status->power_state?"on":"off", status->dec_usage,
-               status->enc_usage, status->used_mem, status->free_mem);
+        printf("transcoder%2d: power=%s, decoder=%3d%, encoder=%3d%, memory "
+               "used=%4dMB, memory free=%4dMB - %s\n",
+               i, status->power_state ? "on" : "off", status->dec_usage,
+               status->enc_usage, status->used_mem, status->free_mem, status->comp_res.res_seirios? GREEN " free  " END:RED "active" END);
     }
     printf("\033[%dA", srm->driver_nums);
 }
@@ -335,10 +353,8 @@ int srm_init(SrmContext *srm)
 {
     srm->driver_nums = get_device_numbers();
     if (srm->driver_nums <= 0) {
-        printf("No transcoder device was found!\n");
         return -1;
     }
-    printf("srm found %d devices\n", srm->driver_nums);
 
     srm->driver_status = malloc(sizeof(SrmDriverStatus) * srm->driver_nums);
     if (!srm->driver_status) {
@@ -353,19 +369,216 @@ void srm_close(SrmContext *srm)
     free(srm->driver_status);
 }
 
-int main()
+int srm_update_resource(SrmContext *srm, SrmResType type, float efficiency)
+{
+    int i                = 0;
+
+    srm->efficiency = efficiency;
+    if (read_driver_status(srm) != 0)
+        return -1;
+
+    for (i = 0; i < srm->driver_nums; i++) {
+        SrmDriverStatus *status = &srm->driver_status[i];
+        // calculate total resources in different allocation mode
+        status->comp_res.res_seirios = !status->used_mem;
+        status->comp_res.res_480p30 =
+            efficiency * (96 - 96 * status->enc_usage / 100);
+        status->comp_res.res_720p30 =
+            efficiency * (36 - 36 * status->enc_usage / 100);
+        status->comp_res.res_1080p30 =
+            efficiency * (16 - 16 * status->enc_usage / 100);
+        status->comp_res.res_2160p30 =
+            efficiency * (4 - 4 * status->enc_usage / 100);
+    }
+}
+
+int srm_get_total_resource(SrmContext *srm, SrmResType type)
+{
+    int total = 0,i = 0;
+
+    for (i = 0; i < srm->driver_nums; i++) {
+        SrmTotalSource *driver_res = &srm->driver_status[i].comp_res;
+        if (type == SRM_RES_480P) {
+            total += driver_res->res_480p30;
+        } else if (type == SRM_RES_720P) {
+            total += driver_res->res_720p30;
+        } else if (type == SRM_RES_1080P) {
+            total += driver_res->res_1080p30;
+        } else if (type == SRM_RES_2160P) {
+            total += driver_res->res_2160p30;
+        } else if (type == SRM_RES_ONE_CARD) {
+            total += driver_res->res_seirios;
+        }
+    }
+    return total;
+}
+
+//return the device id
+int srm_allocate_resource(SrmContext *srm, SrmResType req_type,
+                          int req_nums, SrmMode mode)
+{
+    int driver_nums = srm->driver_nums;
+    int i           = 0;
+    int total_req = 0, available[MAX_DEVICES] = { 0 };
+    int delta    = 100;
+    int selected = -1;
+
+    if (mode == SRM_PERFORMANCE || req_type == SRM_RES_ONE_CARD) {
+        delta = 0;
+    }
+
+    for (i = 0; i < srm->driver_nums; i++) {
+        SrmTotalSource *driver_res = &srm->driver_status[i].comp_res;
+
+        if (req_type == SRM_RES_480P) {
+            available[i] = driver_res->res_480p30;
+        } else if (req_type == SRM_RES_720P) {
+            available[i] = driver_res->res_720p30;
+        } else if (req_type == SRM_RES_1080P) {
+            available[i] = driver_res->res_1080p30;
+        } else if (req_type == SRM_RES_2160P) {
+            available[i] = driver_res->res_2160p30;
+        }else if (req_type == SRM_RES_ONE_CARD) {
+            available[i] = driver_res->res_seirios;
+        }
+
+        if (req_nums <= available[i]) {
+            if (mode == SRM_PERFORMANCE) {
+                // find the maximum delta for BALABCE mode
+                if (delta <= available[i] - req_nums) {
+                    delta    = available[i] - req_nums;
+                    selected = i;
+                }
+            } else if (mode == SRM_POWER_SAVING) {
+                // find the minimal delta for BALABCE mode
+                if (delta >= available[i] - req_nums) {
+                    delta    = available[i] - req_nums;
+                    selected = i;
+                }
+            }
+        }
+    }
+
+    if( selected !=-1){
+        return srm->driver_status[selected].device_id;
+    } else {
+        return -1;
+    }
+}
+
+void help()
+{
+    printf("srm allocate [resource type] [numbers] <power mode>\n");
+    printf("\nresource type: \n");
+    printf("        card: allocate the resource in one full card mode\n");
+    printf("        480p: allocate the resource in one 480p capbility mode\n");
+    printf("        720p: allocate the resource in one 720p capbility mode\n");
+    printf("        1080p:allocate the resource in one 1080p capbility mode\n");
+    printf("        2160p:allocate the resource in one 2160p capbility mode\n");
+    printf("        *default is card\n");
+    printf("\nnumbers: the number of the resource which you want to allocate, default is 1.\n");
+    printf("\npower mode: \n");
+    printf("        powersaving: allocate the resource in low power mode\n");
+    printf("        performance: allocate the resource in performance mode\n");
+    printf("        *default is performance mode\n");
+    printf("\nExample:\n");
+    printf("./srmtool \n");
+    printf("./srmtool allocate\n");
+    printf("./srmtool allocate 1080p\n");
+    printf("./srmtool allocate 1080p 2\n");
+    printf("./srmtool allocate 1080p 1 powersaving\n");
+}
+
+/*
+1. monitor mode
+srmtool
+
+2. allocate resource - one card:
+srmtool allocate
+
+3. allocate resource - part of one card :
+srmtool allocate 1080p 2 performance
+srmtool allocate 480p 2 powersaving
+
+function will return the allocated device ID
+*/
+int main(int argc, char **argv)
 {
     SrmContext srm;
+    int monitor = 0;
+    SrmMode mode = SRM_PERFORMANCE;
+    SrmResType req_type = SRM_RES_ONE_CARD;
+    int req_nums = 1;
+    int device_id = -1;
 
-    if(srm_init(&srm)!=0){
+    if(argc ==1 ){
+        monitor = 1;
+    }else if( !strcmp(argv[1], "help")){
+        help();
+        return 0;
+    } else if(!strcmp(argv[1], "allocate")){
+        if(argc > 2){
+            if(!strcmp(argv[2], "card")){
+                    req_type = SRM_RES_ONE_CARD;
+            } else if(!strcmp(argv[2], "480p")){
+                    req_type = SRM_RES_480P;
+            } else if(!strcmp(argv[2], "720p")){
+                    req_type = SRM_RES_720P;
+            } else if(!strcmp(argv[2], "1080p")){
+                    req_type = SRM_RES_1080P;
+            } else if(!strcmp(argv[2], "2160p")){
+                    req_type = SRM_RES_2160P;
+            } else {
+                    printf("Wrong resource type, available: card/480p/720p/1080p/2160p\n");
+                    return -1;
+            }
+        }
+
+        if( argc > 3 ){
+            req_nums = atoi(argv[3]);
+            if(req_nums==0){
+                printf("Wrong number\n");
+                return -1;
+            }
+        }
+
+        if( argc > 4 ){
+            if(!strcmp(argv[4], "performance")){
+                mode = SRM_PERFORMANCE;
+            } else if(!strcmp(argv[4], "powersaving")){
+                mode = SRM_POWER_SAVING;
+            } else {
+                printf("Wrong mode, available: performance/powersaving\n");
+                return -1;
+            }
+        }
+    } else if( argc > 0 ){
+        printf("Wrong parameter, do you mean 'allocate'?\n");
+        return -1;
+    } else {
+        monitor = 1;
+    }
+
+    if (srm_init(&srm) != 0) {
         return -1;
     }
 
-    while(1){
-        if(read_driver_status(&srm) !=0)
-            return -1;
+     srm_update_resource(&srm, SRM_RES_ONE_CARD, DEFAULT_EFFICIENCY);
+
+    if( !monitor){
+        device_id = srm_allocate_resource(&srm, req_type, req_nums, mode);
+        if( device_id != -1){
+            printf("transcoder%d\n", device_id);
+        }
+        srm_close(&srm);
+        return device_id;
+    }
+
+    while (1) {
+        srm_update_resource(&srm, SRM_RES_ONE_CARD, DEFAULT_EFFICIENCY);
         srm_dump_resource(&srm);
-        usleep(1000000);
+        sleep(1);
     }
     srm_close(&srm);
+    return -1;
 }

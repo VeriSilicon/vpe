@@ -104,10 +104,6 @@ echo "export installpath=$installpath" >> config.mk
 fi
 echo "export cross=$iscross" >> config.mk
 
-if [ "$iscross" == "n" ]; then
-exit 0
-fi
-
 if [ "$sysroot" != "" ]; then
 echo "export CC=\"${cross}gcc  --sysroot=$sysroot\"" >> config.mk
 echo "export CXX=\"${cross}g++  --sysroot=$sysroot\"" >> config.mk

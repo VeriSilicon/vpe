@@ -2,3 +2,6 @@
 vpi/*.so
 *.mk
 package
+srmtool
+*.cmd
+*.log

@@ -39,7 +39,7 @@ device=transcoder0
 while(true)
 do
     joblist=($(jobs -p))
-    while (( ${#joblist[*]} >= $1 ))
+    while (( ${#joblist[*]}+1 >= $1 ))
     do
         sleep 1
         joblist=($(jobs -p))
@@ -48,7 +48,7 @@ do
     if [ -f "srmtool" ]; then
       device=`./srmtool allocate 1080p 1 performance`
       if [ "$device" == "" ]; then
-          echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: ${#joblist[*]}, no available resource, waitting...]\r"
+          echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: ${#joblist[*]}+1, no available resource, waitting...]\r"
           continue
       else
           echo "allocated device ${device}"
@@ -72,6 +72,7 @@ do
         vpe=dev0:/dev/"${device}" -c:v h264_vpe -transcode 1 \
         -i ${file} -c:v h264enc_vpe -preset superfast -b:v 10000000 -f null /dev/null &
     fi
-    usleep 200000
-    if [ $? != 0 ]; then exit 1; fi
+    sleep 1
+    joblist=($(jobs -p))
+    echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: $[${#joblist[*]}+1]]\r"
 done

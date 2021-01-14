@@ -49,6 +49,8 @@ endif
 	make -C vpi CHECK_MEM_LEAK=y
 
 drivers:
+	make -C drivers clean
+	tar -czf drivers.tgz drivers/
 	make -C drivers all
 
 tools:
@@ -57,20 +59,20 @@ tools:
 package:
 
 	$(shell if [ ! -d $(packagepath)/ ]; then mkdir $(packagepath); fi;)
-	$(shell cp firmware/ZSP_FW_RP_V*.bin $(packagepath)/ )
-	$(shell cp sdk_libs/$(arch)/*.so $(packagepath)/ )
-	$(shell cp vpi/libvpi.so $(packagepath)/ )
+	cp firmware/ZSP_FW_RP_V*.bin $(packagepath)/
+	cp sdk_libs/$(arch)/*.so $(packagepath)/
+	cp vpi/libvpi.so $(packagepath)/
 	$(shell if [ ! -d $(packagepath)/vpe/ ]; then mkdir $(packagepath)/vpe/; fi;)
-	$(shell cp $(PWD)/vpi/inc/*.h $(packagepath)/vpe )
-	$(shell cp $(PWD)/drivers/transcoder_pcie.ko $(packagepath)/ )
-	## libvpi.pc was generated to $(packagepath)
+	cp $(PWD)/vpi/inc/*.h $(packagepath)/vpe
+	cp build/install.sh $(packagepath)/
+	mv drivers.tgz $(packagepath)/
 
 	@echo "Name: libvpi" >  $(packagepath)/libvpi.pc
-	@echo "Description: VSI platform interface lib" >>  $(packagepath)/libvpi.pc
+	@echo "Description: VPE SDK lib, ARCH: $(arch)" >>  $(packagepath)/libvpi.pc
 	@echo "Version: 1.0" >>  $(packagepath)/libvpi.pc
 	@echo "Cflags: -I$(packagepath)/" >> $(packagepath)/libvpi.pc
 	@echo "Libs: -L$(packagepath)/ -lvpi"  >> $(packagepath)/libvpi.pc
-	## VPE libs, fw, .h were copied to $(packagepath)
+	tar -czf vpe_package_$(arch).tgz $(packagepath)/
 
 install:
 ifeq ($(cross),y)
@@ -79,7 +81,6 @@ ifeq ($(installpath),)
 	@ERROR @echo "Please use ./configure --installpath to set target VPE installation path."
 endif
 endif
-
 	$(shell if [ ! -d $(DLL_PATH) ]; then mkdir $(DLL_PATH) -p; fi;)
 	$(shell if [ ! -d $(INC_PATH) ]; then mkdir $(INC_PATH) -p; fi;)
 	$(shell if [ ! -d $(PKG_PATH) ]; then mkdir $(PKG_PATH) -p; fi;)
@@ -100,20 +101,19 @@ endif
 	## VPE libs, fw, .h were installed to path:$(installpath)
 
 ifeq ($(cross),n)
-	@echo "Installing driver..."
-#	$(shell /sbin/ldconfig )
-	$(shell rmmod transcoder_pcie )
-	$(shell insmod drivers/transcoder_pcie.ko )
-ifneq ($(shell lsmod | grep transcoder_pcie), "")
-	@echo "driver was installed successfully!"
+ifneq ($(shell lsmod | grep transcoder_pcie), )
+	@echo "VPE Driver \"$(shell lsmod | grep transcoder_pcie)\" is already installed, skip"
 else
-	@echo "driver was installed failed!"
-endif
+	@echo "Installing driver..."
+	$(shell /sbin/ldconfig )
 	$(shell depmod )
+	$(shell insmod drivers/transcoder_pcie.ko )
+	@echo "VPE Driver:\"$(shell lsmod | grep transcoder_pcie)\""
+endif
 else
 	@echo "cross compiling, skip driver installation"
 endif
-	## VPE installation finished!
+	## VPE installation was finished!
 
 uninstall:
 	@echo "VPE build step - uninstall"
@@ -129,7 +129,7 @@ ifeq ($(cross),n)
 	$(shell rmmod transcoder_pcie )
 	$(shell depmod )
 endif
-	## VPE uninstallation finished!
+	## VPE uninstallation was finished!
 
 clean:
 	make -C vpi clean

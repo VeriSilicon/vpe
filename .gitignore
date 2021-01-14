@@ -1,7 +1,8 @@
 *.o
 vpi/*.so
 *.mk
-package
+*package*
+*.tgz
 srmtool
 *.cmd
 *.log

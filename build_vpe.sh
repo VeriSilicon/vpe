@@ -1,6 +1,6 @@
 #!/bin/bash
 
-vpe_out_path=`pwd`/package
+vpe_out_path=`pwd`/vpe_package
 
 if [ ! -f "./config.mk" ]; then
 	echo "generate config.mk"
@@ -72,6 +72,9 @@ rm config.sh
 ## 5. Build FFmpeg
 make -j8
 if [ $? != 0 ]; then echo "build FFmpeg error";exit 1; fi
-cp ffmpeg $vpe_out_path
+
+cd ../vpe
+cp ../ffmpeg/ffmpeg vpe_package/
+tar -czf vpe_package.tgz vpe_package/
 
 echo "VPE compiling was done! FFmpeg + VPE everyting had been put to $vpe_out_path"

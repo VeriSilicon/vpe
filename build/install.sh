@@ -20,6 +20,7 @@ tar -xf drivers.tgz
 make -C drivers
 
 cp *.so ${DLL_PATH}
+cp ffmpeg /usr/bin
 cp vpe/*.h ${INC_PATH}
 cp libvpi.pc ${PKG_PATH}
 cp drivers/transcoder_pcie.ko ${DRV_PATH}
@@ -29,11 +30,12 @@ echo "/usr/lib/vpe" > ${CFG_PATH}/vpe-${arch}.conf
 depmod
 ## VPE libs, fw, .h were installed to path:${installpath}
 
-echo "Installing driver..."
-rmmod transcoder_pcie
-insmod drivers/transcoder_pcie.ko
-if [ "`lsmod | grep transcoder_pcie`" != "" ]; then
-    echo "driver was installed successfully!"
+if [ "`lsmod | grep transcoder_pcie`" !=  "" ]; then
+	echo "VPE Driver is already installed, now remove"
+    rmmod transcoder_pcie
 else
-    echo "driver was installed failed!"
+	/sbin/ldconfig
+	depmod
 fi
+insmod drivers/transcoder_pcie.ko
+echo "VPE diver:`lsmod | grep transcoder_pcie` "

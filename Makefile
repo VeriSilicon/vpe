@@ -25,7 +25,7 @@ endif
 
 cross ?= n
 installpath ?=
-packagepath = $(shell pwd)/package
+packagename = vpe_package
 
 DLL_PATH = $(installpath)/usr/lib/vpe/
 INC_PATH = $(installpath)/usr/local/include/vpe/
@@ -36,7 +36,7 @@ CFG_PATH = $(installpath)/etc/ld.so.conf.d/
 
 .PHONY: all vpi drivers tools install clean help package
 
-all: drivers vpi package
+all: drivers vpi tools package
 
 vpi:
 	@echo "VPE build step - build VPI"
@@ -57,22 +57,24 @@ tools:
 	make -C tools
 
 package:
+	$(shell if [ -d $(packagename)/ ]; then rm $(packagename) -rf; fi;)
+	$(shell if [ ! -d $(packagename)/ ]; then mkdir $(packagename); fi;)
+	cp firmware/ZSP_FW_RP_V*.bin $(packagename)/
+	cp sdk_libs/$(arch)/*.so $(packagename)/
+	cp vpi/libvpi.so $(packagename)/
+	$(shell if [ ! -d $(packagename)/vpe/ ]; then mkdir $(packagename)/vpe/; fi;)
+	cp $(PWD)/vpi/inc/*.h $(packagename)/vpe
+	cp build/install.sh $(packagename)/
+	mv drivers.tgz $(packagename)/
+	cp ../ffmpeg/ffmpeg $(packagename)/
+	cp tools/srmtool $(packagename)/
+	cp tools/ptest.sh $(packagename)/
 
-	$(shell if [ ! -d $(packagepath)/ ]; then mkdir $(packagepath); fi;)
-	cp firmware/ZSP_FW_RP_V*.bin $(packagepath)/
-	cp sdk_libs/$(arch)/*.so $(packagepath)/
-	cp vpi/libvpi.so $(packagepath)/
-	$(shell if [ ! -d $(packagepath)/vpe/ ]; then mkdir $(packagepath)/vpe/; fi;)
-	cp $(PWD)/vpi/inc/*.h $(packagepath)/vpe
-	cp build/install.sh $(packagepath)/
-	mv drivers.tgz $(packagepath)/
-
-	@echo "Name: libvpi" >  $(packagepath)/libvpi.pc
-	@echo "Description: VPE SDK lib, ARCH: $(arch)" >>  $(packagepath)/libvpi.pc
-	@echo "Version: 1.0" >>  $(packagepath)/libvpi.pc
-	@echo "Cflags: -I$(packagepath)/" >> $(packagepath)/libvpi.pc
-	@echo "Libs: -L$(packagepath)/ -lvpi"  >> $(packagepath)/libvpi.pc
-	tar -czf vpe_package_$(arch).tgz $(packagepath)/
+	@echo "Name: libvpi" >  $(packagename)/libvpi.pc
+	@echo "Description: VPE SDK lib, ARCH: $(arch)" >>  $(packagename)/libvpi.pc
+	@echo "Version: 1.0" >>  $(packagename)/libvpi.pc
+	@echo "Cflags: -I$(packagename)/" >> $(packagename)/libvpi.pc
+	@echo "Libs: -L$(packagename)/ -lvpi"  >> $(packagename)/libvpi.pc
 
 install:
 ifeq ($(cross),y)
@@ -98,22 +100,22 @@ endif
 	$(shell cp drivers/transcoder_pcie.ko $(DRV_PATH) )
 	$(shell cp firmware/ZSP_FW_RP_V*.bin $(FRM_PATH)/transcoder_zsp_fw.bin )
 	@echo "/usr/lib/vpe" > $(CFG_PATH)/vpe-$(arch).conf
-	## VPE libs, fw, .h were installed to path:$(installpath)
+	@echo VPE libs, fw, .h were installed $(installpath)
 
 ifeq ($(cross),n)
 ifneq ($(shell lsmod | grep transcoder_pcie), )
-	@echo "VPE Driver \"$(shell lsmod | grep transcoder_pcie)\" is already installed, skip"
+	@echo "VPE Driver is already installed, now remove"
+	$(shell rmmod transcoder_pcie )
 else
-	@echo "Installing driver..."
 	$(shell /sbin/ldconfig )
 	$(shell depmod )
-	$(shell insmod drivers/transcoder_pcie.ko )
-	@echo "VPE Driver:\"$(shell lsmod | grep transcoder_pcie)\""
 endif
+	$(shell insmod drivers/transcoder_pcie.ko )
+	@echo "VPE Driver: $(shell lsmod | grep transcoder_pcie)"
 else
 	@echo "cross compiling, skip driver installation"
 endif
-	## VPE installation was finished!
+	@echo VPE installation was finished!
 
 uninstall:
 	@echo "VPE build step - uninstall"
@@ -134,7 +136,7 @@ endif
 clean:
 	make -C vpi clean
 	make -C drivers clean
-	$(shell if [ -d $(packagepath)/ ]; then rm $(packagepath)/ -rf; fi;)
+	$(shell if [ -d $(packagename)/ ]; then rm $(packagename)/ -rf; fi;)
 
 help:
 	@echo "  o make                - make VPI library and pcie driver"

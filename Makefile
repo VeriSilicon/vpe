@@ -66,7 +66,6 @@ package:
 	cp $(PWD)/vpi/inc/*.h $(packagename)/vpe
 	cp build/install.sh $(packagename)/
 	mv drivers.tgz $(packagename)/
-	cp ../ffmpeg/ffmpeg $(packagename)/
 	cp tools/srmtool $(packagename)/
 	cp tools/ptest.sh $(packagename)/
 

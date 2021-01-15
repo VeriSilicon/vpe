@@ -10,7 +10,6 @@
 #
 # Example:
 # #> ./ptest 16 transcoder test_1080p.h264
-#
 
 ## check $1
 expr $1 "+" 10 &> /dev/null
@@ -35,6 +34,7 @@ fi
 
 file=$3
 device=transcoder0
+./srmtool &
 
 while(true)
 do
@@ -48,7 +48,7 @@ do
     if [ -f "srmtool" ]; then
       device=`./srmtool allocate 1080p 1 performance`
       if [ "$device" == "" ]; then
-          echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: ${#joblist[*]}+1, no available resource, waitting...]\r"
+          echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks:$[${#joblist[*]}+1], no available resource, waitting...]\r"
           continue
       else
           echo "allocated device ${device}"

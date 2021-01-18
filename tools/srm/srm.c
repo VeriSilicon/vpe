@@ -30,10 +30,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <time.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 #define DEV_NAME_PREFIX "transcoder"
 #define INFO_PATH_PREFIX "/sys/class/misc/transcoder"
@@ -489,6 +493,12 @@ void help()
     printf("./srmtool allocate 1080p 1 powersaving\n");
 }
 
+void Stop(int signo)
+{
+    printf("srm will exit\n");
+    _exit(0);
+}
+
 /*
 1. monitor mode
 srmtool
@@ -510,6 +520,8 @@ int main(int argc, char **argv)
     SrmResType req_type = SRM_RES_ONE_CARD;
     int req_nums = 1;
     int device_id = -1;
+
+    signal(SIGINT, Stop);
 
     if(argc ==1 ){
         monitor = 1;

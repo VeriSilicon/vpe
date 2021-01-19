@@ -493,7 +493,7 @@ void help()
     printf("./srmtool allocate 1080p 1 powersaving\n");
 }
 
-void Stop(int signo)
+void stop(int signo)
 {
     printf("srm will exit\n");
     _exit(0);
@@ -521,7 +521,7 @@ int main(int argc, char **argv)
     int req_nums = 1;
     int device_id = -1;
 
-    signal(SIGINT, Stop);
+    signal(SIGINT, stop);
 
     if(argc ==1 ){
         monitor = 1;

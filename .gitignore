@@ -6,3 +6,5 @@ vpi/*.so
 srmtool
 *.cmd
 *.log
+.tmp
+.vpetest.sh

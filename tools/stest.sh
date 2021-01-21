@@ -6,19 +6,26 @@
 # Example:
 # #> ./stest 16 ~/work/stream
 
+#set -e
+#set -x
+
 # global parameters
-#fileoutput=enable
+fileoutput=disable ##enable
 bitrate1=10000000
 bitrate2=5000000
 bitrate3=1000000
 bitrate4=500000
 vpelogvel=0
-ffmpeglogvel=32
+ffmpeglogvel=35
 lowres_minw=300
 lowres_minh=300
+highres_maxw=4096
+highres_maxh=2160
 esformats="hevc|h264|avi|mp4|mkv|webm|mp4|flv"
-yuvformats="nv12|yuv420p|uyvy422|rgba|agbr|rgb24|p010le"
+yuvformats="nv12|yuv420p|uyvy422|abgr|rgba|agbr|rgb24|p010le"
 srm_power_mode="performance"
+encoder_params=""
+decoder_params=""
 
 #script input parameters
 task_num=1
@@ -100,22 +107,24 @@ function gen_parameters(){
 
 function get_random_file(){
     codec=$1
+    id=0
     if [ "$codec" == "h264_vpe" ]; then
-        list=$file_list_h264
+        list=(${file_list_h264[*]})
     elif [ "$codec" == "hevc_vpe" ]; then
-        list=$file_list_hevc
+        list=(${file_list_hevc[*]})
     elif [ "$codec" == "vp9_vpe" ]; then
-        list=$file_list_vp9
-    elif [ "$codec" == "yuv" ]; then
-        list=$file_list_yuv
+        list=(${file_list_vp9[*]})
+    elif [ "$codec" == "raw" ]; then
+        list=(${file_list_yuv[*]})
     fi
 
     len=${#list[*]}
-    if [[ $len>0 ]]; then
-        id=$(rand 0 ${len})
-        file=${list[$id]}
-        echo $file
+    if (($len > 1)); then
+        len=$((len-1))
+        id=$(rand 0 $len)
     fi
+    file=${list[$id]}
+    echo "$file"
 }
 
 #get a random file with specified key word like h264/hevc/vp9/yuv420p/nv12
@@ -152,6 +161,10 @@ function gen_file_list(){
         res=${w}x${h}
 
         if [[ $w -lt $lowres_minw ]] || [[ $h -lt $lowres_minh ]]; then
+            continue
+        fi
+
+        if [[ $w -gt $highres_maxw ]] || [[ $h -gt $highres_maxh ]]; then
             continue
         fi
 
@@ -222,37 +235,21 @@ function print_files_list(){
 
 # function to get random name
 function get_random_name(){
-  if [ "$1" == "decoder" ]; then
-    item=("h264_vpe" "hevc_vpe" "vp9_vpe")
-  elif [ "$1" == "encoder" ]; then
-    item=("h264enc_vpe" "hevcenc_vpe" "vp9enc_vpe")
-  elif [ "$1" == "preset" ]; then
-    item=("superfast" "fast" "medium" "slow")
-  else
-    echo $1
-    return 0
-  fi
+    if [ "$1" == "decoder" ]; then
+        item=("h264_vpe" "hevc_vpe" "vp9_vpe")
+    elif [ "$1" == "encoder" ]; then
+        item=("h264enc_vpe" "hevcenc_vpe" "vp9enc_vpe")
+    elif [ "$1" == "preset" ]; then
+        item=("superfast" "fast" "medium" "slow")
+    else
+        echo $1
+        return
+    fi
 
-  len=${#item[*]}-1
-  id=$(rand 0 ${len})
-  echo ${item[$id]}
-}
-
-# get resolution from raw file name
-function get_resolution_from_filename(){
-  file=$1
-  name=${file%.*}
-  suffix=${file##*.}
-  tmp=".tmp"
-  #search from ffprobe
-  if [[ $esformats =~ $suffix ]]; then
-    ffprobe $file &> $tmp
-    res=$(grep -E -o "[0-9]{3,4}+x[0-9]{3,4}+" $tmp)
-  else
-    #search from filename
-    res=$(echo $name | grep -E -o "[0-9]{3,4}+-?x?X?-?_?[0-9]{3,4}+")
-  fi
-  echo $res
+    len=${#item[*]}
+    len=$((len-1))
+    id=$(rand 0 ${len})
+    echo ${item[$id]}
 }
 
 #get srm workload
@@ -266,7 +263,7 @@ function get_srm_load_from_filename(){
   sh=0
   tmp=".tmp"
   fps=30
-  res=1080
+  res=1080p
   fps=30
 
   ## get resolution
@@ -274,14 +271,15 @@ function get_srm_load_from_filename(){
     ffprobe $file &> $tmp
     res=$(grep -E -o "[0-9]{3,4}+x[0-9]{3,4}+" $tmp)
     fps=$(grep -E -o "[0-9.]{2,5} fps" $tmp)
+    fps=$(echo $fps | cut -b 1-2)
   else
-    res=$(echo ${name} | grep -E -o "[0-9]{3,4}+x[0-9]{3,4}+")
+    res=$(echo $name | grep -E -o "[0-9]{3,4}+-?x?h?H?X?-?_?[0-9]{3,4}+")
   fi
+  arr=($(echo ${res} | sed -r "s/([[:digit:]]+)[^[:digit:]]*([[:digit:]]+)/\1 \2/g"))
+  w=${arr[0]}
+  h=${arr[1]}
 
-  res=${res##*x}
-  fps=$(echo $fps | cut -b 1-2)
-  srmres=$[res*fps]
-
+  srmres=$((h*$fps))
   if [[ $srmres -lt 480*30 ]]; then
     res="480p"
   elif [[ $srmres -gt 480*30 ]] && [[ $srmres -lt 721*30 ]]; then
@@ -293,27 +291,14 @@ function get_srm_load_from_filename(){
   else
     res="1080p"
   fi
-  echo $res
+  echo "$res"
 }
 
-function get_random_file(){
-    codec=$1
-    if [ "$codec" == "h264_vpe" ]; then
-        list=$file_list_h264
-    elif [ "$codec" == "hevc_vpe" ]; then
-        list=$file_list_hevc
-    elif [ "$codec" == "vp9_vpe" ]; then
-        list=$file_list_vp9
-    elif [ "$codec" == "yuv" ]; then
-        list=$file_list_yuv
-    fi
-
-    len=${#list[*]}
-    if [[ $len>0 ]]; then
-        id=$(rand 0 ${len})
-        file=${list[$id]}
-        echo $file
-    fi
+function align2()
+{
+	result=`expr $1 / 2`
+	result=`expr $result \* 2`
+	echo $result
 }
 
 # get lower resolution string
@@ -324,32 +309,27 @@ function get_lowres(){
     w=$((10#${sw}))
     h=$((10#${sh}))
 
-    if [ $w -lt $lowres_minw ] || [ $h -lt $lowres_minh ] ; then
+    if [[ $w -lt $lowres_minw ]] || [[ $h -lt $lowres_minh ]] ; then
         return
     fi
 
-    while(true);
-    do
-        w1=$(rand lowres_minw $[w/2])
-        h1=$(rand lowres_minh $[h/2])
-        w2=$(rand lowres_minw $[w/3])
-        h2=$(rand lowres_minh $[w/3])
-        w3=$(rand lowres_minw $[w/4])
-        h3=$(rand lowres_minh $[w/4])
+    w1=$((w/3))
+    h1=$((h/3))
+    w2=$((w/4))
+    h2=$((h/4))
+    w3=$((w/5))
+    h3=$((h/5))
 
-        w1=$[w1+w1%2];
-        h1=$[h1+h1%2];
-        w2=$[w2+w2%2];
-        h2=$[h2+h2%2];
-        w3=$[w3+w3%2];
-        h3=$[h3+h3%2];
+    w1=$(align2 $w1)
+    h1=$(align2 $h1)
+    w2=$(align2 $w2)
+    h2=$(align2 $h2)
+    w3=$(align2 $w3)
+    h3=$(align2 $h3)
 
-        if [[ $[w+w1+w2+w3] -lt 3840 ]] && [[ $[h+h1+h2+h3] -lt 2160 ]]; then
-             break;
-        fi
-    done
     echo "($w1"x"$h1)($w2"x"$h2)($w3"x"$h3)"
 }
+get lower resolution string
 
 #1. transcoder command:
 function gen_transcoder_cmd(){
@@ -364,12 +344,12 @@ function gen_transcoder_cmd(){
   file=${input_file%_*}
   low_res=`get_lowres $res`
 
-  cmd="-c:v ${input_codec} ${transcoder_option} -low_res \"4:${low_res}\" -i ${file} "\
+  cmd="-c:v ${input_codec} ${decoder_params} ${transcoder_option} -low_res \"4:${low_res}\" -i ${file} "\
 "-filter_complex 'spliter_vpe=outputs=4[out0][out1][out2][out3]' "\
-"-map '[out0]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate1} ${output_file1} "\
-"-map '[out1]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate2} ${output_file2} "\
-"-map '[out2]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate3} ${output_file3} "\
-"-map '[out3]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate4} ${output_file4} "
+"-map '[out0]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate1} ${output_file1} "\
+"-map '[out1]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate2} ${output_file2} "\
+"-map '[out2]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate3} ${output_file3} "\
+"-map '[out3]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate4} ${output_file4} "
 
   echo $cmd
 }
@@ -396,10 +376,10 @@ function gen_encoder_pp_cmd(){
   cmd="-s $res -pix_fmt ${input_codec} -i ${file} "\
 "-filter_complex 'vpe_pp=outputs=4:low_res=$low_res,"\
 "spliter_vpe=outputs=4[out0][out1][out2][out3]' "\
-"-map '[out0]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate1} ${output_file1} "\
-"-map '[out1]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate2} ${output_file2} "\
-"-map '[out2]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate3} ${output_file3} "\
-"-map '[out3]' -c:v ${output_codec} -preset ${preset} -b:v ${bitrate4} ${output_file4} "
+"-map '[out0]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate1} ${output_file1} "\
+"-map '[out1]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate2} ${output_file2} "\
+"-map '[out2]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate3} ${output_file3} "\
+"-map '[out3]' -c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate4} ${output_file4} "
 
   echo $cmd
 }
@@ -420,7 +400,7 @@ function gen_encoder_hwuploader_cmd(){
 
   cmd="-s $res -pix_fmt ${input_codec} -i ${file} "\
 "-filter_complex 'hwupload' "\
-"-c:v ${output_codec} -preset ${preset} -b:v ${bitrate1} ${output_file1} "
+"-c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate1} ${output_file1} "
 
   echo $cmd
 }
@@ -438,7 +418,7 @@ function gen_decoder_cmd(){
   file=${input_file%_*}
   low_res=`get_lowres $res`
 
-  cmd="-c:v ${input_codec} -low_res \"4:$low_res\" -i ${file} "\
+  cmd="-c:v ${input_codec} ${decoder_params} -low_res \"4:$low_res\" -i ${file} "\
 "-filter_complex 'spliter_vpe=outputs=4[1][2][3][4],"\
 "[1]hwdownload,format=${output_codec}[a],"\
 "[2]hwdownload,format=${output_codec}[b],"\
@@ -454,7 +434,7 @@ function gen_decoder_cmd(){
 
 function gen_device_cmd(){
   device=$1
-  cmd_common="ffmpeg -y -report -v ${ffmpeglogvel} -init_hw_device vpe=dev0:/dev/${device},priority=vod,vpeloglevel=${vpelogvel} "
+  cmd_common="ffmpeg -y -init_hw_device vpe=dev0:/dev/${device},priority=vod,vpeloglevel=${vpelogvel} "
   echo $cmd_common
 }
 
@@ -471,42 +451,47 @@ function main(){
       joblist=($(jobs -p))
       while (( ${#joblist[*]} > $task_num ))
       do
-          sleep 1
+          echo "task is full, wait..."
           joblist=($(jobs -p))
+          sleep 1
       done
 
       ##1. generate codec command list
       cmd=`gen_decoder_cmd`
+      nums_cmds=0
       if [ "${cmd}" != "" ]; then
-          cmds[nums_cmds]=$cmd
-          nums_cmds=`expr $nums_cmds+1`
+          cmds[$nums_cmds]=$cmd
+          nums_cmds=$((nums_cmds+1))
       fi
 
       cmd=`gen_transcoder_cmd`
       if [ "${cmd}" != "" ]; then
-          cmds[nums_cmds]=$cmd
-          nums_cmds=`expr $nums_cmds+1`
+          cmds[$nums_cmds]=$cmd
+          nums_cmds=$((nums_cmds+1))
       fi
 
       cmd=`gen_encoder_pp_cmd`
       if [ "${cmd}" != "" ]; then
-          cmds[nums_cmds]=$cmd
-          nums_cmds=`expr $nums_cmds+1`
+          cmds[$nums_cmds]=$cmd
+          nums_cmds=$((nums_cmds+1))
       fi
 
       cmd=`gen_encoder_hwuploader_cmd`
       if [ "${cmd}" != "" ]; then
-          cmds[nums_cmds]=$cmd
-          nums_cmds=`expr $nums_cmds+1`
+          cmds[$nums_cmds]=$cmd
+          nums_cmds=$((nums_cmds+1))
       fi
 
       ##2. get one from command list
-      id=$(rand 0 ${nums_cmds})
-      cmd=${cmds[$id]}
-      if [ "$cmd" == "" ]; then
+      id=0
+      if (( $nums_cmds == 0 )); then
           echo "no commands can be generated, please check the configurations, maybe no right stream files?"
           continue
+      elif (( $nums_cmds > 1 )); then
+          nums_cmds=$((nums_cmds-1))
+          id=$(rand 0 ${nums_cmds})
       fi
+      cmd=${cmds[$id]}
 
       ##3. calculate srm required resource
       file=$(echo $cmd | grep -E -o "\-i\s+\S+\s+")
@@ -523,38 +508,44 @@ function main(){
           echo "srm allocation error"
           return
       fi
-      echo "SRM allocated $srm_onepath_loading from $device"
+      echo "SRM $srm_onepath_loading -> $device"
 
       ##5. generate command header
       cmd_header=`gen_device_cmd $device`
 
       ##6. generate final command
       cmd="$cmd_header ""${cmd}"
-      echo "command=\"$cmd\""
-      script_name=".vpetest.sh"
+      script_name=".vpetest${totalcase}.sh"
       echo "#!/bin/bash" > $script_name
-      echo "set -e" >> $script_name
       echo "trap \"exit 1\" 1 2 3 15" >> $script_name
+      echo "id=\$$" >> $script_name
+      echo "time=$(date "+%Y%m%d%H%M%S")" >> $script_name
+      echo "fflog=\"fflog${totalcase}_\${time}_pid\${id}.log\"" >> $script_name
+      echo "vpelog=\"vpe${totalcase}_\${time}_pid\${id}.log\"" >> $script_name
+      cmd="FFREPORT=\"level=${ffmpeglogvel}:file=\${fflog}\" VPEREPORT=\"level=${vpelogvel}:file=\${vpelog}\" ${cmd}"
       echo $cmd >> $script_name
+      echo "ret=\$?" >> $script_name
+      echo -e "\nif (( \$ret != 0 && \$ret != 255)); then" >> $script_name
+      echo "     mv \$fflog e\${ret}_\$fflog" >> $script_name
+      echo "     echo \"task [\$id] -> error(\$ret)\"" >> $script_name
+      echo "     ./stop.sh" >> $script_name
+      echo "else" >> $script_name
+      echo "     echo \"task [\$id] -> finished\"" >> $script_name
+      echo "     if [ -f \$\"fflog\" ]; then rm \$fflog; fi" >> $script_name
+      echo "     if [ -f \$\"vpelog\" ]; then rm \$vpelog; fi" >> $script_name
+      echo "fi" >> $script_name
       chmod 777 $script_name
+      echo "command=$cmd"
 
       ##5. execute command
       ./$script_name &
-
-      if (( $? != 0 )); then
-         echo "test command failed"
-         exit
-      fi
-
+      echo "New task -> $!"
       echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: $[${#joblist[*]}]]\r"
       sumuary "${cmd}"
-      sleep 1
-      joblist=($(jobs -p))
   done
 }
 
 function sumuary(){
-
   if [ "$1" == "" ] || [ $((totalcase%20)) -eq 1 ]; then
       end=$(date +%s)
       s=$((end - $start ))
@@ -581,6 +572,7 @@ function sumuary(){
       printf "\n%-20s %d times" "   slow:" $slowtc
       printf "\n"
       if [ "$1" == "" ]; then
+          ./stop.sh
           exit 0
       fi
     else

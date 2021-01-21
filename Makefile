@@ -67,9 +67,7 @@ package:
 	cp build/install.sh $(packagename)/
 	mv drivers.tgz $(packagename)/
 	cp tools/srmtool $(packagename)/
-	cp tools/ptest.sh $(packagename)/
-	cp tools/stest.sh $(packagename)/
-
+	cp tools/*.sh $(packagename)/
 	@echo "Name: libvpi" >  $(packagename)/libvpi.pc
 	@echo "Description: VPE SDK lib, ARCH: $(arch)" >>  $(packagename)/libvpi.pc
 	@echo "Version: 1.0" >>  $(packagename)/libvpi.pc

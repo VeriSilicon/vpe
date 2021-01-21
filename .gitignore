@@ -7,4 +7,4 @@ srmtool
 *.cmd
 *.log
 .tmp
-.vpetest.sh
+.vpetest*

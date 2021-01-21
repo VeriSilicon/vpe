@@ -417,7 +417,7 @@ static int h26x_enc_level_check(enum VpiH26xCodecID codec,
             options->level = VCENC_HEVC_LEVEL_5_1;
         } else {
             VPILOGE("unsupported vce level %s for HEVC\n", level);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     } else if (codec == CODEC_ID_H264) {
         if (strcmp(level, "1") == 0) {
@@ -456,7 +456,7 @@ static int h26x_enc_level_check(enum VpiH26xCodecID codec,
             options->level = VCENC_H264_LEVEL_5_2;
         } else {
             VPILOGE("unsupported vce level %s for H264.\n", level);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     }
 
@@ -635,7 +635,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                     .picdata.bit_depth_chroma > 8) {
             if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
                     .picdata.pic_compressed_status > 0) {
-                return -1;
+                return VPI_ERR_ENCODER_OPITION;
             } else {
                 options->input_format = VCENC_YUV420_PLANAR_10BIT_P010_FB;
                 if (options->codec_format == VCENC_VIDEO_CODEC_H264) {
@@ -656,7 +656,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                                .picdata.pic_compressed_status == 0) {
                     options->input_format = VCENC_YUV420_SEMIPLANAR_VU_8BIT_FB;
                 } else {
-                    return -1;
+                    return VPI_ERR_ENCODER_OPITION;
                 }
             } else if (h26x_enc_cfg->frame_ctx->pic_info[vpi_h26xe_ctx->pp_index]
                            .picdata.pic_format == DEC_OUT_FRM_RASTER_SCAN) {
@@ -684,7 +684,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                                .picdata.pic_compressed_status == 0) {
                     options->input_format = VCENC_YUV420_SEMIPLANAR_8BIT_FB;
                 } else {
-                    return -1;
+                    return VPI_ERR_ENCODER_OPITION;
                 }
             }
         }
@@ -726,7 +726,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                 options->input_format = VCENC_YUV420_PLANAR_10BIT_P010_FB;
             options->b_close_dummy_regs = 1;
         } else {
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
 #else
         options->input_format = VCENC_YUV420_PLANAR_10BIT_P010_FB;
@@ -739,7 +739,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
         break;
     case DEC_OUT_PIXEL_RFC:
         VPILOGE("should not get here! RFC output disabled\n");
-        return -1;
+        return VPI_ERR_ENCODER_OPITION;
         break;
     default:
         break;
@@ -791,7 +791,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
     if (options->enc_index == 0 && options->lookahead_depth) {
         if (vpi_h26xe_ctx->pp_index != 0 && vpi_h26xe_ctx->pp_index != 1) {
             VPILOGE("enc_index not match with pp_index\n");
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
         if (h26x_enc_cfg->frame_ctx->pic_info[2].enabled &&
             h26x_enc_cfg->frame_ctx->pic_info[2].flag) {
@@ -862,7 +862,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                     if (h26x_enc_cfg->frame_ctx->pic_info[2]
                             .picdata.pic_compressed_status > 0) {
                         VPILOGE("should not get here\n");
-                        return -1;
+                        return VPI_ERR_ENCODER_OPITION;
                     } else {
                         options->input_format_ds =
                             VCENC_YUV420_PLANAR_10BIT_P010_FB;
@@ -880,7 +880,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                                 VCENC_YUV420_SEMIPLANAR_VU_8BIT_FB;
                         } else {
                             VPILOGE("should not get here\n");
-                            return -1;
+                            return VPI_ERR_ENCODER_OPITION;
                         }
                     } else if (h26x_enc_cfg->frame_ctx->pic_info[2]
                                    .picdata.pic_format ==
@@ -903,7 +903,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                                 VCENC_YUV420_SEMIPLANAR_8BIT_FB;
                         } else {
                             VPILOGE("should not get here\n");
-                            return -1;
+                            return VPI_ERR_ENCODER_OPITION;
                         }
                     }
                 }
@@ -933,7 +933,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                     options->input_format_ds =
                         VCENC_YUV420_PLANAR_10BIT_P010_FB;
                 } else {
-                    return -1;
+                    return VPI_ERR_ENCODER_OPITION;
                 }
 #else
                 options->input_format_ds = VCENC_YUV420_PLANAR_10BIT_P010_FB;
@@ -941,7 +941,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
                 break;
             case DEC_OUT_PIXEL_RFC:
                 VPILOGE("should not get here!\n");
-                return -1;
+                return VPI_ERR_ENCODER_OPITION;
             default:
                 break;
             }
@@ -958,7 +958,7 @@ static int h26x_enc_set_vceparam(VpiH26xEncCtx *vpi_h26xe_ctx,
 static int h26x_enc_preset_check(char *input_param, VpiH26xPreset *preset)
 {
     if ((input_param == NULL) || (preset == NULL))
-        return -1;
+        return VPI_ERR_ENCODER_OPITION;
 
     if (strcmp(input_param, "superfast") == 0) {
         *preset = VPE_PRESET_SUPERFAST;
@@ -972,7 +972,7 @@ static int h26x_enc_preset_check(char *input_param, VpiH26xPreset *preset)
         *preset = VPE_PRESET_SUPERSLOW;
     } else {
         VPILOGE("unknow vcepreset %s\n", input_param);
-        return -1;
+        return VPI_ERR_ENCODER_OPITION;
     }
 
     VPILOGD("+++ preset = %d\n", *preset);
@@ -1070,7 +1070,7 @@ static int h26x_enc_set_opt_accord_preset(enum VpiH26xCodecID codec,
             break;
         default:
             VPILOGE("unknow preset %d\n", preset);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
 
     } else if (codec == CODEC_ID_H264) {
@@ -1149,7 +1149,7 @@ static int h26x_enc_set_opt_accord_preset(enum VpiH26xCodecID codec,
             break;
         default:
             VPILOGE("unknow preset %d\n", preset);
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     }
 
@@ -1172,7 +1172,7 @@ static VpiRet h26x_enc_preset_params_set(VpiH26xEncCtx *vpi_h26xe_ctx,
         ret = h26x_enc_preset_check(h26x_enc_cfg->preset,
                                     (VpiH26xPreset *)&preset);
         if (ret != 0) {
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
         ret = h26x_enc_set_opt_accord_preset(h26x_enc_cfg->codec_id, options,
                                              preset);
@@ -1374,6 +1374,7 @@ int h26x_enc_set_options(VpiH26xEncCtx *vpi_h26xe_ctx,
     ret = h26x_enc_preset_params_set(vpi_h26xe_ctx, h26x_enc_cfg);
     if (ret) {
         VPILOGE("h26x_enc_preset_params_set error, please check your cmd !\n");
+        return ret;
     }
 
     h26x_enc_get_options(vpi_h26xe_ctx);
@@ -1696,10 +1697,10 @@ int h26x_enc_get_deviceId(char *dev)
             p += strlen(DEVICE_PREFIX);
             return atoi(p);
         } else {
-            return -1;
+            return VPI_ERR_ENCODER_OPITION;
         }
     } else {
-        return -1;
+        return VPI_ERR_ENCODER_OPITION;
     }
 }
 
@@ -2382,7 +2383,7 @@ static int rc_split_string(char **tgt, int max, char *src, char *split)
                 tgt[count][i++] = c;
             } else {
                 VPILOGE("the split count exceeds max num\n");
-                return -1;
+                return VPI_ERR_ENCODER_OPITION;
             }
             last = 1;
         } else {

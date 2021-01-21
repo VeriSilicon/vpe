@@ -74,7 +74,7 @@ static Vpi_Error_Name gVPIError[] = {
     { VPI_ERR_ENCODE, "encoding error" },
     { VPI_ERR_EWL, "EWL error" },
     { VPI_ERR_ENCODER_INIT, "encoder init error" },
-    { VPI_ERR_ENCODER_OPITION, "encoder opitions within '-enc_params' error" },
+    { VPI_ERR_ENCODER_OPITION, "encoder opitions error" },
     { VPI_ERR_ENCODE_WAITT_BUF, "wait buffer" },
 
     { VPI_ERR_DECODE, "decode error" },

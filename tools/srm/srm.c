@@ -110,6 +110,8 @@ typedef enum {
     SRM_RES_2160P,
 } SrmResType;
 
+int mem_required[5] = {1024, 25, 100, 200, 500}; //unit is MB
+
 static int get_device_numbers(void)
 {
     struct dirent **namelist = NULL;
@@ -373,9 +375,14 @@ void srm_close(SrmContext *srm)
     free(srm->driver_status);
 }
 
+#define  MIN(x,y) (x>y? y:x)
+#define  MAX(x,y) (x>y? x:y)
+
 int srm_update_resource(SrmContext *srm, SrmResType type, float efficiency)
 {
-    int i                = 0;
+    int i           = 0;
+    int enc_numbers = 0;
+    int mem_numbers = 0;
 
     srm->efficiency = efficiency;
     if (read_driver_status(srm) != 0)
@@ -383,16 +390,25 @@ int srm_update_resource(SrmContext *srm, SrmResType type, float efficiency)
 
     for (i = 0; i < srm->driver_nums; i++) {
         SrmDriverStatus *status = &srm->driver_status[i];
+
         // calculate total resources in different allocation mode
         status->comp_res.res_seirios = !status->used_mem;
-        status->comp_res.res_480p30 =
-            efficiency * (96 - 96 * status->enc_usage / 100);
-        status->comp_res.res_720p30 =
-            efficiency * (36 - 36 * status->enc_usage / 100);
-        status->comp_res.res_1080p30 =
-            efficiency * (16 - 16 * status->enc_usage / 100);
-        status->comp_res.res_2160p30 =
-            efficiency * (4 - 4 * status->enc_usage / 100);
+
+        enc_numbers = efficiency * (96 - 96 * status->enc_usage / 100);
+        mem_numbers = status->free_mem / (mem_required[SRM_RES_480P]);
+        status->comp_res.res_480p30 = MIN(enc_numbers, mem_numbers);
+
+        enc_numbers = efficiency * (36 - 36 * status->enc_usage / 100);
+        mem_numbers = status->free_mem / (mem_required[SRM_RES_720P]);
+        status->comp_res.res_720p30 = MIN(enc_numbers, mem_numbers);
+
+        enc_numbers = efficiency * (16 - 16 * status->enc_usage / 100);
+        mem_numbers = status->free_mem / (mem_required[SRM_RES_1080P]);
+        status->comp_res.res_1080p30 = MIN(enc_numbers, mem_numbers);
+
+        enc_numbers = efficiency * (4 - 4 * status->enc_usage / 100);
+        mem_numbers = status->free_mem / (mem_required[SRM_RES_2160P]);
+        status->comp_res.res_2160p30 = MIN(enc_numbers, mem_numbers);
     }
 }
 

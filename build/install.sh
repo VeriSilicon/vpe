@@ -21,7 +21,7 @@ make -C drivers
 
 cp *.so ${DLL_PATH}
 cp ffmpeg /usr/bin
-cp ffplay /usr/bin
+cp ffprobe /usr/bin
 cp vpe/*.h ${INC_PATH}
 cp libvpi.pc ${PKG_PATH}
 cp drivers/transcoder_pcie.ko ${DRV_PATH}

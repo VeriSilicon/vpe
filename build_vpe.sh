@@ -1,6 +1,6 @@
 #!/bin/bash
-
-vpe_out_path=`pwd`/vpe_package
+pkg_name="vpe_package"
+vpe_out_path=`pwd`/${pkg_name}
 
 if [ ! -f "./config.mk" ]; then
 	echo "generate config.mk"
@@ -12,6 +12,7 @@ echo "lunch config.mk"
 
 if [ "$1" == "clean" ]; then
 	make clean
+	rm ${pkg_name}.tgz
 	cd ../ffmpeg
 	make clean
 	exit 0
@@ -75,7 +76,7 @@ if [ $? != 0 ]; then echo "build FFmpeg error";exit 1; fi
 
 cd ../vpe
 cp ../ffmpeg/ffmpeg ${vpe_out_path}/
-cp ../ffmpeg/ffplay ${vpe_out_path}/
-tar -czf vpe_package.tgz ${vpe_out_path}/
+cp ../ffmpeg/ffprobe ${vpe_out_path}/
+tar -czf ${pkg_name}.tgz $pkg_name/
 
 echo "VPE compiling was done! FFmpeg + VPE everyting had been put to $vpe_out_path"

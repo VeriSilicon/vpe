@@ -16,7 +16,8 @@ vpelogvel=0
 ffmpeglogvel=32
 lowres_minw=300
 lowres_minh=300
-esformats="hevc,h264,avi,mp4,mkv,webm,mp4,flv"
+esformats="hevc|h264|avi|mp4|mkv|webm|mp4|flv"
+yuvformats="nv12|yuv420p|uyvy422|rgba|agbr|rgb24|p010le"
 srm_power_mode="performance"
 
 #script input parameters
@@ -43,15 +44,11 @@ device=
 file_list_h264=
 file_list_hevc=
 file_list_vp9=
-file_list_nv12=
-file_list_420p=
-file_list_uyvy422=
+file_list_yuv=
 nums_h264=
 nums_hevc=
 nums_vp9=
-nums_nv12=
-nums_yuv420p=
-nums_uyvy422=
+nums_yuv=
 low_res=
 srm_onepath_loading="1080p"
 
@@ -109,12 +106,8 @@ function get_random_file(){
         list=$file_list_hevc
     elif [ "$codec" == "vp9_vpe" ]; then
         list=$file_list_vp9
-    elif [ "$codec" == "nv12" ]; then
-        list=$file_list_nv12
-    elif [ "$codec" == "yuv420p" ]; then
-        list=$file_list_yuv420p
-    elif [ "$codec" == "uyvy422" ]; then
-        list=$file_list_uyvy422
+    elif [ "$codec" == "yuv" ]; then
+        list=$file_list_yuv
     fi
 
     len=${#list[*]}
@@ -144,8 +137,8 @@ function gen_file_list(){
         suffix=${file##*.}
 
         if [ "$suffix" == "yuv" ]; then
-          codec=$(echo $name | grep -E -o "nv12|yuv420p|uyvy422")
-          res=$(echo $name | grep -E -o "[0-9]{3,4}+-?x?X?-?_?[0-9]{3,4}+")
+          codec=$(echo $name | grep -E -o $yuvformats)
+          res=$(echo $name | grep -E -o "[0-9]{3,4}+-?x?h?H?X?-?_?[0-9]{3,4}+")
         else
           ffprobe $file &> $tmp
           codec=$(grep -E -o "Video: h264|Video: hevc|Video: vp9" $tmp)
@@ -153,49 +146,51 @@ function gen_file_list(){
           res=$(grep -E -o "[0-9]{3,4}+x[0-9]{3,4}+" $tmp)
         fi
 
-        w=${res%x*}
-        h=${res##*x}
+        arr=($(echo $res | sed -r "s/([[:digit:]]+)[^[:digit:]]*([[:digit:]]+)/\1 \2/g"))
+        w=${arr[0]}
+        h=${arr[1]}
+        res=${w}x${h}
 
         if [[ $w -lt $lowres_minw ]] || [[ $h -lt $lowres_minh ]]; then
-            echo "skip video $file"
+            continue
+        fi
+
+        if [ "$codec" == "" ] || [ "$res" == "" ]; then
             continue
         fi
 
         file=${file}_${res}
-        if [ "$codec" != "" ] && [ "$res" != "" ]; then
-          case $codec in
-          "h264")
-            file_list_h264[$nums_h264]=$file
-            nums_h264=$((nums_h264+1))
-              ;;
-          "hevc")
-            file_list_hevc[$nums_hevc]=$file
-            nums_hevc=$((nums_hevc+1))
-              ;;
-          "vp9")
-            file_list_vp9[$nums_vp9]=$file
-            nums_vp9=$((nums_vp9+1))
-              ;;
-          "yuv420p")
-            file_list_yuv420p[$nums_yuv420p]=$file
-            nums_yuv420p=$((nums_yuv420p+1))
-              ;;
-          "uyvy422")
-            file_list_uyvy422[$nums_uyvy422]=$file
-            nums_uyvy422=$((nums_uyvy422+1))
-              ;;
-          "nv12")
-            file_list_nv12[$nums_nv12]=$file
-            nums_nv12=$((nums_nv12+1))
-              ;;
-          *)
-              ;;
-          esac
+        case $codec in
+        "h264")
+        file_list_h264[$nums_h264]=$file
+        nums_h264=$((nums_h264+1))
+            ;;
+        "hevc")
+        file_list_hevc[$nums_hevc]=$file
+        nums_hevc=$((nums_hevc+1))
+            ;;
+        "vp9")
+        file_list_vp9[$nums_vp9]=$file
+        nums_vp9=$((nums_vp9+1))
+            ;;
+        *)
+            ;;
+        esac
+
+        if [[ $yuvformats =~ $codec ]]; then
+            file_list_yuv[$nums_yuv]=$file
+            nums_yuv=$((nums_yuv+1))
         fi
     done
-    total_files=$[ nums_h264 + nums_hevc + nums_vp9 + \
-          nums_yuv420p + nums_uyvy422 + nums_nv12 ]
+
+    total_files=$[ nums_h264 + nums_hevc + nums_vp9 + nums_yuv ]
     return $total_files
+}
+
+function get_raw_codec(){
+    file=$1
+    codec=$(echo $file | grep -E -o $yuvformats)
+    echo $codec
 }
 
 function print_files_list(){
@@ -217,23 +212,12 @@ function print_files_list(){
       echo "${file%_*} -> [${file##*_}]"
     done
 
-    echo -e "\nyuv420p files: $nums_yuv420p"
-    for file in ${file_list_yuv420p[@]}
+    echo -e "\nyuv files: $nums_yuv"
+    for file in ${file_list_yuv[@]}
     do
       echo "${file%_*} -> [${file##*_}]"
     done
-
-    echo -e "\nnv12 files: $nums_nv12"
-    for file in ${file_list_nv12[@]}
-    do
-      echo "${file%_*} -> [${file##*_}]"
-    done
-
-    echo -e "\nuyvy422 files: $nums_uyvy422"
-    for file in ${file_list_uyvy422[@]}
-    do
-      echo "${file%_*} -> [${file##*_}]"
-    done
+    echo -e "\n"
 }
 
 # function to get random name
@@ -242,8 +226,6 @@ function get_random_name(){
     item=("h264_vpe" "hevc_vpe" "vp9_vpe")
   elif [ "$1" == "encoder" ]; then
     item=("h264enc_vpe" "hevcenc_vpe" "vp9enc_vpe")
-  elif [ "$1" == "raw" ]; then
-    item=("yuv420p" "nv12" "uyvy422")
   elif [ "$1" == "preset" ]; then
     item=("superfast" "fast" "medium" "slow")
   else
@@ -322,12 +304,8 @@ function get_random_file(){
         list=$file_list_hevc
     elif [ "$codec" == "vp9_vpe" ]; then
         list=$file_list_vp9
-    elif [ "$codec" == "nv12" ]; then
-        list=$file_list_nv12
-    elif [ "$codec" == "yuv420p" ]; then
-        list=$file_list_yuv420p
-    elif [ "$codec" == "uyvy422" ]; then
-        list=$file_list_uyvy422
+    elif [ "$codec" == "yuv" ]; then
+        list=$file_list_yuv
     fi
 
     len=${#list[*]}
@@ -408,6 +386,12 @@ function gen_encoder_pp_cmd(){
   res=${input_file##*_}
   file=${input_file%_*}
   low_res=`get_lowres $res`
+  input_codec=`get_raw_codec $file`
+
+  #PP don't support UYVY422
+  if [ "$input_codec" == "uyvy422" ]; then
+    return;
+  fi
 
   cmd="-s $res -pix_fmt ${input_codec} -i ${file} "\
 "-filter_complex 'vpe_pp=outputs=4:low_res=$low_res,"\
@@ -432,6 +416,7 @@ function gen_encoder_hwuploader_cmd(){
   res=${input_file##*_}
   file=${input_file%_*}
   low_res=`get_lowres $res`
+  input_codec=`get_raw_codec $file`
 
   cmd="-s $res -pix_fmt ${input_codec} -i ${file} "\
 "-filter_complex 'hwupload' "\
@@ -530,9 +515,13 @@ function main(){
 
       ##4. allocate hw resource
       device=`./srmtool allocate ${srm_onepath_loading} 1 $srm_power_mode`
-      if [ "$device" == "" ]; then
-          echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks:$[${#joblist[*]}+1], no available transcoder resource, waitting...]\r"
+      pre="$(echo $device | cut -b 1-10)"
+      if [ "$pre" == "" ]; then
+          echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks:$[${#joblist[*]}+1], no resource, waitting...]\r"
           continue
+      elif [ "$pre" != "transcoder" ]; then
+          echo "srm allocation error"
+          return
       fi
       echo "SRM allocated $srm_onepath_loading from $device"
 
@@ -557,7 +546,7 @@ function main(){
          exit
       fi
 
-      echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: $[${#joblist[*]}]]\r"
+      echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: $[${#joblist[*]}]]\r"
       sumuary "${cmd}"
       sleep 1
       joblist=($(jobs -p))

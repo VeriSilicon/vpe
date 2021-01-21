@@ -74,7 +74,8 @@ make -j8
 if [ $? != 0 ]; then echo "build FFmpeg error";exit 1; fi
 
 cd ../vpe
-cp ../ffmpeg/ffmpeg vpe_package/
-tar -czf vpe_package.tgz vpe_package/
+cp ../ffmpeg/ffmpeg ${vpe_out_path}/
+cp ../ffmpeg/ffplay ${vpe_out_path}/
+tar -czf vpe_package.tgz ${vpe_out_path}/
 
 echo "VPE compiling was done! FFmpeg + VPE everyting had been put to $vpe_out_path"

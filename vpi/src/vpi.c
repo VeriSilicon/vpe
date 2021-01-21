@@ -629,7 +629,6 @@ static VpiRet log_init(LogLevel log_level)
     time_t now;
     struct tm *tm;
 
-    printf("VPE log_level = %d\n", log_level);
     log_setlevel(log_level);
     if( log_level<= LOG_LEVEL_OFF)
         return VPI_SUCCESS;

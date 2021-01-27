@@ -2374,7 +2374,7 @@ int vpi_h26xe_restart(VpiH26xEncCtx *ctx)
             vpi_h26xe_cfg->enc_index = 1;
         } else {
             if (ctx->restart_flag & FPS_CHANGE_FLAG) {
-                ctx->pp_index            = 0;
+                ctx->pp_index            = ctx->bak_pp_index;
                 options->enc_index       = 0;
                 vpi_h26xe_cfg->enc_index = 0;
             }
@@ -2734,6 +2734,7 @@ VpiRet vpi_h26xe_init(VpiH26xEncCtx *enc_ctx, VpiH26xEncCfg *enc_cfg)
     enc_ctx->cfg_width = 0;
     enc_ctx->cfg_height = 0;
     enc_ctx->res_enable = 0;
+    enc_ctx->bak_pp_index = enc_ctx->pp_index;
 
     ret = h26x_enc_set_options(enc_ctx, enc_cfg);
     if (ret != 0) {

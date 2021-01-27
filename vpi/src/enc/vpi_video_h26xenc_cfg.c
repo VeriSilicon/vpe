@@ -2413,14 +2413,6 @@ VpiRet get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
 #define MAX_LINE_SIZE 128
 #define MAX_BPS_VALUE 60000000
 #define MIN_BPS_VALUE 10000
-#define BPS_MAX_SEG_NUM 1
-    char strs[BPS_MAX_SEG_NUM][256];
-    char *rc_strs[BPS_MAX_SEG_NUM];
-    int seg_num = 0;
-    int i;
-
-    for (i = 0; i < BPS_MAX_SEG_NUM; i++)
-        rc_strs[i] = &strs[i][0];
 
     fp = fopen(option->pic_rc_path, "r");
     if (fp) {
@@ -2430,15 +2422,7 @@ VpiRet get_cfg_rc_bitrate(VPIH26xEncOptions *option, u32 *new_bps)
             valid_str = strstr(cfg_str, "bps:");
             if (valid_str) {
                 valid_str += 4;
-                seg_num =
-                    rc_split_string((char **)&rc_strs, BPS_MAX_SEG_NUM, valid_str, "()");
-                if (seg_num <= 0) {
-                    VPILOGE("can't find rate control info!\n");
-                    free(cfg_str);
-                    fclose(fp);
-                    return VPI_ERR_ENCODER_OPITION;
-                }
-                *new_bps = atoi(rc_strs[0]);
+                sscanf(valid_str, "%d", new_bps);
                 VPILOGD("read new bps %d from cfg file %s\n", *new_bps,
                         option->pic_rc_path);
                 free(cfg_str);
@@ -2465,18 +2449,10 @@ VpiRet get_cfg_rc_fps(VPIH26xEncOptions *option, u32 *new_fps_numer, u32 *new_fp
     char *valid_str;
     char *p;
     VpiRet ret;
-#define FPS_MAX_SEG_NUM 2
-    char strs[FPS_MAX_SEG_NUM][256];
-    char *rc_strs[FPS_MAX_SEG_NUM];
-    int seg_num = 0;
-    int i;
 
 #define MAX_LINE_SIZE 128
 #define MAX_FPS_NUMER_VALUE 1048575
 #define MIN_FPS_NUMER_VALUE 1
-
-    for (i = 0; i < FPS_MAX_SEG_NUM; i++)
-        rc_strs[i] = &strs[i][0];
 
     fp = fopen(option->pic_rc_path, "r");
     if (fp) {
@@ -2487,17 +2463,7 @@ VpiRet get_cfg_rc_fps(VPIH26xEncOptions *option, u32 *new_fps_numer, u32 *new_fp
             valid_str = strstr(cfg_str, "fps:");
             if (valid_str) {
                 valid_str += 4;
-                seg_num =
-                    rc_split_string((char **)&rc_strs, FPS_MAX_SEG_NUM, valid_str, "()");
-                if (seg_num <= 0) {
-                    VPILOGE("can't find rate control info!\n");
-                    free(cfg_str);
-                    fclose(fp);
-                    return VPI_ERR_ENCODER_OPITION;
-                }
-
-                *new_fps_numer = atoi(rc_strs[0]);
-                *new_fps_denom = atoi(rc_strs[1]);
+                sscanf(valid_str, "%d/%d", new_fps_numer, new_fps_denom);
                 VPILOGD("read new fps numer %d, denom %d from cfg file %s\n",
                           *new_fps_numer, *new_fps_denom, option->pic_rc_path);
 
@@ -2532,20 +2498,12 @@ static VpiRet get_cfg_rc_res(VPIH26xEncOptions *option, u32 *new_width, u32 *new
     char *valid_str;
     char *p;
     VpiRet ret;
-#define MAX_SEG_NUM 2
-    char strs[MAX_SEG_NUM][256];
-    char *rc_strs[MAX_SEG_NUM];
-    int seg_num = 0;
-    int i;
 
 #define MAX_LINE_SIZE 128
 #define MAX_WIDTH_VALUE 4096
 #define MIN_WIDTH_VALUE 64
 #define MAX_HEIGHT_VALUE 2048
 #define MIN_HEIGHT_VALUE 64
-
-    for (i = 0; i < MAX_SEG_NUM; i++)
-        rc_strs[i] = &strs[i][0];
 
     fp = fopen(option->pic_rc_path, "r");
     if (fp) {
@@ -2556,17 +2514,7 @@ static VpiRet get_cfg_rc_res(VPIH26xEncOptions *option, u32 *new_width, u32 *new
             valid_str = strstr(cfg_str, "res:");
             if (valid_str) {
                 valid_str += 4;
-                seg_num =
-                    rc_split_string((char **)&rc_strs, MAX_SEG_NUM, valid_str, "()");
-                if (seg_num <= 0) {
-                    VPILOGE("can't find rate control info!\n");
-                    free(cfg_str);
-                    fclose(fp);
-                    return VPI_ERR_ENCODER_OPITION;
-                }
-
-                *new_width = atoi(rc_strs[0]);
-                *new_height = atoi(rc_strs[1]);
+                sscanf(valid_str, "%dx%d", new_width, new_height);
                 VPILOGD("read new width %d, height %d from cfg file %s\n",
                           *new_width, *new_height, option->pic_rc_path);
 

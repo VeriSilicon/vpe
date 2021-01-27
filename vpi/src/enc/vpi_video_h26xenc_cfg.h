@@ -429,6 +429,7 @@ typedef struct {
     u32 res_fps_change;
 
     u32 got_frame;
+    int bak_pp_index;
 } VpiH26xEncCtx;
 
 enum {

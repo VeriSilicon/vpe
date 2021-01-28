@@ -110,7 +110,7 @@ typedef enum {
     SRM_RES_2160P,
 } SrmResType;
 
-int mem_required[5] = {1024, 25, 100, 200, 500}; //unit is MB
+int mem_required[5] = {1024, 50, 100, 250, 1200}; //unit is MB
 
 static int get_device_numbers(void)
 {

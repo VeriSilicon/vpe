@@ -15,7 +15,7 @@ bitrate1=10000000
 bitrate2=5000000
 bitrate3=1000000
 bitrate4=500000
-vpelogvel=0
+vpelogvel=6
 ffmpeglogvel=35
 lowres_minw=300
 lowres_minh=300
@@ -98,10 +98,10 @@ function gen_parameters(){
     output_file3=${out_stream_path}/out3.${output_codec%enc_vpe*}
     output_file4=${out_stream_path}/out4.${output_codec%enc_vpe*}
   else
-    output_file1="-f null /dev/null"
-    output_file2="-f null /dev/null"
-    output_file3="-f null /dev/null"
-    output_file4="-f null /dev/null"
+    output_file1="-vframes 50 -f null /dev/null"
+    output_file2="-vframes 50 -f null /dev/null"
+    output_file3="-vframes 50 -f null /dev/null"
+    output_file4="-vframes 50 -f null /dev/null"
   fi
 }
 
@@ -279,6 +279,10 @@ function get_srm_load_from_filename(){
   w=${arr[0]}
   h=${arr[1]}
 
+  if [ ! -n "$fps" ]; then
+    fps=30
+  fi
+
   srmres=$((h*$fps))
   if [[ $srmres -lt 480*30 ]]; then
     res="480p"
@@ -296,8 +300,8 @@ function get_srm_load_from_filename(){
 
 function align2()
 {
-	result=`expr $1 / 2`
-	result=`expr $result \* 2`
+	result=`expr $1 / 4`
+	result=`expr $result \* 4`
 	echo $result
 }
 
@@ -313,12 +317,72 @@ function get_lowres(){
         return
     fi
 
-    w1=$((w/3))
-    h1=$((h/3))
-    w2=$((w/4))
-    h2=$((h/4))
-    w3=$((w/5))
-    h3=$((h/5))
+    if [[ $w -eq 4096 ]]; then
+        w1=$((w/2))
+        w2=$((w/4))
+        w3=$((w/7))
+    fi
+
+    if [[ $w -eq 3840 ]]; then
+        w1=$((w/2))
+        w2=$((w/3))
+        w3=$((w/6))
+    fi
+
+    if [[ $w -eq 1920 ]] || [[ $w -eq 2048 ]]; then
+        w1=$((w/2))
+        w2=$((w/3))
+        w3=$((w/4))
+    fi
+
+    if [[ $w -eq 1280 ]]; then
+        w1=$((w/2))
+        w2=$((w/3))
+        w3=$((w/4))
+    fi
+
+    if [[ $w -ne 1280 ]] && [[ $w -ne 1920 ]] && [[ $w -ne 2048 ]] && [[ $w -ne 3840 ]] && [[ $w -ne 4096 ]]; then
+        w1=256
+        w2=256
+        w3=256
+    fi
+
+    if [[ $h -eq 2160 ]] || [[ $h -eq 2176 ]] || [[ $h -eq 1080 ]] || [[ $h -eq 1088 ]] || [[ $h -eq 720 ]]; then
+        h1=$((h/2))
+        h2=$((h/3))
+        h3=$((h/4))
+    fi
+
+    if [[ $h -ne 2160 ]] && [[ $h -ne 2176 ]] && [[ $h -ne 1080 ]] && [[ $h -ne 1088 ]] && [[ $h -ne 720 ]]; then
+        h1=256
+        h2=256
+        h3=256
+    fi
+
+
+    if [[ $w1 -lt 128 ]]; then
+        w1=128
+    fi
+
+    if [[ $w2 -lt 128 ]]; then
+        w2=128
+    fi
+
+    if [[ $w3 -lt 128 ]]; then
+        w3=128
+    fi
+
+    if [[ $h1 -lt 128 ]]; then
+        h1=128
+    fi
+
+    if [[ $h2 -lt 128 ]]; then
+        h2=128
+    fi
+
+    if [[ $h3 -lt 128 ]]; then
+        h3=128
+    fi
 
     w1=$(align2 $w1)
     h1=$(align2 $h1)
@@ -329,7 +393,7 @@ function get_lowres(){
 
     echo "($w1"x"$h1)($w2"x"$h2)($w3"x"$h3)"
 }
-get lower resolution string
+#get lower resolution string
 
 #1. transcoder command:
 function gen_transcoder_cmd(){
@@ -399,7 +463,7 @@ function gen_encoder_hwuploader_cmd(){
   input_codec=`get_raw_codec $file`
 
   cmd="-s $res -pix_fmt ${input_codec} -i ${file} "\
-"-filter_complex 'hwupload' "\
+"-filter_complex 'format=nv12,hwupload' "\
 "-c:v ${output_codec} -preset ${preset} ${encoder_params} -b:v ${bitrate1} ${output_file1} "
 
   echo $cmd
@@ -408,10 +472,20 @@ function gen_encoder_hwuploader_cmd(){
 #4. decoder command:
 function gen_decoder_cmd(){
 
-  gen_parameters "decoder" "nv12"
+  tmp=".tmp"
 
   if [ "$input_file" == "" ]; then
     return;
+  fi
+
+  ffprobe $input_file &> $tmp
+  pixfmt=$(grep -E -o "yuv420p10le" $tmp)
+  echo $tmp
+  echo $pixfmt
+  if [ "$pixfmt" == "yuv420p10le" ]; then
+      gen_parameters "decoder" "p010le"
+  else
+      gen_parameters "decoder" "nv12"
   fi
 
   res=${input_file##*_}
@@ -517,7 +591,12 @@ function main(){
       cmd="$cmd_header ""${cmd}"
       script_name=".vpetest${totalcase}.sh"
       echo "#!/bin/bash" > $script_name
-      echo "trap \"exit 1\" 1 2 3 15" >> $script_name
+      echo "function clean(){" >> $script_name
+      echo "    if [ -f \"\$fflog\" ]; then rm \$fflog; fi " >> $script_name
+      echo "    if [ -f \"\$vpelog\" ]; then rm \$vpelog; fi " >> $script_name
+      echo "    exit 0 " >> $script_name
+      echo "}" >> $script_name
+      echo "trap \"clean\" 1 2 3 15" >> $script_name
       echo "id=\$$" >> $script_name
       echo "time=$(date "+%Y%m%d%H%M%S")" >> $script_name
       echo "fflog=\"fflog${totalcase}_\${time}_pid\${id}.log\"" >> $script_name
@@ -527,12 +606,13 @@ function main(){
       echo "ret=\$?" >> $script_name
       echo -e "\nif (( \$ret != 0 && \$ret != 255)); then" >> $script_name
       echo "     mv \$fflog e\${ret}_\$fflog" >> $script_name
+      echo "     mv \$vpelog e\${ret}_\$vpelog" >> $script_name
       echo "     echo \"task [\$id] -> error(\$ret)\"" >> $script_name
       echo "     ./stop.sh" >> $script_name
       echo "else" >> $script_name
       echo "     echo \"task [\$id] -> finished\"" >> $script_name
-      echo "     if [ -f \$\"fflog\" ]; then rm \$fflog; fi" >> $script_name
-      echo "     if [ -f \$\"vpelog\" ]; then rm \$vpelog; fi" >> $script_name
+      echo "     if [ -f \"\$fflog\" ]; then rm \$fflog; fi" >> $script_name
+      echo "     if [ -f \"\$vpelog\" ]; then rm \$vpelog; fi" >> $script_name
       echo "fi" >> $script_name
       chmod 777 $script_name
       echo "command=$cmd"
@@ -541,6 +621,8 @@ function main(){
       ./$script_name &
       echo "New task -> $!"
       echo -ne "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t [Running tasks: $[${#joblist[*]}]]\r"
+
+      usleep 100000
       sumuary "${cmd}"
   done
 }

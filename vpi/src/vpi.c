@@ -628,17 +628,59 @@ static VpiRet log_init(LogLevel log_level)
     char filename[512];
     time_t now;
     struct tm *tm;
+    const char *env;
+    char *val = NULL;
+    char *filename_temp = NULL;
+    int file_name_len;
+    char *tail;
+    int level = 0;
 
-    log_setlevel(log_level);
-    if( log_level<= LOG_LEVEL_OFF)
-        return VPI_SUCCESS;
+    env = getenv("VPEREPORT");
+    printf("env %s\n", env);
 
-    time(&now);
-    tm = localtime(&now);
+    if (env) {
+        // get log level
+        val = strstr(env, "level");
+        if (val) {
+            //"level="
+            val +=6;
+            level = strtol(val, &tail, 10);
+            printf("level %d\n", level);
+        }
 
-    sprintf(filename, "vpi_%04d%02d%02d_%02d%02d%02d.log", tm->tm_year + 1900,
-            tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
-    printf("VPE log_filename %s\n", filename);
+        // get log name
+        val = strstr(env, "file");
+        if (val) {
+            //"file="
+            val += 5;
+            tail = strstr(val, ".log");
+            if (tail) {
+                file_name_len = tail - val;
+                file_name_len += 4;
+                filename_temp = val;
+                filename_temp[file_name_len] = '\0';
+                printf("filename %s\n", filename_temp);
+            }
+        }
+    }
+
+
+
+    if (filename_temp && level != 0) {
+        strcpy(filename, filename_temp);
+        log_setlevel(level);
+    } else {
+        log_setlevel(log_level);
+        if(log_level <= LOG_LEVEL_OFF)
+            return VPI_SUCCESS;
+
+        time(&now);
+        tm = localtime(&now);
+
+        sprintf(filename, "vpi_%04d%02d%02d_%02d%02d%02d.log", tm->tm_year + 1900,
+                tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+        printf("VPE log_filename %s\n", filename);
+    }
 
     if (log_open(filename) != VPI_SUCCESS)
         return VPI_ERR_SW;
@@ -717,7 +759,8 @@ VpiRet vpi_create(VpiCtx *ctx, VpiApi **vpi, int fd, VpiPlugin plugin)
                     init_syslog_module("system", sdk_log_level);
 #endif
                     if (!log_enabled) {
-                        if (log_init(vpi_dev_info->sys_log_level)) {
+                       // if (log_init(vpi_dev_info->sys_log_level)) {
+                        if (log_init(6)) {
                             return VPI_ERR_SW;
                         }
                     }
